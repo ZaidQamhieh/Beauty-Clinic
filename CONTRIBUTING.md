@@ -24,9 +24,8 @@ fix/AUTH-3-token-revocation-bug
 
 - Branch off `main`, open a PR back into `main`.
 - PR title references the card ID (e.g. `AUTH-4: server-side RBAC guard`).
-- CI (build + tests for backend and frontend) must pass before merge.
-- **At least 1 approval is required before merging.**
-- No direct pushes to `main` — all changes land via PR (enforced by branch protection).
+- CI (build + tests for backend and frontend) must pass before merge — enforced by branch protection.
+- Reviews are welcome but not required to merge.
 - Prefer small, reviewable PRs scoped to a single Trello card.
 
 ## Commits
