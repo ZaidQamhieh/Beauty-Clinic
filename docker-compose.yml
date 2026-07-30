@@ -1,0 +1,38 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: beauty-clinic-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-beauty_clinic}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-beauty_clinic}
+      POSTGRES_DB: ${POSTGRES_DB:-beauty_clinic}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-beauty_clinic}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+    container_name: beauty-clinic-backend
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-beauty_clinic}
+      DB_USER: ${POSTGRES_USER:-beauty_clinic}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-beauty_clinic}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+
+volumes:
+  postgres_data:
