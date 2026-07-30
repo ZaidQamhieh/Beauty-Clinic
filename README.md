@@ -37,10 +37,21 @@ flutter pub get
 flutter run -d chrome
 ```
 
+## Running with Docker
+
+```bash
+cp .env.example .env
+docker compose up --build
+```
+
+Starts Postgres (with `clinical` and `billing` schemas created on first boot) and the backend, wired together via the `docker` Spring profile. Backend is reachable at `http://localhost:8080`, Postgres at `localhost:5432`.
+
+Redis and an Nginx reverse proxy aren't wired into Compose yet — this only covers backend + Postgres for now. Frontend isn't containerized either; keep using `flutter run -d chrome` for local dev.
+
 ## CI
 
 Every PR and push to `main` runs the backend (Maven build + test) and frontend (Flutter analyze + test) checks — see [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 
 ## Contributing
 
-Branch naming, PR review rules, and merge requirements are documented in [`CONTRIBUTING.md`](CONTRIBUTING.md). `main` is protected — all changes land via reviewed, CI-passing pull requests.
+Branch naming and PR conventions are documented in [`CONTRIBUTING.md`](CONTRIBUTING.md). `main` is protected by required CI checks — merges must have passing builds.
