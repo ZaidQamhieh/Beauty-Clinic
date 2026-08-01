@@ -4,12 +4,10 @@ A cosmetic/aesthetic clinic booking and management platform (not a general medic
 
 ## Stack
 
-- **Backend:** Spring Boot (Java 21, Maven)
+- **Backend:** Spring Boot 4 (Java 21, Maven)
 - **Frontend:** Flutter — **web only**
-- **Database:** PostgreSQL (separate `clinical` and `billing` schemas)
-- **Cache:** Redis
-- **Reverse proxy:** Nginx (planned)
-- **Orchestration:** Docker Compose (planned)
+- **Database:** PostgreSQL, hosted on Neon
+- **Orchestration:** Docker Compose
 
 ## Repo structure
 
@@ -22,12 +20,16 @@ frontend/   Flutter web app
 
 ### Backend
 
+Copy `.env.example` to `.env` and fill in the Neon connection details, then:
+
 ```bash
 cd backend
 ./mvnw spring-boot:run
 ```
 
-Runs on `http://localhost:8080` by default. Tests: `./mvnw test`.
+Runs on `http://localhost:8080` by default. Tests: `./mvnw test` (tests use an in-memory H2 database via the `test` profile and never touch Neon).
+
+Schema is generated from the JPA entities by `spring.jpa.hibernate.ddl-auto=update`. It only ever adds tables and columns — it never drops or retypes one. See [SETUP-4](https://trello.com/c/RK032omp) for why there is no migration tool and when to revisit that.
 
 ### Frontend
 
@@ -44,9 +46,9 @@ cp .env.example .env
 docker compose up --build
 ```
 
-Starts Postgres (with `clinical` and `billing` schemas created on first boot) and the backend, wired together via the `docker` Spring profile. Backend is reachable at `http://localhost:8080`, Postgres at `localhost:5432`.
+Starts a local Postgres and the backend, wired together via the `docker` Spring profile. Backend is reachable at `http://localhost:8080`, Postgres at `localhost:5432`. This is an offline alternative to Neon — the `docker` profile overrides the datasource so nothing points at the hosted database.
 
-Redis and an Nginx reverse proxy aren't wired into Compose yet — this only covers backend + Postgres for now. Frontend isn't containerized either; keep using `flutter run -d chrome` for local dev.
+The frontend isn't containerized; keep using `flutter run -d chrome` for local dev.
 
 ## CI
 

@@ -1,13 +1,14 @@
 package com.example.backend.security;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-class RoleGuardTestController {
+class MethodSecurityTestController {
 
     @GetMapping("/test/doctor-only")
-    @RequireRole(Role.DOCTOR)
+    @PreAuthorize("hasRole('DOCTOR')")
     String doctorOnly() {
         return "ok";
     }
