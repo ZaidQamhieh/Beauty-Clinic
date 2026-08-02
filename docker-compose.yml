@@ -27,6 +27,10 @@ services:
       DB_NAME: ${POSTGRES_DB:-beauty_clinic}
       DB_USER: ${POSTGRES_USER:-beauty_clinic}
       DB_PASSWORD: ${POSTGRES_PASSWORD:-beauty_clinic}
+      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET:?AUTH_JWT_SECRET is required}
+      AUTH_TOKEN_ISSUER: ${AUTH_TOKEN_ISSUER:-https://beauty-clinic.example}
+      AUTH_ACCESS_TTL: ${AUTH_ACCESS_TTL:-15m}
+      AUTH_REFRESH_TTL: ${AUTH_REFRESH_TTL:-7d}
     depends_on:
       postgres:
         condition: service_healthy
