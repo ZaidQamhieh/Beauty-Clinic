@@ -8,6 +8,8 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.ActiveProfiles;
 
+import com.example.backend.service.AccessTokenService;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest

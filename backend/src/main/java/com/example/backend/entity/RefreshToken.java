@@ -1,4 +1,4 @@
-package com.example.backend.auth;
+package com.example.backend.entity;
 
 import java.time.Instant;
 import java.util.UUID;
