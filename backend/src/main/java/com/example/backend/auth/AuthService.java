@@ -12,7 +12,6 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.security.authentication.DisabledException;
-import org.springframework.security.core.userdetails.UserDetailsService;
 
 @Service
 @RequiredArgsConstructor
