@@ -13,6 +13,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.annotation.Transactional;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -105,5 +106,47 @@ class AuthControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accessToken").isNotEmpty())
                 .andExpect(jsonPath("$.refreshToken").isNotEmpty());
+    }
+
+    @Test
+    void logoutRejectsTheAccessTokenOnItsNextUse() throws Exception {
+        users.save(new UserAccount(
+                "logout@example.com",
+                passwordEncoder.encode("password"),
+                Set.of(Role.PATIENT)
+        ));
+
+        MvcResult login = mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "logout@example.com",
+                                  "password": "password"
+                                }
+                                """))
+                .andReturn();
+
+        String body = login.getResponse().getContentAsString();
+        String accessToken = JsonPath.read(body, "$.accessToken");
+        String refreshToken = JsonPath.read(body, "$.refreshToken");
+
+        // Sanity check: the access token works on a protected endpoint
+        // before logout.
+        mockMvc.perform(get("/test/open")
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/auth/logout")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"refreshToken": "%s"}
+                                """.formatted(refreshToken)))
+                .andExpect(status().isNoContent());
+
+        // The very next request with the same access token is rejected,
+        // even though the token itself hasn't expired yet.
+        mockMvc.perform(get("/test/open")
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isUnauthorized());
     }
 }

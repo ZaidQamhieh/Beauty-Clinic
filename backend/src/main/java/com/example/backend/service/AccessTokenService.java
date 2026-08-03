@@ -30,6 +30,9 @@ public class AccessTokenService {
      */
     public static final String AUTHORITIES_CLAIM = "authorities";
 
+    // Id of the refresh-token row this session belongs to. See SessionTokenValidator.
+    public static final String SESSION_CLAIM = "sid";
+
     /*
       JwtEncoder comes from JwtConfig.
       It performs the actual JWT signing using our HMAC secret.
@@ -47,7 +50,7 @@ public class AccessTokenService {
       This method must only be called after Spring Security has
       successfully verified the user's email and password.
      */
-    public IssuedAccessToken issue(UserDetails user) {
+    public IssuedAccessToken issue(UserDetails user, UUID sessionId) {
         // Record when the token was created.
         Instant issuedAt = Instant.now();
 
@@ -92,6 +95,9 @@ public class AccessTokenService {
 
                 // Custom claim containing the user's RBAC authorities.
                 .claim(AUTHORITIES_CLAIM, authorities)
+
+                // Identifies which refresh-token session issued this token.
+                .claim(SESSION_CLAIM, sessionId.toString())
                 .build();
 
         /*
