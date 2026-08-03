@@ -20,7 +20,7 @@ import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 @EnableConfigurationProperties(TokenProperties.class) 
 class JwtConfig {
 
-    @Bean
+    @Bean // Spring will use method to create and configure the object
     SecretKey jwSecretKey(TokenProperties properties) {
         byte[] secret;
 

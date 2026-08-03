@@ -1,4 +1,4 @@
-package com.example.backend.security;
+package com.example.backend.service;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.GrantedAuthority;
@@ -9,6 +9,8 @@ import org.springframework.security.oauth2.jwt.JwtClaimsSet;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.stereotype.Service;
+
+import com.example.backend.security.TokenProperties;
 
 import java.time.Instant;
 import java.util.List;
@@ -26,7 +28,7 @@ public class AccessTokenService {
       SecurityConfig will later use the same claim name when it
       converts JWT data back into Spring Security authorities.
      */
-    static final String AUTHORITIES_CLAIM = "authorities";
+    public static final String AUTHORITIES_CLAIM = "authorities";
 
     /*
       JwtEncoder comes from JwtConfig.
@@ -76,7 +78,7 @@ public class AccessTokenService {
                 // Identifies the backend that created the token.
                 .issuer(properties.issuer())
 
-                // Identifies the user. In this project, it is their email.
+                // Identifies the user. In this project, it's their email.
                 .subject(user.getUsername())
 
                 // Standard JWT creation timestamp: "iat".

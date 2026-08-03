@@ -1,4 +1,4 @@
-package com.example.backend.auth;
+package com.example.backend.service;
 
 import com.example.backend.security.TokenProperties;
 import com.example.backend.user.UserAccount;
@@ -14,6 +14,8 @@ import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.HexFormat;
+import com.example.backend.entity.RefreshToken;
+import com.example.backend.repository.RefreshTokenRepository;
 
 @Service
 @RequiredArgsConstructor
