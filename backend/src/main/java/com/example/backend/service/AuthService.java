@@ -59,13 +59,13 @@ public class AuthService {
                         "Authenticated user no longer exists"
                 ));
 
-        var accessToken = accessTokens.issue(principal);
-        String refreshToken = refreshTokens.issue(user);
+        var refreshToken = refreshTokens.issue(user);
+        var accessToken = accessTokens.issue(principal, refreshToken.sessionId());
 
         // This object will later be returned as JSON by AuthController.
         return new TokenResponse(
                 accessToken.value(),
-                refreshToken,
+                refreshToken.value(),
                 "Bearer",
                 accessToken.expiresInSeconds()
         );
@@ -87,7 +87,7 @@ public class AuthService {
             throw new DisabledException("Account is disabled");
         }
 
-        var accessToken = accessTokens.issue(principal);
+        var accessToken = accessTokens.issue(principal, rotatedToken.sessionId());
 
         return new TokenResponse(
                 accessToken.value(),

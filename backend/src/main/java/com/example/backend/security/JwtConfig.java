@@ -8,7 +8,10 @@ import javax.crypto.spec.SecretKeySpec;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2TokenValidator;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtValidators;
@@ -57,7 +60,8 @@ class JwtConfig {
     @Bean
     JwtDecoder jwtDecoder(
             SecretKey secretKey,
-            TokenProperties properties
+            TokenProperties properties,
+            SessionTokenValidator sessionTokenValidator
     ) {
         // The decoder verifies incoming token signatures using the same key.
         NimbusJwtDecoder decoder = NimbusJwtDecoder
@@ -65,10 +69,12 @@ class JwtConfig {
                 .macAlgorithm(MacAlgorithm.HS256)
                 .build();
 
-        // Validate the issuer, expiration and other standard time claims.
-        decoder.setJwtValidator(
-                JwtValidators.createDefaultWithIssuer(properties.issuer())
+        // Validate issuer/expiration, then that the session isn't revoked.
+        OAuth2TokenValidator<Jwt> validator = new DelegatingOAuth2TokenValidator<>(
+                JwtValidators.createDefaultWithIssuer(properties.issuer()),
+                sessionTokenValidator
         );
+        decoder.setJwtValidator(validator);
 
         return decoder;
     }

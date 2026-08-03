@@ -14,6 +14,7 @@ import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.HexFormat;
+import java.util.UUID;
 import com.example.backend.entity.RefreshToken;
 import com.example.backend.repository.RefreshTokenRepository;
 
@@ -28,7 +29,7 @@ public class RefreshTokenService {
     private final TokenProperties properties;
 
     @Transactional
-    public String issue(UserAccount user) {
+    public IssuedRefreshToken issue(UserAccount user) {
         // This raw value is sent to the client but never stored.
         String rawToken = generateToken();
 
@@ -38,11 +39,11 @@ public class RefreshTokenService {
         Instant expiresAt = Instant.now()
                 .plus(properties.refreshTtl());
 
-        refreshTokens.save(
+        RefreshToken saved = refreshTokens.save(
                 new RefreshToken(user, tokenHash, expiresAt)
         );
 
-        return rawToken;
+        return new IssuedRefreshToken(saved.getId(), rawToken);
     }
 
     @Transactional
@@ -63,14 +64,15 @@ public class RefreshTokenService {
 
         UserAccount user = currentToken.getUser();
 
-        // A refresh token can only be successfully used once.
+        // A refresh token can only be used once; this also revokes its access token.
         refreshTokens.delete(currentToken);
 
-        String newToken = issue(user);
+        IssuedRefreshToken newToken = issue(user);
 
         return new RotatedRefreshToken(
+                newToken.sessionId(),
                 user.getEmail(),
-                newToken
+                newToken.value()
         );
     }
 
@@ -110,10 +112,17 @@ public class RefreshTokenService {
                 .ifPresent(refreshTokens::delete);
     }
 
+    public record IssuedRefreshToken(
+        UUID sessionId,
+        String value
+    ) {
+    }
+
     public record RotatedRefreshToken(
+        UUID sessionId,
         String email,
         String value
     ) {
     }
-} 
+}
 
