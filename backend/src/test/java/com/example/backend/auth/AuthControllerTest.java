@@ -149,4 +149,36 @@ class AuthControllerTest {
                         .header("Authorization", "Bearer " + accessToken))
                 .andExpect(status().isUnauthorized());
     }
+
+    @Test
+    void locksOutAfterFiveFailedAttemptsEvenWithTheCorrectPassword() throws Exception {
+        users.save(new UserAccount(
+                "lockout@example.com",
+                passwordEncoder.encode("correct-password"),
+                Set.of(Role.PATIENT)
+        ));
+
+        for (int i = 0; i < 5; i++) {
+            mockMvc.perform(post("/api/auth/login")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {
+                                      "email": "lockout@example.com",
+                                      "password": "wrong-password"
+                                    }
+                                    """))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        // The 6th attempt is rejected even with the correct password.
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "lockout@example.com",
+                                  "password": "correct-password"
+                                }
+                                """))
+                .andExpect(status().isUnauthorized());
+    }
 }
