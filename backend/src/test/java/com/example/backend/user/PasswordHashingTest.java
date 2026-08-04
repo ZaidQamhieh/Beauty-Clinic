@@ -1,5 +1,6 @@
 package com.example.backend.user;
 
+import com.example.backend.AbstractIntegrationTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -10,7 +11,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
 @ActiveProfiles("test")
-class PasswordHashingTest {
+class PasswordHashingTest extends AbstractIntegrationTest {
 
     @Autowired
     private PasswordEncoder passwordEncoder;

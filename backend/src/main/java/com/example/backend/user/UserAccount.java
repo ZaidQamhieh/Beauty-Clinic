@@ -26,7 +26,7 @@ import java.util.Set;
 import java.util.UUID;
 
 @Entity
-@Table(name = "users")
+@Table(name = "user_account")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -41,22 +41,39 @@ public class UserAccount {
     @Column(nullable = false, unique = true)
     private String email;
 
+    @Column(unique = true)
+    private String phone;
+
     @NotBlank
     @Column(name = "password_hash", nullable = false)
     private String passwordHash;
 
+    @NotBlank
+    @Column(nullable = false)
+    private String status = "ACTIVE";
+
+    @NotBlank
+    @Column(name = "language_pref", nullable = false)
+    private String languagePref = "en";
+
+    @Column(name = "failed_login_count", nullable = false)
+    private int failedLoginCount = 0;
+
+    @Column(name = "locked_until")
+    private Instant lockedUntil;
+
     @NotEmpty
     @ElementCollection
-    @CollectionTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id"))
+    @CollectionTable(name = "user_role", joinColumns = @JoinColumn(name = "user_id"))
     @Column(name = "role", nullable = false)
     @Enumerated(EnumType.STRING)
     private Set<Role> roles = EnumSet.noneOf(Role.class);
 
-    @Column(nullable = false)
-    private boolean enabled = true;
-
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
+
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt = Instant.now();
 
     public UserAccount(String email, String passwordHash, Set<Role> roles) {
         setEmail(email);
@@ -67,5 +84,9 @@ public class UserAccount {
 
     public void setEmail(String email) {
         this.email = email == null ? null : email.trim().toLowerCase(Locale.ROOT);
+    }
+
+    public boolean isEnabled() {
+        return "ACTIVE".equals(status);
     }
 }

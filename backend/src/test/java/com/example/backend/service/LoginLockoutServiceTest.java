@@ -1,5 +1,6 @@
 package com.example.backend.service;
 
+import com.example.backend.AbstractIntegrationTest;
 import com.example.backend.entity.LoginLockout;
 import com.example.backend.repository.LoginLockoutRepository;
 import org.junit.jupiter.api.Test;
@@ -18,7 +19,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @SpringBootTest
 @ActiveProfiles("test")
 @Transactional
-class LoginLockoutServiceTest {
+class LoginLockoutServiceTest extends AbstractIntegrationTest {
 
     @Autowired
     private LoginLockoutService lockouts;
