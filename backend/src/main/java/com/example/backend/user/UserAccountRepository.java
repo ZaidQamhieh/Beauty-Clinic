@@ -14,9 +14,8 @@ public interface UserAccountRepository extends JpaRepository<UserAccount, UUID> 
 
     Optional<UserAccount> findByEmailIgnoreCase(String email);
 
-    // Locked: used when recording a failed login, which races concurrent
-    // attempts against the same account and must not lose an increment.
+    // Locked: concurrent failed logins must not lose an increment.
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select u from UserAccount u where lower(u.email) = lower(:email)")
-    Optional<UserAccount> findByEmailIgnoreCaseForUpdate(@Param("email") String email);
+    Optional<UserAccount> lockByEmail(@Param("email") String email);
 }

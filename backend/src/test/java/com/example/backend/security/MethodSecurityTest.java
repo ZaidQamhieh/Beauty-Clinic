@@ -52,6 +52,61 @@ class MethodSecurityTest extends AbstractIntegrationTest {
     }
 
     @Test
+    @WithMockUser(roles = "RECEPTIONIST")
+    void clinicStaffAnnotationAdmitsReception() throws Exception {
+        mockMvc.perform(get("/test/meta/staff"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser(roles = "PATIENT")
+    void clinicStaffAnnotationRejectsPatients() throws Exception {
+        mockMvc.perform(get("/test/meta/staff"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void adminAnnotationAdmitsAdmins() throws Exception {
+        mockMvc.perform(get("/test/meta/admin"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser(roles = "DOCTOR")
+    void adminAnnotationRejectsDoctors() throws Exception {
+        mockMvc.perform(get("/test/meta/admin"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "PATIENT")
+    void patientAnnotationAdmitsPatients() throws Exception {
+        mockMvc.perform(get("/test/meta/patient"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser(roles = "RECEPTIONIST")
+    void patientAnnotationRejectsStaff() throws Exception {
+        mockMvc.perform(get("/test/meta/patient"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "PATIENT")
+    void authenticatedAnnotationAdmitsAnySignedInRole() throws Exception {
+        mockMvc.perform(get("/test/meta/any"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void authenticatedAnnotationRejectsAnonymous() throws Exception {
+        mockMvc.perform(get("/test/meta/any"))
+                .andExpect(status().is4xxClientError());
+    }
+
+    @Test
     void roleAuthorityUsesSpringPrefix() {
         assertThat(Role.DOCTOR.authority().getAuthority()).isEqualTo("ROLE_DOCTOR");
     }

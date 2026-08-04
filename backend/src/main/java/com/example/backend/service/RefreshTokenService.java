@@ -22,7 +22,6 @@ import com.example.backend.repository.RefreshTokenRepository;
 @RequiredArgsConstructor
 public class RefreshTokenService {
 
-    // Generates values that cannot be practically guessed.
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private final RefreshTokenRepository refreshTokens;
@@ -30,10 +29,8 @@ public class RefreshTokenService {
 
     @Transactional
     public IssuedRefreshToken issue(UserAccount user) {
-        // This raw value is sent to the client but never stored.
         String rawToken = generateToken();
 
-        // Only the SHA-256 hash is saved in PostgreSQL.
         String tokenHash = hash(rawToken);
 
         Instant expiresAt = Instant.now()
@@ -58,10 +55,7 @@ public class RefreshTokenService {
             throw invalidToken();
         }
 
-        // Update the existing row in place rather than delete-then-insert,
-        // so the session id (and any access token issued against it a
-        // moment ago) stays valid across the rotation instead of being
-        // treated as revoked.
+        // Rotate in place so the session id, and any access token on it, stays valid.
         String newRawToken = generateToken();
         currentToken.rotateTo(hash(newRawToken), Instant.now().plus(properties.refreshTtl()));
         refreshTokens.save(currentToken);
@@ -81,10 +75,6 @@ public class RefreshTokenService {
         byte[] randomBytes = new byte[32];
         SECURE_RANDOM.nextBytes(randomBytes);
 
-        /*
-          URL-safe Base64 avoids characters such as "/" and "+"
-          that can be awkward when tokens are transmitted.
-         */
         return Base64.getUrlEncoder()
                 .withoutPadding()
                 .encodeToString(randomBytes);
@@ -95,7 +85,6 @@ public class RefreshTokenService {
             byte[] hash = MessageDigest.getInstance("SHA-256")
                     .digest(rawToken.getBytes(StandardCharsets.UTF_8));
 
-            // Convert the hash bytes into a 64-character database string.
             return HexFormat.of().formatHex(hash);
         } catch (NoSuchAlgorithmException exception) {
             throw new IllegalStateException(
@@ -109,7 +98,7 @@ public class RefreshTokenService {
     public void logout(String rawToken) {
         String tokenHash = hash(rawToken);
 
-        refreshTokens.findUnlockedByTokenHash(tokenHash)
+        refreshTokens.peekByTokenHash(tokenHash)
                 .ifPresent(refreshTokens::delete);
     }
 

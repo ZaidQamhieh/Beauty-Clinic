@@ -172,5 +172,4 @@ class AuthControllerTest extends AbstractIntegrationTest {
                         .header("Authorization", "Bearer " + accessToken))
                 .andExpect(status().isUnauthorized());
     }
-
 }

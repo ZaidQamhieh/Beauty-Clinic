@@ -48,22 +48,15 @@ CREATE TABLE refresh_token (
 );
 CREATE INDEX idx_refresh_token_user ON refresh_token(user_id);
 
-CREATE TABLE doctor_profile (
+-- No staff table: a doctor is a user_account with role DOCTOR.
+CREATE TABLE doctor (
     user_id        uuid PRIMARY KEY REFERENCES user_account(id) ON DELETE RESTRICT,
     specialty      varchar(120),
     license_number varchar(60) UNIQUE,
-    bio            text
+    bio            text,
+    availability   jsonb NOT NULL DEFAULT '[]'::jsonb
+                   CHECK (jsonb_typeof(availability) = 'array')
 );
-
-CREATE TABLE doctor_availability (
-    id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    doctor_id   uuid NOT NULL REFERENCES doctor_profile(user_id) ON DELETE CASCADE,
-    day_of_week smallint NOT NULL CHECK (day_of_week BETWEEN 0 AND 6),
-    start_time  time NOT NULL,
-    end_time    time NOT NULL,
-    CHECK (end_time > start_time)
-);
-CREATE INDEX idx_availability_doctor_day ON doctor_availability(doctor_id, day_of_week);
 
 CREATE TABLE service (
     id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -74,8 +67,9 @@ CREATE TABLE service (
     is_active        boolean NOT NULL DEFAULT true
 );
 
+-- Each doctor offers their own treatments, not all of them.
 CREATE TABLE doctor_service (
-    doctor_id  uuid NOT NULL REFERENCES doctor_profile(user_id) ON DELETE CASCADE,
+    doctor_id  uuid NOT NULL REFERENCES doctor(user_id) ON DELETE CASCADE,
     service_id uuid NOT NULL REFERENCES service(id) ON DELETE CASCADE,
     PRIMARY KEY (doctor_id, service_id)
 );
@@ -104,7 +98,7 @@ CREATE INDEX idx_patient_email ON patient(lower(email));
 CREATE TABLE appointment (
     id                 uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     patient_id         uuid NOT NULL REFERENCES patient(id) ON DELETE RESTRICT,
-    doctor_id          uuid NOT NULL REFERENCES doctor_profile(user_id) ON DELETE RESTRICT,
+    doctor_id          uuid NOT NULL REFERENCES doctor(user_id) ON DELETE RESTRICT,
     service_id         uuid NOT NULL REFERENCES service(id) ON DELETE RESTRICT,
     start_time         timestamptz NOT NULL,
     end_time           timestamptz NOT NULL,
@@ -113,18 +107,11 @@ CREATE TABLE appointment (
     reason             text,
     created_by_user_id uuid REFERENCES user_account(id) ON DELETE SET NULL,
     cancelled_at       timestamptz,
-    reschedule_status         varchar(20)
-                              CHECK (reschedule_status IN ('PENDING','ACCEPTED','DECLINED')),
-    reschedule_requested_at   timestamptz,
-    reschedule_preferred_time timestamptz,
-    reschedule_note           text,
-    reschedule_resolved_at    timestamptz,
+    replaces_appointment_id uuid REFERENCES appointment(id) ON DELETE SET NULL,
     created_at         timestamptz NOT NULL DEFAULT now(),
     updated_at         timestamptz NOT NULL DEFAULT now(),
     CHECK (end_time > start_time),
-    CHECK ((reschedule_status IS NULL) = (reschedule_requested_at IS NULL)),
-    CHECK ((reschedule_status IN ('ACCEPTED','DECLINED')) IS NOT TRUE
-           OR reschedule_resolved_at IS NOT NULL),
+    -- Database-level guarantee: one doctor cannot hold two overlapping bookings.
     CONSTRAINT appointment_no_double_booking EXCLUDE USING gist (
         doctor_id WITH =,
         tstzrange(start_time, end_time) WITH &&
@@ -133,9 +120,6 @@ CREATE TABLE appointment (
 CREATE INDEX idx_appointment_patient ON appointment(patient_id);
 CREATE INDEX idx_appointment_doctor_start ON appointment(doctor_id, start_time);
 CREATE INDEX idx_appointment_status_start ON appointment(status, start_time);
-CREATE INDEX idx_appointment_reschedule_pending
-    ON appointment(doctor_id, reschedule_requested_at)
-    WHERE reschedule_status = 'PENDING';
 
 CREATE TABLE treatment_record (
     id                   uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -177,6 +161,7 @@ CREATE INDEX idx_activity_log_created ON activity_log(created_at DESC);
 CREATE INDEX idx_activity_log_user ON activity_log(user_id);
 CREATE INDEX idx_activity_log_action ON activity_log(action);
 
+-- Scoped so login throttling does not touch updated_at.
 CREATE TRIGGER trg_user_account_updated
     BEFORE UPDATE OF email, phone, password_hash, role, status, language_pref
     ON user_account
@@ -188,5 +173,6 @@ CREATE TRIGGER trg_appointment_updated BEFORE UPDATE ON appointment
 
 CREATE TRIGGER trg_activity_log_immutable BEFORE UPDATE OR DELETE ON activity_log
     FOR EACH ROW EXECUTE FUNCTION activity_log_reject_mutation();
+-- Clinical notes are insert-only; corrections link to the row they amend.
 CREATE TRIGGER trg_treatment_record_immutable BEFORE UPDATE OR DELETE ON treatment_record
     FOR EACH ROW EXECUTE FUNCTION block_update_delete();

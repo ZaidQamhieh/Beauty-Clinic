@@ -1,5 +1,9 @@
 package com.example.backend.security;
 
+import com.example.backend.security.access.AdminOnly;
+import com.example.backend.security.access.Authenticated;
+import com.example.backend.security.access.ClinicStaffOnly;
+import com.example.backend.security.access.PatientOnly;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -33,6 +37,30 @@ class MethodSecurityTestController {
     @GetMapping("/test/owned-by/{userId}")
     @PreAuthorize("@currentUser.is(#userId)")
     String ownedBy(@PathVariable UUID userId) {
+        return "ok";
+    }
+
+    @GetMapping("/test/meta/staff")
+    @ClinicStaffOnly
+    String staffOnly() {
+        return "ok";
+    }
+
+    @GetMapping("/test/meta/admin")
+    @AdminOnly
+    String adminOnly() {
+        return "ok";
+    }
+
+    @GetMapping("/test/meta/patient")
+    @PatientOnly
+    String patientOnly() {
+        return "ok";
+    }
+
+    @GetMapping("/test/meta/any")
+    @Authenticated
+    String anySignedIn() {
         return "ok";
     }
 }
