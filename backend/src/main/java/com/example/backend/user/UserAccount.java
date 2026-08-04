@@ -1,28 +1,23 @@
 package com.example.backend.user;
 
 import com.example.backend.security.Role;
-import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
-import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.Instant;
-import java.util.EnumSet;
 import java.util.Locale;
-import java.util.Set;
 import java.util.UUID;
 
 @Entity
@@ -48,6 +43,13 @@ public class UserAccount {
     @Column(name = "password_hash", nullable = false)
     private String passwordHash;
 
+    // Exactly one role per account: a user is a patient or a doctor or a
+    // receptionist or an admin, never a combination.
+    @NotNull
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 30)
+    private Role role;
+
     @NotBlank
     @Column(nullable = false)
     private String status = "ACTIVE";
@@ -56,18 +58,17 @@ public class UserAccount {
     @Column(name = "language_pref", nullable = false)
     private String languagePref = "en";
 
+    // Login-throttling state. See LoginLockoutService.
     @Column(name = "failed_login_count", nullable = false)
     private int failedLoginCount = 0;
 
+    // How many times this account has been locked out; drives the
+    // escalating lockout duration.
+    @Column(name = "lockout_strikes", nullable = false)
+    private int lockoutStrikes = 0;
+
     @Column(name = "locked_until")
     private Instant lockedUntil;
-
-    @NotEmpty
-    @ElementCollection
-    @CollectionTable(name = "user_role", joinColumns = @JoinColumn(name = "user_id"))
-    @Column(name = "role", nullable = false)
-    @Enumerated(EnumType.STRING)
-    private Set<Role> roles = EnumSet.noneOf(Role.class);
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
@@ -75,10 +76,10 @@ public class UserAccount {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt = Instant.now();
 
-    public UserAccount(String email, String passwordHash, Set<Role> roles) {
+    public UserAccount(String email, String passwordHash, Role role) {
         setEmail(email);
         this.passwordHash = passwordHash;
-        this.roles.addAll(roles);
+        this.role = role;
     }
 
     public void setEmail(String email) {
@@ -87,5 +88,9 @@ public class UserAccount {
 
     public boolean isEnabled() {
         return "ACTIVE".equals(status);
+    }
+
+    public boolean isLocked(Instant now) {
+        return lockedUntil != null && lockedUntil.isAfter(now);
     }
 }
