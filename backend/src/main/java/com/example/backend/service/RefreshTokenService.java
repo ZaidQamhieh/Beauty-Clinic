@@ -52,14 +52,10 @@ public class RefreshTokenService {
 
         RefreshToken currentToken = refreshTokens
                 .findByTokenHash(tokenHash)
-                .orElseThrow(() -> new BadCredentialsException(
-                        "Invalid refresh token"
-                ));
+                .orElseThrow(this::invalidToken);
 
         if (currentToken.isExpired(Instant.now())) {
-            throw new BadCredentialsException(
-                    "Invalid refresh token"
-            );
+            throw invalidToken();
         }
 
         // Update the existing row in place rather than delete-then-insert,
@@ -75,6 +71,10 @@ public class RefreshTokenService {
                 currentToken.getUser().getEmail(),
                 newRawToken
         );
+    }
+
+    private BadCredentialsException invalidToken() {
+        return new BadCredentialsException("Invalid refresh token");
     }
 
     private String generateToken() {

@@ -70,11 +70,10 @@ class JwtConfig {
                 .build();
 
         // Validate issuer/expiration, then that the session isn't revoked.
-        OAuth2TokenValidator<Jwt> validator = new DelegatingOAuth2TokenValidator<>(
+        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
                 JwtValidators.createDefaultWithIssuer(properties.issuer()),
                 sessionTokenValidator
-        );
-        decoder.setJwtValidator(validator);
+        ));
 
         return decoder;
     }

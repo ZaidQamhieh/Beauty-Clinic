@@ -44,9 +44,7 @@ class LoginLockoutServiceTest extends AbstractIntegrationTest {
     void successBeforeFifthFailureDoesNotTriggerLock() {
         String identifier = "resets-on-success@example.com";
 
-        for (int i = 0; i < 4; i++) {
-            lockouts.recordFailure(identifier);
-        }
+        failNTimes(identifier, 4);
 
         // A success before the 5th failure should not trigger a lock.
         lockouts.recordSuccess(identifier);
@@ -57,20 +55,22 @@ class LoginLockoutServiceTest extends AbstractIntegrationTest {
     void secondLockoutEscalatesFrom30MinutesTo5Hours() {
         String identifier = "repeat-offender@example.com";
 
-        for (int i = 0; i < 5; i++) {
-            lockouts.recordFailure(identifier);
-        }
+        failNTimes(identifier, 5);
         LoginLockout firstLockout = repository.findByIdentifier(identifier).orElseThrow();
         assertThat(firstLockout.getLockoutStrikes()).isEqualTo(1);
         Duration firstDuration = Duration.between(Instant.now(), firstLockout.getLockedUntil());
         assertThat(firstDuration).isCloseTo(Duration.ofMinutes(30), Duration.ofMinutes(1));
 
-        for (int i = 0; i < 5; i++) {
-            lockouts.recordFailure(identifier);
-        }
+        failNTimes(identifier, 5);
         LoginLockout secondLockout = repository.findByIdentifier(identifier).orElseThrow();
         assertThat(secondLockout.getLockoutStrikes()).isEqualTo(2);
         Duration secondDuration = Duration.between(Instant.now(), secondLockout.getLockedUntil());
         assertThat(secondDuration).isCloseTo(Duration.ofHours(5), Duration.ofMinutes(1));
+    }
+
+    private void failNTimes(String identifier, int n) {
+        for (int i = 0; i < n; i++) {
+            lockouts.recordFailure(identifier);
+        }
     }
 }

@@ -78,7 +78,6 @@ public class UserAccount {
     public UserAccount(String email, String passwordHash, Set<Role> roles) {
         setEmail(email);
         this.passwordHash = passwordHash;
-        this.roles = EnumSet.noneOf(Role.class);
         this.roles.addAll(roles);
     }
 
