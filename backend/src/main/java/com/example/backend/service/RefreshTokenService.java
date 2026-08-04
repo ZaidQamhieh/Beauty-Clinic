@@ -62,17 +62,18 @@ public class RefreshTokenService {
             );
         }
 
-        UserAccount user = currentToken.getUser();
-
-        // A refresh token can only be used once; this also revokes its access token.
-        refreshTokens.delete(currentToken);
-
-        IssuedRefreshToken newToken = issue(user);
+        // Update the existing row in place rather than delete-then-insert,
+        // so the session id (and any access token issued against it a
+        // moment ago) stays valid across the rotation instead of being
+        // treated as revoked.
+        String newRawToken = generateToken();
+        currentToken.rotateTo(hash(newRawToken), Instant.now().plus(properties.refreshTtl()));
+        refreshTokens.save(currentToken);
 
         return new RotatedRefreshToken(
-                newToken.sessionId(),
-                user.getEmail(),
-                newToken.value()
+                currentToken.getId(),
+                currentToken.getUser().getEmail(),
+                newRawToken
         );
     }
 
@@ -108,7 +109,7 @@ public class RefreshTokenService {
     public void logout(String rawToken) {
         String tokenHash = hash(rawToken);
 
-        refreshTokens.findByTokenHash(tokenHash)
+        refreshTokens.findUnlockedByTokenHash(tokenHash)
                 .ifPresent(refreshTokens::delete);
     }
 
