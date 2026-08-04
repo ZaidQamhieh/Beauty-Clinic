@@ -118,10 +118,16 @@ The policy above assumes things the schema does not have yet. These block the en
 
 ## How the rules get written
 
-Role checks and ownership checks both go through a single bean rather than being spelled out as strings on each controller:
+Role-only operations use plain `hasRole`. Anything ownership-scoped goes through a bean instead, so the policy lives in one testable place rather than being spelled out as expression strings across controllers:
 
 ```java
 @PreAuthorize("@access.canReadTreatmentNotes(#patientId)")
 ```
 
-That keeps the policy in one testable place, so a change here is a change in one file rather than a search across controllers. Role-only operations can still use plain `hasRole`, but anything ownership-scoped goes through the bean.
+The primitive underneath is `CurrentUser`, which reads the caller's account id off the request and is reachable from an expression directly when the check is just "is this you":
+
+```java
+@PreAuthorize("@currentUser.is(#userId)")
+```
+
+Rules that need to walk a relationship — is this doctor the one on that appointment, is this patient the subject of those notes — belong on the `@access` bean rather than being written inline.
