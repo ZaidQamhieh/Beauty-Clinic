@@ -21,6 +21,10 @@ class SessionTokenValidator implements OAuth2TokenValidator<Jwt> {
             "invalid_token", "Session has been revoked", null
     );
 
+    private static final OAuth2Error MALFORMED_SESSION = new OAuth2Error(
+            "invalid_token", "Token is missing a valid session claim", null
+    );
+
     private final RefreshTokenRepository refreshTokens;
 
     @Override
@@ -31,7 +35,7 @@ class SessionTokenValidator implements OAuth2TokenValidator<Jwt> {
         try {
             sessionId = UUID.fromString(sid);
         } catch (IllegalArgumentException | NullPointerException malformed) {
-            return OAuth2TokenValidatorResult.failure(REVOKED);
+            return OAuth2TokenValidatorResult.failure(MALFORMED_SESSION);
         }
 
         return refreshTokens.existsById(sessionId)

@@ -4,6 +4,7 @@ import com.example.backend.entity.LoginLockout;
 import com.example.backend.repository.LoginLockoutRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.authentication.LockedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -62,7 +63,22 @@ public class LoginLockoutService {
             );
         }
 
-        lockouts.save(lockout);
+        try {
+            // saveAndFlush forces the unique-constraint check to happen here
+            // rather than at the caller's transaction commit, so a race can
+            // actually be caught.
+            lockouts.saveAndFlush(lockout);
+        } catch (DataIntegrityViolationException concurrentFirstFailure) {
+            // Another request just created this identifier's row first
+            // (only possible when `lockout` above was newly constructed).
+            // The failed attempt is still tracked from the next call for
+            // the same identifier, so it's safe to drop this one instead
+            // of failing the request.
+            log.debug(
+                    "Lockout row for {} was created concurrently; dropping this attempt",
+                    identifier
+            );
+        }
     }
 
     @Transactional

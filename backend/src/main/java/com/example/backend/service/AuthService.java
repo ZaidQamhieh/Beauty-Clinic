@@ -13,6 +13,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.security.authentication.DisabledException;
@@ -68,7 +69,7 @@ public class AuthService {
          */
         UserAccount user = users
                 .findByEmailIgnoreCase(principal.getUsername())
-                .orElseThrow(() -> new IllegalStateException(
+                .orElseThrow(() -> new UsernameNotFoundException(
                         "Authenticated user no longer exists"
                 ));
 
@@ -90,6 +91,10 @@ public class AuthService {
         var rotatedToken = refreshTokens.rotate(
                 request.refreshToken()
         );
+
+        // A locked account must not be able to keep minting access tokens
+        // through an existing session for the duration of the lock.
+        lockouts.assertNotLocked(rotatedToken.email());
 
         // Load the user's current roles and account status.
         UserDetails principal = userDetailsService.loadUserByUsername(

@@ -57,6 +57,29 @@ class AuthControllerTest {
     }
 
     @Test
+    void blankEmailReturnsBadRequest() throws Exception {
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "",
+                                  "password": "whatever"
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void blankRefreshTokenReturnsBadRequest() throws Exception {
+        mockMvc.perform(post("/api/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"refreshToken": ""}
+                                """))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void invalidPasswordReturnsUnauthorized() throws Exception {
         users.save(new UserAccount(
                 "invalid-login@example.com",
