@@ -8,12 +8,14 @@ import com.example.backend.patient.dto.PatientRecord;
 import com.example.backend.patient.dto.PatientSummary;
 import com.example.backend.patient.dto.RegisterPatient;
 import com.example.backend.security.access.ClinicStaffOnly;
+import com.example.backend.security.access.ClinicalReader;
+import com.example.backend.security.access.ClinicalWriter;
+import com.example.backend.security.access.StaffOrOwnPatient;
 import com.example.backend.security.access.PatientOnly;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -51,7 +53,7 @@ public class PatientController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('DOCTOR', 'RECEPTIONIST', 'ADMIN') or @access.ownsPatient(#id)")
+    @StaffOrOwnPatient
     public PatientDetail read(@PathVariable UUID id) {
         return patients.read(id);
     }
@@ -80,16 +82,13 @@ public class PatientController {
     }
 
     @GetMapping("/{id}/clinical")
-    @PreAuthorize("hasRole('ADMIN') "
-            + "or (hasRole('DOCTOR') and @access.treats(#id)) "
-            + "or @access.ownsPatient(#id)")
+    @ClinicalReader
     public PatientRecord readClinical(@PathVariable UUID id) {
         return patients.readClinical(id);
     }
 
     @PutMapping("/{id}/allergies")
-    @PreAuthorize("hasRole('ADMIN') "
-            + "or (hasRole('DOCTOR') and @access.treats(#id))")
+    @ClinicalWriter
     public PatientRecord updateAllergies(
             @PathVariable UUID id,
             @Valid @RequestBody EditAllergies request
