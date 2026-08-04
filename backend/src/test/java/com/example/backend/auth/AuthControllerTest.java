@@ -19,7 +19,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import com.jayway.jsonpath.JsonPath;
-import java.util.Set;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -41,7 +40,7 @@ class AuthControllerTest extends AbstractIntegrationTest {
         users.save(new UserAccount(
                 "login-test@example.com",
                 passwordEncoder.encode("correct-password"),
-                Set.of(Role.DOCTOR)
+                Role.DOCTOR
         ));
 
         mockMvc.perform(post("/api/auth/login")
@@ -85,7 +84,7 @@ class AuthControllerTest extends AbstractIntegrationTest {
         users.save(new UserAccount(
                 "invalid-login@example.com",
                 passwordEncoder.encode("correct-password"),
-                Set.of(Role.PATIENT)
+                Role.PATIENT
         ));
 
         mockMvc.perform(post("/api/auth/login")
@@ -104,7 +103,7 @@ class AuthControllerTest extends AbstractIntegrationTest {
         users.save(new UserAccount(
                 "refresh@example.com",
                 passwordEncoder.encode("password"),
-                Set.of(Role.PATIENT)
+                Role.PATIENT
         ));
 
         MvcResult login = mockMvc.perform(post("/api/auth/login")
@@ -137,7 +136,7 @@ class AuthControllerTest extends AbstractIntegrationTest {
         users.save(new UserAccount(
                 "logout@example.com",
                 passwordEncoder.encode("password"),
-                Set.of(Role.PATIENT)
+                Role.PATIENT
         ));
 
         MvcResult login = mockMvc.perform(post("/api/auth/login")
@@ -174,35 +173,7 @@ class AuthControllerTest extends AbstractIntegrationTest {
                 .andExpect(status().isUnauthorized());
     }
 
-    @Test
-    void locksOutAfterFiveFailedAttemptsEvenWithTheCorrectPassword() throws Exception {
-        users.save(new UserAccount(
-                "lockout@example.com",
-                passwordEncoder.encode("correct-password"),
-                Set.of(Role.PATIENT)
-        ));
-
-        for (int i = 0; i < 5; i++) {
-            mockMvc.perform(post("/api/auth/login")
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content("""
-                                    {
-                                      "email": "lockout@example.com",
-                                      "password": "wrong-password"
-                                    }
-                                    """))
-                    .andExpect(status().isUnauthorized());
-        }
-
-        // The 6th attempt is rejected even with the correct password.
-        mockMvc.perform(post("/api/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "email": "lockout@example.com",
-                                  "password": "correct-password"
-                                }
-                                """))
-                .andExpect(status().isUnauthorized());
-    }
+    // Lockout is covered by LoginLockoutFlowTest instead: it needs each
+    // login attempt to commit on its own, which this class's @Transactional
+    // would hide.
 }

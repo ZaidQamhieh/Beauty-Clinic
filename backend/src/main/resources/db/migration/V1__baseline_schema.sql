@@ -20,38 +20,39 @@ BEGIN
 END;
 $$;
 
+-- Login throttling lives on this table rather than a table of its own:
+-- failed_login_count / lockout_strikes / locked_until below. That bounds
+-- lockout rows by real accounts instead of by attacker-supplied strings,
+-- at the cost of not throttling attempts against unknown emails.
 CREATE TABLE user_account (
     id                 uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     email              varchar(255) NOT NULL UNIQUE,
     phone              varchar(30) UNIQUE,
     password_hash      varchar(255) NOT NULL,
+    role               varchar(30) NOT NULL
+                       CHECK (role IN ('PATIENT','RECEPTIONIST','DOCTOR','ADMIN')),
     status             varchar(20) NOT NULL DEFAULT 'ACTIVE'
                        CHECK (status IN ('ACTIVE','DEACTIVATED')),
     language_pref      varchar(5) NOT NULL DEFAULT 'en'
                        CHECK (language_pref IN ('en','ar')),
     failed_login_count integer NOT NULL DEFAULT 0,
+    lockout_strikes    integer NOT NULL DEFAULT 0,
     locked_until       timestamptz,
     created_at         timestamptz NOT NULL DEFAULT now(),
     updated_at         timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE user_role (
-    user_id uuid NOT NULL REFERENCES user_account(id) ON DELETE CASCADE,
-    role    varchar(30) NOT NULL
-            CHECK (role IN ('PATIENT','RECEPTIONIST','DOCTOR','ADMIN')),
-    PRIMARY KEY (user_id, role)
-);
-
+-- Logout deletes the row outright, so there is no revoked_at column: a
+-- session either exists or it doesn't. Add one back with the token-reuse
+-- detection work, when a revoked-but-remembered state actually exists.
 CREATE TABLE refresh_token (
     id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id    uuid NOT NULL REFERENCES user_account(id) ON DELETE CASCADE,
     token_hash varchar(255) NOT NULL UNIQUE,
     issued_at  timestamptz NOT NULL DEFAULT now(),
-    expires_at timestamptz NOT NULL,
-    revoked_at timestamptz
+    expires_at timestamptz NOT NULL
 );
 CREATE INDEX idx_refresh_token_user ON refresh_token(user_id);
-CREATE INDEX idx_refresh_token_active ON refresh_token(user_id) WHERE revoked_at IS NULL;
 
 CREATE TABLE staff (
     id        uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -169,7 +170,12 @@ CREATE INDEX idx_activity_log_created ON activity_log(created_at DESC);
 CREATE INDEX idx_activity_log_user ON activity_log(user_id);
 CREATE INDEX idx_activity_log_action ON activity_log(action);
 
-CREATE TRIGGER trg_user_account_updated BEFORE UPDATE ON user_account
+-- Scoped with UPDATE OF so that login throttling (failed_login_count,
+-- lockout_strikes, locked_until) does not touch updated_at, which tracks
+-- changes to the account itself.
+CREATE TRIGGER trg_user_account_updated
+    BEFORE UPDATE OF email, phone, password_hash, role, status, language_pref
+    ON user_account
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER trg_patient_updated BEFORE UPDATE ON patient
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
