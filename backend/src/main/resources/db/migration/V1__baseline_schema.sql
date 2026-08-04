@@ -113,18 +113,10 @@ CREATE TABLE appointment (
     reason             text,
     created_by_user_id uuid REFERENCES user_account(id) ON DELETE SET NULL,
     cancelled_at       timestamptz,
-    reschedule_status         varchar(20)
-                              CHECK (reschedule_status IN ('PENDING','ACCEPTED','DECLINED')),
-    reschedule_requested_at   timestamptz,
-    reschedule_preferred_time timestamptz,
-    reschedule_note           text,
-    reschedule_resolved_at    timestamptz,
+    replaces_appointment_id uuid REFERENCES appointment(id) ON DELETE SET NULL,
     created_at         timestamptz NOT NULL DEFAULT now(),
     updated_at         timestamptz NOT NULL DEFAULT now(),
     CHECK (end_time > start_time),
-    CHECK ((reschedule_status IS NULL) = (reschedule_requested_at IS NULL)),
-    CHECK ((reschedule_status IN ('ACCEPTED','DECLINED')) IS NOT TRUE
-           OR reschedule_resolved_at IS NOT NULL),
     CONSTRAINT appointment_no_double_booking EXCLUDE USING gist (
         doctor_id WITH =,
         tstzrange(start_time, end_time) WITH &&
@@ -133,9 +125,6 @@ CREATE TABLE appointment (
 CREATE INDEX idx_appointment_patient ON appointment(patient_id);
 CREATE INDEX idx_appointment_doctor_start ON appointment(doctor_id, start_time);
 CREATE INDEX idx_appointment_status_start ON appointment(status, start_time);
-CREATE INDEX idx_appointment_reschedule_pending
-    ON appointment(doctor_id, reschedule_requested_at)
-    WHERE reschedule_status = 'PENDING';
 
 CREATE TABLE treatment_record (
     id                   uuid PRIMARY KEY DEFAULT gen_random_uuid(),

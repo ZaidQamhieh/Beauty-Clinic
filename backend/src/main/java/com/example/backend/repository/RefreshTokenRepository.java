@@ -15,13 +15,9 @@ import java.util.UUID;
 public interface RefreshTokenRepository
         extends JpaRepository<RefreshToken, UUID> {
 
-    // Locked: used by rotation, which races concurrent rotations/logouts
-    // of the same token.
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<RefreshToken> findByTokenHash(String tokenHash);
 
-    // Unlocked: used by logout, a simple find-then-delete that isn't
-    // racing anything the way rotation is.
     @Query("select t from RefreshToken t where t.tokenHash = :tokenHash")
-    Optional<RefreshToken> findUnlockedByTokenHash(@Param("tokenHash") String tokenHash);
+    Optional<RefreshToken> peekByTokenHash(@Param("tokenHash") String tokenHash);
 }
