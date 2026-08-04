@@ -5,6 +5,7 @@ import com.example.backend.patient.Patient;
 import java.time.LocalDate;
 import java.util.UUID;
 
+// Demographics plus allergies. Admin, treating doctor, or the patient themselves.
 public record PatientRecord(
         UUID id,
         String firstName,

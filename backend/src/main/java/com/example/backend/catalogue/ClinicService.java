@@ -17,6 +17,7 @@ import lombok.Setter;
 import java.math.BigDecimal;
 import java.util.UUID;
 
+// A treatment the clinic sells. Named ClinicService so it does not read as a Spring service.
 @Entity
 @Table(name = "service")
 @Getter

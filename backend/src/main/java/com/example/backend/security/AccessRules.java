@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
 
+// Ownership half of the policy. Roles use tags; anything about whose data it is comes here.
 @Component("access")
 @RequiredArgsConstructor
 public class AccessRules {

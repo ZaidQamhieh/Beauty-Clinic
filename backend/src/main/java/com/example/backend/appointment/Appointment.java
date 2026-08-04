@@ -69,6 +69,7 @@ public class Appointment {
     @Column(name = "cancelled_at")
     private Instant cancelledAt;
 
+    // Rescheduling cancels the old row and books a new one pointing here.
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "replaces_appointment_id")
     private Appointment replaces;

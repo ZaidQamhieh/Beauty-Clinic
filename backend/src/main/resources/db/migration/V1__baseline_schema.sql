@@ -48,6 +48,7 @@ CREATE TABLE refresh_token (
 );
 CREATE INDEX idx_refresh_token_user ON refresh_token(user_id);
 
+-- No staff table: a doctor is a user_account with role DOCTOR.
 CREATE TABLE doctor (
     user_id        uuid PRIMARY KEY REFERENCES user_account(id) ON DELETE RESTRICT,
     specialty      varchar(120),
@@ -66,6 +67,7 @@ CREATE TABLE service (
     is_active        boolean NOT NULL DEFAULT true
 );
 
+-- Each doctor offers their own treatments, not all of them.
 CREATE TABLE doctor_service (
     doctor_id  uuid NOT NULL REFERENCES doctor(user_id) ON DELETE CASCADE,
     service_id uuid NOT NULL REFERENCES service(id) ON DELETE CASCADE,
@@ -109,6 +111,7 @@ CREATE TABLE appointment (
     created_at         timestamptz NOT NULL DEFAULT now(),
     updated_at         timestamptz NOT NULL DEFAULT now(),
     CHECK (end_time > start_time),
+    -- Database-level guarantee: one doctor cannot hold two overlapping bookings.
     CONSTRAINT appointment_no_double_booking EXCLUDE USING gist (
         doctor_id WITH =,
         tstzrange(start_time, end_time) WITH &&
@@ -158,6 +161,7 @@ CREATE INDEX idx_activity_log_created ON activity_log(created_at DESC);
 CREATE INDEX idx_activity_log_user ON activity_log(user_id);
 CREATE INDEX idx_activity_log_action ON activity_log(action);
 
+-- Scoped so login throttling does not touch updated_at.
 CREATE TRIGGER trg_user_account_updated
     BEFORE UPDATE OF email, phone, password_hash, role, status, language_pref
     ON user_account
@@ -169,5 +173,6 @@ CREATE TRIGGER trg_appointment_updated BEFORE UPDATE ON appointment
 
 CREATE TRIGGER trg_activity_log_immutable BEFORE UPDATE OR DELETE ON activity_log
     FOR EACH ROW EXECUTE FUNCTION activity_log_reject_mutation();
+-- Clinical notes are insert-only; corrections link to the row they amend.
 CREATE TRIGGER trg_treatment_record_immutable BEFORE UPDATE OR DELETE ON treatment_record
     FOR EACH ROW EXECUTE FUNCTION block_update_delete();

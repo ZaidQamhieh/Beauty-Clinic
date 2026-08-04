@@ -57,6 +57,7 @@ public class Doctor {
     )
     private Set<ClinicService> services = new LinkedHashSet<>();
 
+    // Weekly schedule as jsonb, read and written whole.
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(nullable = false, columnDefinition = "jsonb")
     private List<WorkingHours> availability = new ArrayList<>();

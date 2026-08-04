@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 import java.util.Optional;
 import java.util.UUID;
 
+// Caller's account id, read from the token's uid claim.
 @Component("currentUser")
 public class CurrentUser {
 

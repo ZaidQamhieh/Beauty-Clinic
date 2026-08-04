@@ -75,6 +75,7 @@ public class PatientService {
     }
 
     @Transactional
+    // Target comes from the token, so a patient cannot aim this at someone else.
     public PatientDetail updateOwnProfile(EditOwnProfile request) {
         Patient patient = requireOwn();
         patient.setPhone(request.phone());

@@ -5,6 +5,7 @@ import com.example.backend.patient.Patient;
 import java.time.LocalDate;
 import java.util.UUID;
 
+// Demographics only. Safe for reception - no clinical field exists to leak.
 public record PatientDetail(
         UUID id,
         String firstName,

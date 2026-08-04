@@ -47,6 +47,7 @@ public class TreatmentRecord {
     @Column
     private String notes;
 
+    // Table is insert-only: a correction is a new row, not an edit.
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "amends_record_id", unique = true)
     private TreatmentRecord amends;

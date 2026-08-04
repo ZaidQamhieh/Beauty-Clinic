@@ -30,6 +30,7 @@ public class Patient {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    // Null for walk-ins: reception can register a patient with no login.
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", unique = true)
     private UserAccount user;
@@ -54,6 +55,7 @@ public class Patient {
     @Column
     private String address;
 
+    // Clinical. Reception never sees this - hence the separate DTOs.
     @Column
     private String allergies;
 

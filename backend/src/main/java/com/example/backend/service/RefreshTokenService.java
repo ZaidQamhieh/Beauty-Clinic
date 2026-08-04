@@ -55,6 +55,7 @@ public class RefreshTokenService {
             throw invalidToken();
         }
 
+        // Rotate in place so the session id, and any access token on it, stays valid.
         String newRawToken = generateToken();
         currentToken.rotateTo(hash(newRawToken), Instant.now().plus(properties.refreshTtl()));
         refreshTokens.save(currentToken);
