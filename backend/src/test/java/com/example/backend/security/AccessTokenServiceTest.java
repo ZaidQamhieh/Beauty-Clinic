@@ -4,7 +4,6 @@ import com.example.backend.AbstractIntegrationTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.security.core.userdetails.User;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
@@ -14,6 +13,7 @@ import com.example.backend.entity.RefreshToken;
 import com.example.backend.repository.RefreshTokenRepository;
 import com.example.backend.service.AccessTokenService;
 import com.example.backend.user.UserAccount;
+import com.example.backend.user.UserAccountDetails;
 import com.example.backend.user.UserAccountRepository;
 
 import java.time.Instant;
@@ -42,22 +42,19 @@ class AccessTokenServiceTest extends AbstractIntegrationTest {
 
     @Test
     void issuesSignedTokenWithExpectedClaims() {
-        var user = User.withUsername("doctor@example.com")
-                .password("unused")
-                .authorities("ROLE_DOCTOR", "ROLE_ADMIN")
-                .build();
-
         UserAccount account = users.save(new UserAccount(
                 "doctor@example.com",
                 passwordEncoder.encode("unused"),
                 "Test User",
-                com.example.backend.security.Role.DOCTOR
+                Role.DOCTOR
         ));
         RefreshToken session = refreshTokens.save(new RefreshToken(
                 account, "unused-hash", Instant.now().plus(7, ChronoUnit.DAYS)
         ));
 
-        var issuedToken = accessTokens.issue(user, session.getId());
+        var issuedToken = accessTokens.issue(
+                UserAccountDetails.of(account), session.getId()
+        );
 
         Jwt decodedToken = jwtDecoder.decode(issuedToken.value());
 
@@ -73,10 +70,13 @@ class AccessTokenServiceTest extends AbstractIntegrationTest {
         assertThat(decodedToken.getClaimAsString(AccessTokenService.SESSION_CLAIM))
                 .isEqualTo(session.getId().toString());
 
+        assertThat(decodedToken.getClaimAsString(AccessTokenService.USER_ID_CLAIM))
+                .isEqualTo(account.getId().toString());
+
         assertThat(
                 decodedToken.getClaimAsStringList(
                         AccessTokenService.AUTHORITIES_CLAIM
                 )
-        ).containsExactly("ROLE_ADMIN", "ROLE_DOCTOR");
+        ).containsExactly("ROLE_DOCTOR");
     }
 }
