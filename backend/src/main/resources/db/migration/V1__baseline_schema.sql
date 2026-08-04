@@ -48,22 +48,14 @@ CREATE TABLE refresh_token (
 );
 CREATE INDEX idx_refresh_token_user ON refresh_token(user_id);
 
-CREATE TABLE doctor_profile (
+CREATE TABLE doctor (
     user_id        uuid PRIMARY KEY REFERENCES user_account(id) ON DELETE RESTRICT,
     specialty      varchar(120),
     license_number varchar(60) UNIQUE,
-    bio            text
+    bio            text,
+    availability   jsonb NOT NULL DEFAULT '[]'::jsonb
+                   CHECK (jsonb_typeof(availability) = 'array')
 );
-
-CREATE TABLE doctor_availability (
-    id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    doctor_id   uuid NOT NULL REFERENCES doctor_profile(user_id) ON DELETE CASCADE,
-    day_of_week smallint NOT NULL CHECK (day_of_week BETWEEN 0 AND 6),
-    start_time  time NOT NULL,
-    end_time    time NOT NULL,
-    CHECK (end_time > start_time)
-);
-CREATE INDEX idx_availability_doctor_day ON doctor_availability(doctor_id, day_of_week);
 
 CREATE TABLE service (
     id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -75,7 +67,7 @@ CREATE TABLE service (
 );
 
 CREATE TABLE doctor_service (
-    doctor_id  uuid NOT NULL REFERENCES doctor_profile(user_id) ON DELETE CASCADE,
+    doctor_id  uuid NOT NULL REFERENCES doctor(user_id) ON DELETE CASCADE,
     service_id uuid NOT NULL REFERENCES service(id) ON DELETE CASCADE,
     PRIMARY KEY (doctor_id, service_id)
 );
@@ -104,7 +96,7 @@ CREATE INDEX idx_patient_email ON patient(lower(email));
 CREATE TABLE appointment (
     id                 uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     patient_id         uuid NOT NULL REFERENCES patient(id) ON DELETE RESTRICT,
-    doctor_id          uuid NOT NULL REFERENCES doctor_profile(user_id) ON DELETE RESTRICT,
+    doctor_id          uuid NOT NULL REFERENCES doctor(user_id) ON DELETE RESTRICT,
     service_id         uuid NOT NULL REFERENCES service(id) ON DELETE RESTRICT,
     start_time         timestamptz NOT NULL,
     end_time           timestamptz NOT NULL,

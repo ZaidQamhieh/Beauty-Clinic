@@ -1,7 +1,7 @@
 package com.example.backend.appointment;
 
 import com.example.backend.catalogue.ClinicService;
-import com.example.backend.doctor.DoctorProfile;
+import com.example.backend.doctor.Doctor;
 import com.example.backend.patient.Patient;
 import com.example.backend.user.UserAccount;
 import jakarta.persistence.Column;
@@ -40,7 +40,7 @@ public class Appointment {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "doctor_id", nullable = false)
-    private DoctorProfile doctor;
+    private Doctor doctor;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "service_id", nullable = false)
@@ -81,7 +81,7 @@ public class Appointment {
 
     public Appointment(
             Patient patient,
-            DoctorProfile doctor,
+            Doctor doctor,
             ClinicService service,
             Instant startTime,
             Instant endTime
