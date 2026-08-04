@@ -33,7 +33,6 @@ jobs:
               - '.github/workflows/ci.yml'
             frontend:
               - 'frontend/**'
-              - '.github/workflows/ci.yml'
 
   backend:
     name: Backend (Spring Boot)
