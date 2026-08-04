@@ -40,6 +40,7 @@ class AuthControllerTest extends AbstractIntegrationTest {
         users.save(new UserAccount(
                 "login-test@example.com",
                 passwordEncoder.encode("correct-password"),
+                "Test User",
                 Role.DOCTOR
         ));
 
@@ -84,6 +85,7 @@ class AuthControllerTest extends AbstractIntegrationTest {
         users.save(new UserAccount(
                 "invalid-login@example.com",
                 passwordEncoder.encode("correct-password"),
+                "Test User",
                 Role.PATIENT
         ));
 
@@ -103,6 +105,7 @@ class AuthControllerTest extends AbstractIntegrationTest {
         users.save(new UserAccount(
                 "refresh@example.com",
                 passwordEncoder.encode("password"),
+                "Test User",
                 Role.PATIENT
         ));
 
@@ -136,6 +139,7 @@ class AuthControllerTest extends AbstractIntegrationTest {
         users.save(new UserAccount(
                 "logout@example.com",
                 passwordEncoder.encode("password"),
+                "Test User",
                 Role.PATIENT
         ));
 
@@ -153,8 +157,6 @@ class AuthControllerTest extends AbstractIntegrationTest {
         String accessToken = JsonPath.read(body, "$.accessToken");
         String refreshToken = JsonPath.read(body, "$.refreshToken");
 
-        // Sanity check: the access token works on a protected endpoint
-        // before logout.
         mockMvc.perform(get("/test/open")
                         .header("Authorization", "Bearer " + accessToken))
                 .andExpect(status().isOk());
@@ -166,14 +168,9 @@ class AuthControllerTest extends AbstractIntegrationTest {
                                 """.formatted(refreshToken)))
                 .andExpect(status().isNoContent());
 
-        // The very next request with the same access token is rejected,
-        // even though the token itself hasn't expired yet.
         mockMvc.perform(get("/test/open")
                         .header("Authorization", "Bearer " + accessToken))
                 .andExpect(status().isUnauthorized());
     }
 
-    // Lockout is covered by LoginLockoutFlowTest instead: it needs each
-    // login attempt to commit on its own, which this class's @Transactional
-    // would hide.
 }

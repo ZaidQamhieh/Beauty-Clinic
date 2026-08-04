@@ -20,15 +20,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/*
-  Deliberately NOT @Transactional.
-
-  Lockout counting only works if a failed attempt survives the rollback of
-  the login that produced it, so every attempt here has to commit the way a
-  real request does. Wrapping the class in a test transaction would let all
-  six attempts share one uncommitted transaction and pass even when the
-  counting is broken.
- */
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
@@ -55,6 +46,7 @@ class LoginLockoutFlowTest extends AbstractIntegrationTest {
         users.save(new UserAccount(
                 EMAIL,
                 passwordEncoder.encode("correct-password"),
+                "Test User",
                 Role.PATIENT
         ));
 
@@ -62,12 +54,10 @@ class LoginLockoutFlowTest extends AbstractIntegrationTest {
             attemptLogin("wrong-password");
         }
 
-        // Each failure was counted despite the login being rejected.
         UserAccount locked = users.findByEmailIgnoreCase(EMAIL).orElseThrow();
         assertThat(locked.isLocked(Instant.now())).isTrue();
         assertThat(locked.getLockoutStrikes()).isEqualTo(1);
 
-        // So the 6th attempt fails even with the right password.
         attemptLogin("correct-password");
     }
 
@@ -76,6 +66,7 @@ class LoginLockoutFlowTest extends AbstractIntegrationTest {
         users.save(new UserAccount(
                 EMAIL,
                 passwordEncoder.encode("correct-password"),
+                "Test User",
                 Role.PATIENT
         ));
 

@@ -11,7 +11,6 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.test.context.ActiveProfiles;
 
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -27,7 +26,7 @@ class UserAccountDetailsServiceTest extends AbstractIntegrationTest {
 
     @Test
     void loadsTheRoleAsAnAuthorityOutsideATransaction() {
-        users.save(new UserAccount("doctor@clinic.com", "{bcrypt}hash", Role.DOCTOR));
+        users.save(new UserAccount("doctor@clinic.com", "{bcrypt}hash", "Test User", Role.DOCTOR));
 
         UserDetails details = userDetailsService.loadUserByUsername("Doctor@Clinic.com");
 
@@ -38,7 +37,7 @@ class UserAccountDetailsServiceTest extends AbstractIntegrationTest {
 
     @Test
     void disabledAccountIsReportedAsDisabled() {
-        UserAccount account = new UserAccount("retired@clinic.com", "{bcrypt}hash", Role.DOCTOR);
+        UserAccount account = new UserAccount("retired@clinic.com", "{bcrypt}hash", "Test User", Role.DOCTOR);
         account.setStatus("DEACTIVATED");
         users.save(account);
 

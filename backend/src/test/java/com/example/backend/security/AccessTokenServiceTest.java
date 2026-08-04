@@ -42,27 +42,23 @@ class AccessTokenServiceTest extends AbstractIntegrationTest {
 
     @Test
     void issuesSignedTokenWithExpectedClaims() {
-        // Create an authenticated test user without using the database.
         var user = User.withUsername("doctor@example.com")
                 .password("unused")
                 .authorities("ROLE_DOCTOR", "ROLE_ADMIN")
                 .build();
 
-        // The token's "sid" claim must point at a real session for the
-        // decoder's SessionTokenValidator to accept it.
         UserAccount account = users.save(new UserAccount(
                 "doctor@example.com",
                 passwordEncoder.encode("unused"),
+                "Test User",
                 com.example.backend.security.Role.DOCTOR
         ));
         RefreshToken session = refreshTokens.save(new RefreshToken(
                 account, "unused-hash", Instant.now().plus(7, ChronoUnit.DAYS)
         ));
 
-        // Generate a real signed access token.
         var issuedToken = accessTokens.issue(user, session.getId());
 
-        // Decode it using the same validation used for incoming requests.
         Jwt decodedToken = jwtDecoder.decode(issuedToken.value());
 
         assertThat(issuedToken.expiresInSeconds()).isEqualTo(900);
@@ -77,7 +73,6 @@ class AccessTokenServiceTest extends AbstractIntegrationTest {
         assertThat(decodedToken.getClaimAsString(AccessTokenService.SESSION_CLAIM))
                 .isEqualTo(session.getId().toString());
 
-        // Authorities are sorted before being placed in the token.
         assertThat(
                 decodedToken.getClaimAsStringList(
                         AccessTokenService.AUTHORITIES_CLAIM
