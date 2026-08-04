@@ -43,6 +43,12 @@ public class UserAccount {
     @Column(name = "password_hash", nullable = false)
     private String passwordHash;
 
+    // Display name for any account. A patient record keeps its own name
+    // fields, because a walk-in can be registered without an account.
+    @NotBlank
+    @Column(name = "full_name", nullable = false, length = 150)
+    private String fullName;
+
     // Exactly one role per account: a user is a patient or a doctor or a
     // receptionist or an admin, never a combination.
     @NotNull
@@ -76,9 +82,10 @@ public class UserAccount {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt = Instant.now();
 
-    public UserAccount(String email, String passwordHash, Role role) {
+    public UserAccount(String email, String passwordHash, String fullName, Role role) {
         setEmail(email);
         this.passwordHash = passwordHash;
+        this.fullName = fullName;
         this.role = role;
     }
 

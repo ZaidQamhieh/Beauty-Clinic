@@ -29,6 +29,7 @@ CREATE TABLE user_account (
     email              varchar(255) NOT NULL UNIQUE,
     phone              varchar(30) UNIQUE,
     password_hash      varchar(255) NOT NULL,
+    full_name          varchar(150) NOT NULL,
     role               varchar(30) NOT NULL
                        CHECK (role IN ('PATIENT','RECEPTIONIST','DOCTOR','ADMIN')),
     status             varchar(20) NOT NULL DEFAULT 'ACTIVE'
@@ -54,24 +55,18 @@ CREATE TABLE refresh_token (
 );
 CREATE INDEX idx_refresh_token_user ON refresh_token(user_id);
 
-CREATE TABLE staff (
-    id        uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id   uuid NOT NULL UNIQUE REFERENCES user_account(id) ON DELETE RESTRICT,
-    name      varchar(150) NOT NULL,
-    job_title varchar(100),
-    status    varchar(20) NOT NULL DEFAULT 'ACTIVE'
-              CHECK (status IN ('ACTIVE','INACTIVE'))
-);
-
+-- There is no staff table: a doctor is a user_account with role DOCTOR.
+-- This holds only what is specific to practising, keyed on the account.
 CREATE TABLE doctor_profile (
-    staff_id       uuid PRIMARY KEY REFERENCES staff(id) ON DELETE RESTRICT,
+    user_id        uuid PRIMARY KEY REFERENCES user_account(id) ON DELETE RESTRICT,
     specialty      varchar(120),
-    license_number varchar(60) UNIQUE
+    license_number varchar(60) UNIQUE,
+    bio            text
 );
 
 CREATE TABLE doctor_availability (
     id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    doctor_id   uuid NOT NULL REFERENCES doctor_profile(staff_id) ON DELETE CASCADE,
+    doctor_id   uuid NOT NULL REFERENCES doctor_profile(user_id) ON DELETE CASCADE,
     day_of_week smallint NOT NULL CHECK (day_of_week BETWEEN 0 AND 6),
     start_time  time NOT NULL,
     end_time    time NOT NULL,
@@ -84,8 +79,18 @@ CREATE TABLE service (
     name             varchar(150) NOT NULL,
     name_ar          varchar(150),
     duration_minutes integer NOT NULL CHECK (duration_minutes > 0),
+    price            numeric(10,2) NOT NULL CHECK (price >= 0),
     is_active        boolean NOT NULL DEFAULT true
 );
+
+-- Which services a doctor actually offers. Without this every doctor
+-- implicitly offers everything, and patients cannot browse by treatment.
+CREATE TABLE doctor_service (
+    doctor_id  uuid NOT NULL REFERENCES doctor_profile(user_id) ON DELETE CASCADE,
+    service_id uuid NOT NULL REFERENCES service(id) ON DELETE CASCADE,
+    PRIMARY KEY (doctor_id, service_id)
+);
+CREATE INDEX idx_doctor_service_service ON doctor_service(service_id);
 
 CREATE TABLE patient (
     id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -96,6 +101,9 @@ CREATE TABLE patient (
     phone         varchar(30),
     email         varchar(255),
     address       text,
+    -- Clinical: writable by doctors and admins only, readable by the
+    -- patient themselves. Never exposed to reception.
+    allergies     text,
     language_pref varchar(5) NOT NULL DEFAULT 'en'
                   CHECK (language_pref IN ('en','ar')),
     created_at    timestamptz NOT NULL DEFAULT now(),
@@ -109,7 +117,7 @@ CREATE INDEX idx_patient_email ON patient(lower(email));
 CREATE TABLE appointment (
     id                 uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     patient_id         uuid NOT NULL REFERENCES patient(id) ON DELETE RESTRICT,
-    doctor_id          uuid NOT NULL REFERENCES doctor_profile(staff_id) ON DELETE RESTRICT,
+    doctor_id          uuid NOT NULL REFERENCES doctor_profile(user_id) ON DELETE RESTRICT,
     service_id         uuid NOT NULL REFERENCES service(id) ON DELETE RESTRICT,
     start_time         timestamptz NOT NULL,
     end_time           timestamptz NOT NULL,
@@ -118,9 +126,22 @@ CREATE TABLE appointment (
     reason             text,
     created_by_user_id uuid REFERENCES user_account(id) ON DELETE SET NULL,
     cancelled_at       timestamptz,
+    -- A patient cannot move their own appointment, only ask. The request
+    -- lives here rather than in a table of its own, so an appointment
+    -- carries at most one and a second request replaces the first.
+    reschedule_status         varchar(20)
+                              CHECK (reschedule_status IN ('PENDING','ACCEPTED','DECLINED')),
+    reschedule_requested_at   timestamptz,
+    reschedule_preferred_time timestamptz,
+    reschedule_note           text,
+    reschedule_resolved_at    timestamptz,
     created_at         timestamptz NOT NULL DEFAULT now(),
     updated_at         timestamptz NOT NULL DEFAULT now(),
     CHECK (end_time > start_time),
+    -- Either there is a request or there is not; no half-set state.
+    CHECK ((reschedule_status IS NULL) = (reschedule_requested_at IS NULL)),
+    CHECK ((reschedule_status IN ('ACCEPTED','DECLINED')) IS NOT TRUE
+           OR reschedule_resolved_at IS NOT NULL),
     CONSTRAINT appointment_no_double_booking EXCLUDE USING gist (
         doctor_id WITH =,
         tstzrange(start_time, end_time) WITH &&
@@ -129,11 +150,16 @@ CREATE TABLE appointment (
 CREATE INDEX idx_appointment_patient ON appointment(patient_id);
 CREATE INDEX idx_appointment_doctor_start ON appointment(doctor_id, start_time);
 CREATE INDEX idx_appointment_status_start ON appointment(status, start_time);
+-- Lets a doctor pull their outstanding reschedule requests without
+-- scanning every appointment they have ever had.
+CREATE INDEX idx_appointment_reschedule_pending
+    ON appointment(doctor_id, reschedule_requested_at)
+    WHERE reschedule_status = 'PENDING';
 
 CREATE TABLE treatment_record (
     id                   uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     appointment_id       uuid NOT NULL REFERENCES appointment(id) ON DELETE RESTRICT,
-    recorded_by_staff_id uuid NOT NULL REFERENCES staff(id) ON DELETE RESTRICT,
+    recorded_by_user_id  uuid NOT NULL REFERENCES user_account(id) ON DELETE RESTRICT,
     diagnosis            text,
     treatment            text,
     notes                text,

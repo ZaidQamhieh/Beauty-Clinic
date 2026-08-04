@@ -40,6 +40,7 @@ class AuthControllerTest extends AbstractIntegrationTest {
         users.save(new UserAccount(
                 "login-test@example.com",
                 passwordEncoder.encode("correct-password"),
+                "Test User",
                 Role.DOCTOR
         ));
 
@@ -84,6 +85,7 @@ class AuthControllerTest extends AbstractIntegrationTest {
         users.save(new UserAccount(
                 "invalid-login@example.com",
                 passwordEncoder.encode("correct-password"),
+                "Test User",
                 Role.PATIENT
         ));
 
@@ -103,6 +105,7 @@ class AuthControllerTest extends AbstractIntegrationTest {
         users.save(new UserAccount(
                 "refresh@example.com",
                 passwordEncoder.encode("password"),
+                "Test User",
                 Role.PATIENT
         ));
 
@@ -136,6 +139,7 @@ class AuthControllerTest extends AbstractIntegrationTest {
         users.save(new UserAccount(
                 "logout@example.com",
                 passwordEncoder.encode("password"),
+                "Test User",
                 Role.PATIENT
         ));
 
