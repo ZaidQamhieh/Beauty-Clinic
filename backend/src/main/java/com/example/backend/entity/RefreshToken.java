@@ -51,5 +51,12 @@ public class RefreshToken {
     public boolean isExpired(Instant now) {
         return !expiresAt.isAfter(now);
     }
-    
+
+    // Narrow, rotation-only setters: the row's identity (id, user) never
+    // changes after creation, only what a rotation refreshes.
+    public void rotateTo(String tokenHash, Instant expiresAt) {
+        this.tokenHash = tokenHash;
+        this.expiresAt = expiresAt;
+    }
+
 }

@@ -30,7 +30,7 @@ class JwtConfig {
         try {
             // Convert the Base64 text from .env back into secure key bytes
             secret = Base64.getDecoder().decode(properties.secret());
-        } catch(IllegalArgumentException exc) {
+        } catch(IllegalArgumentException | NullPointerException exc) {
             throw new IllegalStateException(
                 "AUTH_JWT_SECRET must be valid Base64",
                 exc
