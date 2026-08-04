@@ -32,9 +32,6 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class PatientController {
 
-    private static final String CLINIC_STAFF =
-            "hasAnyRole('DOCTOR', 'RECEPTIONIST', 'ADMIN')";
-
     private final PatientService patients;
 
     @PostMapping
@@ -54,7 +51,7 @@ public class PatientController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize(CLINIC_STAFF + " or @access.ownsPatient(#id)")
+    @PreAuthorize("hasAnyRole('DOCTOR', 'RECEPTIONIST', 'ADMIN') or @access.ownsPatient(#id)")
     public PatientDetail read(@PathVariable UUID id) {
         return patients.read(id);
     }
