@@ -7,6 +7,8 @@ import com.example.backend.patient.dto.PatientDetail;
 import com.example.backend.patient.dto.PatientRecord;
 import com.example.backend.patient.dto.PatientSummary;
 import com.example.backend.patient.dto.RegisterPatient;
+import com.example.backend.security.access.ClinicStaffOnly;
+import com.example.backend.security.access.PatientOnly;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
@@ -37,13 +39,13 @@ public class PatientController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize(CLINIC_STAFF)
+    @ClinicStaffOnly
     public PatientDetail register(@Valid @RequestBody RegisterPatient request) {
         return patients.register(request);
     }
 
     @GetMapping
-    @PreAuthorize(CLINIC_STAFF)
+    @ClinicStaffOnly
     public List<PatientSummary> search(
             @RequestParam(name = "q", required = false) String term,
             Pageable pageable
@@ -58,7 +60,7 @@ public class PatientController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize(CLINIC_STAFF)
+    @ClinicStaffOnly
     public PatientDetail updateDemographics(
             @PathVariable UUID id,
             @Valid @RequestBody EditPatient request
@@ -67,13 +69,13 @@ public class PatientController {
     }
 
     @GetMapping("/me")
-    @PreAuthorize("hasRole('PATIENT')")
+    @PatientOnly
     public PatientRecord readOwnRecord() {
         return patients.readOwnRecord();
     }
 
     @PutMapping("/me")
-    @PreAuthorize("hasRole('PATIENT')")
+    @PatientOnly
     public PatientDetail updateOwnProfile(
             @Valid @RequestBody EditOwnProfile request
     ) {

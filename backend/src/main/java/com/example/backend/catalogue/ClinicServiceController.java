@@ -6,7 +6,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
-import org.springframework.security.access.prepost.PreAuthorize;
+import com.example.backend.security.access.AdminOnly;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -48,7 +48,7 @@ public class ClinicServiceController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasRole('ADMIN')")
+    @AdminOnly
     public ServiceView create(@Valid @RequestBody ServiceForm request) {
         ClinicService service = new ClinicService(
                 request.name(), request.durationMinutes(), request.price()
@@ -58,7 +58,7 @@ public class ClinicServiceController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @AdminOnly
     @Transactional
     public ServiceView update(
             @PathVariable UUID id,
@@ -73,7 +73,7 @@ public class ClinicServiceController {
     }
 
     @PutMapping("/{id}/active")
-    @PreAuthorize("hasRole('ADMIN')")
+    @AdminOnly
     @Transactional
     public ServiceView setActive(
             @PathVariable UUID id,
