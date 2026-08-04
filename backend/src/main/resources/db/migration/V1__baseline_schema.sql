@@ -20,10 +20,6 @@ BEGIN
 END;
 $$;
 
--- Login throttling lives on this table rather than a table of its own:
--- failed_login_count / lockout_strikes / locked_until below. That bounds
--- lockout rows by real accounts instead of by attacker-supplied strings,
--- at the cost of not throttling attempts against unknown emails.
 CREATE TABLE user_account (
     id                 uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     email              varchar(255) NOT NULL UNIQUE,
@@ -43,9 +39,6 @@ CREATE TABLE user_account (
     updated_at         timestamptz NOT NULL DEFAULT now()
 );
 
--- Logout deletes the row outright, so there is no revoked_at column: a
--- session either exists or it doesn't. Add one back with the token-reuse
--- detection work, when a revoked-but-remembered state actually exists.
 CREATE TABLE refresh_token (
     id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id    uuid NOT NULL REFERENCES user_account(id) ON DELETE CASCADE,
@@ -55,8 +48,6 @@ CREATE TABLE refresh_token (
 );
 CREATE INDEX idx_refresh_token_user ON refresh_token(user_id);
 
--- There is no staff table: a doctor is a user_account with role DOCTOR.
--- This holds only what is specific to practising, keyed on the account.
 CREATE TABLE doctor_profile (
     user_id        uuid PRIMARY KEY REFERENCES user_account(id) ON DELETE RESTRICT,
     specialty      varchar(120),
@@ -83,8 +74,6 @@ CREATE TABLE service (
     is_active        boolean NOT NULL DEFAULT true
 );
 
--- Which services a doctor actually offers. Without this every doctor
--- implicitly offers everything, and patients cannot browse by treatment.
 CREATE TABLE doctor_service (
     doctor_id  uuid NOT NULL REFERENCES doctor_profile(user_id) ON DELETE CASCADE,
     service_id uuid NOT NULL REFERENCES service(id) ON DELETE CASCADE,
@@ -101,8 +90,6 @@ CREATE TABLE patient (
     phone         varchar(30),
     email         varchar(255),
     address       text,
-    -- Clinical: writable by doctors and admins only, readable by the
-    -- patient themselves. Never exposed to reception.
     allergies     text,
     language_pref varchar(5) NOT NULL DEFAULT 'en'
                   CHECK (language_pref IN ('en','ar')),
@@ -126,9 +113,6 @@ CREATE TABLE appointment (
     reason             text,
     created_by_user_id uuid REFERENCES user_account(id) ON DELETE SET NULL,
     cancelled_at       timestamptz,
-    -- A patient cannot move their own appointment, only ask. The request
-    -- lives here rather than in a table of its own, so an appointment
-    -- carries at most one and a second request replaces the first.
     reschedule_status         varchar(20)
                               CHECK (reschedule_status IN ('PENDING','ACCEPTED','DECLINED')),
     reschedule_requested_at   timestamptz,
@@ -138,7 +122,6 @@ CREATE TABLE appointment (
     created_at         timestamptz NOT NULL DEFAULT now(),
     updated_at         timestamptz NOT NULL DEFAULT now(),
     CHECK (end_time > start_time),
-    -- Either there is a request or there is not; no half-set state.
     CHECK ((reschedule_status IS NULL) = (reschedule_requested_at IS NULL)),
     CHECK ((reschedule_status IN ('ACCEPTED','DECLINED')) IS NOT TRUE
            OR reschedule_resolved_at IS NOT NULL),
@@ -150,8 +133,6 @@ CREATE TABLE appointment (
 CREATE INDEX idx_appointment_patient ON appointment(patient_id);
 CREATE INDEX idx_appointment_doctor_start ON appointment(doctor_id, start_time);
 CREATE INDEX idx_appointment_status_start ON appointment(status, start_time);
--- Lets a doctor pull their outstanding reschedule requests without
--- scanning every appointment they have ever had.
 CREATE INDEX idx_appointment_reschedule_pending
     ON appointment(doctor_id, reschedule_requested_at)
     WHERE reschedule_status = 'PENDING';
@@ -196,9 +177,6 @@ CREATE INDEX idx_activity_log_created ON activity_log(created_at DESC);
 CREATE INDEX idx_activity_log_user ON activity_log(user_id);
 CREATE INDEX idx_activity_log_action ON activity_log(action);
 
--- Scoped with UPDATE OF so that login throttling (failed_login_count,
--- lockout_strikes, locked_until) does not touch updated_at, which tracks
--- changes to the account itself.
 CREATE TRIGGER trg_user_account_updated
     BEFORE UPDATE OF email, phone, password_hash, role, status, language_pref
     ON user_account

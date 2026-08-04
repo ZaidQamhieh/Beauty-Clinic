@@ -43,14 +43,10 @@ public class UserAccount {
     @Column(name = "password_hash", nullable = false)
     private String passwordHash;
 
-    // Display name for any account. A patient record keeps its own name
-    // fields, because a walk-in can be registered without an account.
     @NotBlank
     @Column(name = "full_name", nullable = false, length = 150)
     private String fullName;
 
-    // Exactly one role per account: a user is a patient or a doctor or a
-    // receptionist or an admin, never a combination.
     @NotNull
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
@@ -64,12 +60,9 @@ public class UserAccount {
     @Column(name = "language_pref", nullable = false)
     private String languagePref = "en";
 
-    // Login-throttling state. See LoginLockoutService.
     @Column(name = "failed_login_count", nullable = false)
     private int failedLoginCount = 0;
 
-    // How many times this account has been locked out; drives the
-    // escalating lockout duration.
     @Column(name = "lockout_strikes", nullable = false)
     private int lockoutStrikes = 0;
 
