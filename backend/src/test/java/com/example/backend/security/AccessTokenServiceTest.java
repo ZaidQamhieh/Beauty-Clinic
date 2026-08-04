@@ -1,5 +1,6 @@
 package com.example.backend.security;
 
+import com.example.backend.AbstractIntegrationTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -23,7 +24,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
 @ActiveProfiles("test")
-class AccessTokenServiceTest {
+class AccessTokenServiceTest extends AbstractIntegrationTest {
 
     @Autowired
     private AccessTokenService accessTokens;

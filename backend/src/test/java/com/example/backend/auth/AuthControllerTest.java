@@ -1,5 +1,6 @@
 package com.example.backend.auth;
 
+import com.example.backend.AbstractIntegrationTest;
 import com.example.backend.security.Role;
 import com.example.backend.user.UserAccount;
 import com.example.backend.user.UserAccountRepository;
@@ -24,7 +25,7 @@ import java.util.Set;
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Transactional
-class AuthControllerTest {
+class AuthControllerTest extends AbstractIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;

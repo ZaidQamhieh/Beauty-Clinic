@@ -1,5 +1,6 @@
 package com.example.backend.user;
 
+import com.example.backend.AbstractIntegrationTest;
 import com.example.backend.security.Role;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,7 +18,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @SpringBootTest
 @ActiveProfiles("test")
-class UserAccountDetailsServiceTest {
+class UserAccountDetailsServiceTest extends AbstractIntegrationTest {
 
     @Autowired
     private UserDetailsService userDetailsService;
@@ -39,7 +40,7 @@ class UserAccountDetailsServiceTest {
     @Test
     void disabledAccountIsReportedAsDisabled() {
         UserAccount account = new UserAccount("retired@clinic.com", "{bcrypt}hash", Set.of(Role.DOCTOR));
-        account.setEnabled(false);
+        account.setStatus("DEACTIVATED");
         users.save(account);
 
         UserDetails details = userDetailsService.loadUserByUsername("retired@clinic.com");

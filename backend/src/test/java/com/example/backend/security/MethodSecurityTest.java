@@ -1,5 +1,6 @@
 package com.example.backend.security;
 
+import com.example.backend.AbstractIntegrationTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -16,7 +17,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-class MethodSecurityTest {
+class MethodSecurityTest extends AbstractIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;
