@@ -52,15 +52,7 @@ public class LoginLockoutService {
         lockout.setFailedAttempts(lockout.getFailedAttempts() + 1);
 
         if (lockout.getFailedAttempts() >= MAX_ATTEMPTS) {
-            Duration duration = durationForStrike(lockout.getLockoutStrikes());
-            lockout.setLockedUntil(Instant.now().plus(duration));
-            lockout.setLockoutStrikes(lockout.getLockoutStrikes() + 1);
-            lockout.setFailedAttempts(0);
-
-            log.warn(
-                    "Login lockout triggered: identifier={} duration={} strike={}",
-                    identifier, duration, lockout.getLockoutStrikes()
-            );
+            triggerLockout(lockout, identifier);
         }
 
         try {
@@ -88,6 +80,18 @@ public class LoginLockoutService {
             lockout.setLockedUntil(null);
             lockouts.save(lockout);
         });
+    }
+
+    private void triggerLockout(LoginLockout lockout, String identifier) {
+        Duration duration = durationForStrike(lockout.getLockoutStrikes());
+        lockout.setLockedUntil(Instant.now().plus(duration));
+        lockout.setLockoutStrikes(lockout.getLockoutStrikes() + 1);
+        lockout.setFailedAttempts(0);
+
+        log.warn(
+                "Login lockout triggered: identifier={} duration={} strike={}",
+                identifier, duration, lockout.getLockoutStrikes()
+        );
     }
 
     private Duration durationForStrike(int strike) {
