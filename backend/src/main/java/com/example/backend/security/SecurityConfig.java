@@ -40,6 +40,8 @@ class SecurityConfig {
                         "/api/auth/refresh",
                         "/api/auth/logout"
                 ).permitAll()
+                // Deployment probes cannot carry a token.
+                .requestMatchers("/actuator/health").permitAll()
                 .anyRequest().authenticated()
         )
 
