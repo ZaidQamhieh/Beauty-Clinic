@@ -1,6 +1,7 @@
 package com.example.backend.catalogue;
 
-import com.example.backend.catalogue.dto.ServiceDtos;
+import com.example.backend.catalogue.dto.ServiceForm;
+import com.example.backend.catalogue.dto.ServiceView;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -29,7 +30,7 @@ public class ClinicServiceController {
     private final ClinicServiceRepository services;
 
     @GetMapping
-    public List<ServiceDtos.View> list(
+    public List<ServiceView> list(
             @RequestParam(name = "includeInactive", defaultValue = "false")
             boolean includeInactive
     ) {
@@ -37,50 +38,50 @@ public class ClinicServiceController {
                 ? services.findAll(ClinicServiceRepository.BY_NAME)
                 : services.findByActiveTrue(ClinicServiceRepository.BY_NAME);
 
-        return found.stream().map(ServiceDtos.View::of).toList();
+        return found.stream().map(ServiceView::of).toList();
     }
 
     @GetMapping("/{id}")
-    public ServiceDtos.View read(@PathVariable UUID id) {
-        return ServiceDtos.View.of(require(id));
+    public ServiceView read(@PathVariable UUID id) {
+        return ServiceView.of(require(id));
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasRole('ADMIN')")
-    public ServiceDtos.View create(@Valid @RequestBody ServiceDtos.Upsert request) {
+    public ServiceView create(@Valid @RequestBody ServiceForm request) {
         ClinicService service = new ClinicService(
                 request.name(), request.durationMinutes(), request.price()
         );
         service.setNameAr(request.nameAr());
-        return ServiceDtos.View.of(services.save(service));
+        return ServiceView.of(services.save(service));
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     @Transactional
-    public ServiceDtos.View update(
+    public ServiceView update(
             @PathVariable UUID id,
-            @Valid @RequestBody ServiceDtos.Upsert request
+            @Valid @RequestBody ServiceForm request
     ) {
         ClinicService service = require(id);
         service.setName(request.name());
         service.setNameAr(request.nameAr());
         service.setDurationMinutes(request.durationMinutes());
         service.setPrice(request.price());
-        return ServiceDtos.View.of(service);
+        return ServiceView.of(service);
     }
 
     @PutMapping("/{id}/active")
     @PreAuthorize("hasRole('ADMIN')")
     @Transactional
-    public ServiceDtos.View setActive(
+    public ServiceView setActive(
             @PathVariable UUID id,
             @RequestParam boolean value
     ) {
         ClinicService service = require(id);
         service.setActive(value);
-        return ServiceDtos.View.of(service);
+        return ServiceView.of(service);
     }
 
     private ClinicService require(UUID id) {

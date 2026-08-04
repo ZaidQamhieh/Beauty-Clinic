@@ -1,7 +1,12 @@
 package com.example.backend.patient;
 
-import com.example.backend.patient.dto.PatientRequests;
-import com.example.backend.patient.dto.PatientViews;
+import com.example.backend.patient.dto.EditAllergies;
+import com.example.backend.patient.dto.EditOwnProfile;
+import com.example.backend.patient.dto.EditPatient;
+import com.example.backend.patient.dto.PatientDetail;
+import com.example.backend.patient.dto.PatientRecord;
+import com.example.backend.patient.dto.PatientSummary;
+import com.example.backend.patient.dto.RegisterPatient;
 import com.example.backend.security.CurrentUser;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
@@ -21,7 +26,7 @@ public class PatientService {
     private final CurrentUser currentUser;
 
     @Transactional
-    public PatientViews.Detail register(PatientRequests.Register request) {
+    public PatientDetail register(RegisterPatient request) {
         Patient patient = new Patient(request.firstName(), request.lastName());
         patient.setDateOfBirth(request.dateOfBirth());
         patient.setPhone(request.phone());
@@ -32,28 +37,28 @@ public class PatientService {
             patient.setLanguagePref(request.languagePref());
         }
 
-        return PatientViews.Detail.of(patients.save(patient));
+        return PatientDetail.of(patients.save(patient));
     }
 
     @Transactional(readOnly = true)
-    public List<PatientViews.Summary> search(String term, Pageable pageable) {
+    public List<PatientSummary> search(String term, Pageable pageable) {
         return patients.search(term == null ? "" : term, pageable)
-                .map(PatientViews.Summary::of)
+                .map(PatientSummary::of)
                 .getContent();
     }
 
     @Transactional(readOnly = true)
-    public PatientViews.Detail read(UUID id) {
-        return PatientViews.Detail.of(require(id));
+    public PatientDetail read(UUID id) {
+        return PatientDetail.of(require(id));
     }
 
     @Transactional(readOnly = true)
-    public PatientViews.Clinical readClinical(UUID id) {
-        return PatientViews.Clinical.of(require(id));
+    public PatientRecord readClinical(UUID id) {
+        return PatientRecord.of(require(id));
     }
 
     @Transactional
-    public PatientViews.Detail updateDemographics(UUID id, PatientRequests.Demographics request) {
+    public PatientDetail updateDemographics(UUID id, EditPatient request) {
         Patient patient = require(id);
         patient.setFirstName(request.firstName());
         patient.setLastName(request.lastName());
@@ -66,11 +71,11 @@ public class PatientService {
             patient.setLanguagePref(request.languagePref());
         }
 
-        return PatientViews.Detail.of(patient);
+        return PatientDetail.of(patient);
     }
 
     @Transactional
-    public PatientViews.Detail updateOwnProfile(PatientRequests.SelfUpdate request) {
+    public PatientDetail updateOwnProfile(EditOwnProfile request) {
         Patient patient = requireOwn();
         patient.setPhone(request.phone());
         patient.setAddress(request.address());
@@ -79,19 +84,19 @@ public class PatientService {
             patient.setLanguagePref(request.languagePref());
         }
 
-        return PatientViews.Detail.of(patient);
+        return PatientDetail.of(patient);
     }
 
     @Transactional(readOnly = true)
-    public PatientViews.Clinical readOwnRecord() {
-        return PatientViews.Clinical.of(requireOwn());
+    public PatientRecord readOwnRecord() {
+        return PatientRecord.of(requireOwn());
     }
 
     @Transactional
-    public PatientViews.Clinical updateAllergies(UUID id, PatientRequests.Allergies request) {
+    public PatientRecord updateAllergies(UUID id, EditAllergies request) {
         Patient patient = require(id);
         patient.setAllergies(request.allergies());
-        return PatientViews.Clinical.of(patient);
+        return PatientRecord.of(patient);
     }
 
     private Patient require(UUID id) {

@@ -1,7 +1,12 @@
 package com.example.backend.patient;
 
-import com.example.backend.patient.dto.PatientRequests;
-import com.example.backend.patient.dto.PatientViews;
+import com.example.backend.patient.dto.EditAllergies;
+import com.example.backend.patient.dto.EditOwnProfile;
+import com.example.backend.patient.dto.EditPatient;
+import com.example.backend.patient.dto.PatientDetail;
+import com.example.backend.patient.dto.PatientRecord;
+import com.example.backend.patient.dto.PatientSummary;
+import com.example.backend.patient.dto.RegisterPatient;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
@@ -33,13 +38,13 @@ public class PatientController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize(CLINIC_STAFF)
-    public PatientViews.Detail register(@Valid @RequestBody PatientRequests.Register request) {
+    public PatientDetail register(@Valid @RequestBody RegisterPatient request) {
         return patients.register(request);
     }
 
     @GetMapping
     @PreAuthorize(CLINIC_STAFF)
-    public List<PatientViews.Summary> search(
+    public List<PatientSummary> search(
             @RequestParam(name = "q", required = false) String term,
             Pageable pageable
     ) {
@@ -48,29 +53,29 @@ public class PatientController {
 
     @GetMapping("/{id}")
     @PreAuthorize(CLINIC_STAFF + " or @access.ownsPatient(#id)")
-    public PatientViews.Detail read(@PathVariable UUID id) {
+    public PatientDetail read(@PathVariable UUID id) {
         return patients.read(id);
     }
 
     @PutMapping("/{id}")
     @PreAuthorize(CLINIC_STAFF)
-    public PatientViews.Detail updateDemographics(
+    public PatientDetail updateDemographics(
             @PathVariable UUID id,
-            @Valid @RequestBody PatientRequests.Demographics request
+            @Valid @RequestBody EditPatient request
     ) {
         return patients.updateDemographics(id, request);
     }
 
     @GetMapping("/me")
     @PreAuthorize("hasRole('PATIENT')")
-    public PatientViews.Clinical readOwnRecord() {
+    public PatientRecord readOwnRecord() {
         return patients.readOwnRecord();
     }
 
     @PutMapping("/me")
     @PreAuthorize("hasRole('PATIENT')")
-    public PatientViews.Detail updateOwnProfile(
-            @Valid @RequestBody PatientRequests.SelfUpdate request
+    public PatientDetail updateOwnProfile(
+            @Valid @RequestBody EditOwnProfile request
     ) {
         return patients.updateOwnProfile(request);
     }
@@ -79,16 +84,16 @@ public class PatientController {
     @PreAuthorize("hasRole('ADMIN') "
             + "or (hasRole('DOCTOR') and @access.treats(#id)) "
             + "or @access.ownsPatient(#id)")
-    public PatientViews.Clinical readClinical(@PathVariable UUID id) {
+    public PatientRecord readClinical(@PathVariable UUID id) {
         return patients.readClinical(id);
     }
 
     @PutMapping("/{id}/allergies")
     @PreAuthorize("hasRole('ADMIN') "
             + "or (hasRole('DOCTOR') and @access.treats(#id))")
-    public PatientViews.Clinical updateAllergies(
+    public PatientRecord updateAllergies(
             @PathVariable UUID id,
-            @Valid @RequestBody PatientRequests.Allergies request
+            @Valid @RequestBody EditAllergies request
     ) {
         return patients.updateAllergies(id, request);
     }
