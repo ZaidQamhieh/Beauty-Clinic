@@ -107,6 +107,12 @@ class MethodSecurityTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void healthProbeNeedsNoToken() throws Exception {
+        mockMvc.perform(get("/actuator/health"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     void roleAuthorityUsesSpringPrefix() {
         assertThat(Role.DOCTOR.authority().getAuthority()).isEqualTo("ROLE_DOCTOR");
     }

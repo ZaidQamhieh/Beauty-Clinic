@@ -14,6 +14,7 @@ import com.example.backend.security.access.StaffOrOwnPatient;
 import com.example.backend.security.access.PatientOnly;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -26,7 +27,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -45,7 +45,7 @@ public class PatientController {
 
     @GetMapping
     @ClinicStaffOnly
-    public List<PatientSummary> search(
+    public Page<PatientSummary> search(
             @RequestParam(name = "q", required = false) String term,
             Pageable pageable
     ) {
