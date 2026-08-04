@@ -10,11 +10,14 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.security.authentication.DisabledException;
+
+import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
@@ -25,25 +28,35 @@ public class AuthService {
     private final AccessTokenService accessTokens;
     private final RefreshTokenService refreshTokens;
     private final UserDetailsService userDetailsService;
+    private final LoginLockoutService lockouts;
 
     @Transactional
     public TokenResponse login(LoginRequest request) {
+        String identifier = request.email().trim().toLowerCase(Locale.ROOT);
+
+        // Reject up front if this identifier is already locked out.
+        lockouts.assertNotLocked(identifier);
+
         /*
           Create an unauthenticated object containing the submitted
           email and plaintext password.
          */
         var credentials = UsernamePasswordAuthenticationToken
-                .unauthenticated(
-                        request.email().trim(),
-                        request.password()
-                );
+                .unauthenticated(identifier, request.password());
 
         /*
           Spring calls UserAccountDetailsService and PasswordEncoder.
           Invalid credentials cause authentication to fail here.
          */
-        Authentication authentication =
-                authenticationManager.authenticate(credentials);
+        Authentication authentication;
+        try {
+            authentication = authenticationManager.authenticate(credentials);
+        } catch (AuthenticationException failure) {
+            lockouts.recordFailure(identifier);
+            throw failure;
+        }
+
+        lockouts.recordSuccess(identifier);
 
         // This is the authenticated Spring Security representation.
         UserDetails principal =
