@@ -18,7 +18,6 @@ import com.example.backend.user.UserAccountRepository;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -54,7 +53,7 @@ class AccessTokenServiceTest extends AbstractIntegrationTest {
         UserAccount account = users.save(new UserAccount(
                 "doctor@example.com",
                 passwordEncoder.encode("unused"),
-                Set.of(com.example.backend.security.Role.DOCTOR)
+                com.example.backend.security.Role.DOCTOR
         ));
         RefreshToken session = refreshTokens.save(new RefreshToken(
                 account, "unused-hash", Instant.now().plus(7, ChronoUnit.DAYS)

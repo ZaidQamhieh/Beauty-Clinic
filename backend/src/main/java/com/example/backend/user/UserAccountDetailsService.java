@@ -1,6 +1,5 @@
 package com.example.backend.user;
 
-import com.example.backend.security.Role;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -21,7 +20,7 @@ class UserAccountDetailsService implements UserDetailsService {
 
         return User.withUsername(account.getEmail())
                 .password(account.getPasswordHash())
-                .authorities(account.getRoles().stream().map(Role::authority).toList())
+                .authorities(account.getRole().authority())
                 .disabled(!account.isEnabled())
                 .build();
     }

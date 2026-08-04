@@ -20,16 +20,28 @@ frontend/   Flutter web app
 
 ### Backend
 
-Copy `.env.example` to `.env` and fill in the Neon connection details, then:
+Create a `.env` in the repo root with the Neon connection details:
+
+```properties
+DB_URL=jdbc:postgresql://<your-neon-host>.neon.tech:5432/neondb?sslmode=require
+DB_USER=
+DB_PASSWORD=
+AUTH_JWT_SECRET=          # required, Base64, at least 32 bytes
+AUTH_TOKEN_ISSUER=https://beauty-clinic.example
+AUTH_ACCESS_TTL=15m
+AUTH_REFRESH_TTL=7d
+```
+
+Then:
 
 ```bash
 cd backend
 ./mvnw spring-boot:run
 ```
 
-Runs on `http://localhost:8080` by default. Tests: `./mvnw test` (tests use an in-memory H2 database via the `test` profile and never touch Neon).
+Runs on `http://localhost:8080` by default. Tests: `./mvnw test` — they start a throwaway PostgreSQL container via Testcontainers, so Docker must be running and Neon is never touched.
 
-Schema is generated from the JPA entities by `spring.jpa.hibernate.ddl-auto=update`. It only ever adds tables and columns — it never drops or retypes one. See [SETUP-4](https://trello.com/c/RK032omp) for why there is no migration tool and when to revisit that.
+Schema comes from Flyway migrations in `backend/src/main/resources/db/migration`. Hibernate is set to `ddl-auto=validate`, so it checks the entities against that schema and never changes it.
 
 ### Frontend
 
@@ -42,9 +54,10 @@ flutter run -d chrome
 ## Running with Docker
 
 ```bash
-cp .env.example .env
 docker compose up --build
 ```
+
+Every variable has a default except `AUTH_JWT_SECRET`, which must be set in `.env` or the stack refuses to start.
 
 Starts a local Postgres and the backend, wired together via the `docker` Spring profile. Backend is reachable at `http://localhost:8080`, Postgres at `localhost:5432`. This is an offline alternative to Neon — the `docker` profile overrides the datasource so nothing points at the hosted database.
 
