@@ -58,22 +58,19 @@ class LoginLockoutServiceTest extends AbstractIntegrationTest {
         failNTimes(identifier, 5);
         LoginLockout firstLockout = repository.findByIdentifier(identifier).orElseThrow();
         assertThat(firstLockout.getLockoutStrikes()).isEqualTo(1);
-        assertLockedForAbout(firstLockout, Duration.ofMinutes(30));
+        Duration firstDuration = Duration.between(Instant.now(), firstLockout.getLockedUntil());
+        assertThat(firstDuration).isCloseTo(Duration.ofMinutes(30), Duration.ofMinutes(1));
 
         failNTimes(identifier, 5);
         LoginLockout secondLockout = repository.findByIdentifier(identifier).orElseThrow();
         assertThat(secondLockout.getLockoutStrikes()).isEqualTo(2);
-        assertLockedForAbout(secondLockout, Duration.ofHours(5));
+        Duration secondDuration = Duration.between(Instant.now(), secondLockout.getLockedUntil());
+        assertThat(secondDuration).isCloseTo(Duration.ofHours(5), Duration.ofMinutes(1));
     }
 
     private void failNTimes(String identifier, int n) {
         for (int i = 0; i < n; i++) {
             lockouts.recordFailure(identifier);
         }
-    }
-
-    private void assertLockedForAbout(LoginLockout lockout, Duration expected) {
-        assertThat(Duration.between(Instant.now(), lockout.getLockedUntil()))
-                .isCloseTo(expected, Duration.ofMinutes(1));
     }
 }
