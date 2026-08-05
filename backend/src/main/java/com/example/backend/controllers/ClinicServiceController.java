@@ -1,7 +1,7 @@
 package com.example.backend.controllers;
 
-import com.example.backend.dtos.ServiceForm;
-import com.example.backend.dtos.ServiceView;
+import com.example.backend.dtos.ServiceRequest;
+import com.example.backend.dtos.ServiceResponse;
 import com.example.backend.entities.ClinicService;
 import com.example.backend.repositories.ClinicServiceRepository;
 import jakarta.validation.Valid;
@@ -32,7 +32,7 @@ public class ClinicServiceController {
     private final ClinicServiceRepository services;
 
     @GetMapping
-    public List<ServiceView> list(
+    public List<ServiceResponse> list(
             @RequestParam(name = "includeInactive", defaultValue = "false")
             boolean includeInactive
     ) {
@@ -40,50 +40,50 @@ public class ClinicServiceController {
                 ? services.findAll(ClinicServiceRepository.BY_NAME)
                 : services.findByActiveTrue(ClinicServiceRepository.BY_NAME);
 
-        return found.stream().map(ServiceView::of).toList();
+        return found.stream().map(ServiceResponse::of).toList();
     }
 
     @GetMapping("/{id}")
-    public ServiceView read(@PathVariable UUID id) {
-        return ServiceView.of(require(id));
+    public ServiceResponse read(@PathVariable UUID id) {
+        return ServiceResponse.of(require(id));
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @AdminOnly
-    public ServiceView create(@Valid @RequestBody ServiceForm request) {
+    public ServiceResponse create(@Valid @RequestBody ServiceRequest request) {
         ClinicService service = new ClinicService(
                 request.name(), request.durationMinutes(), request.price()
         );
         service.setNameAr(request.nameAr());
-        return ServiceView.of(services.save(service));
+        return ServiceResponse.of(services.save(service));
     }
 
     @PutMapping("/{id}")
     @AdminOnly
     @Transactional
-    public ServiceView update(
+    public ServiceResponse update(
             @PathVariable UUID id,
-            @Valid @RequestBody ServiceForm request
+            @Valid @RequestBody ServiceRequest request
     ) {
         ClinicService service = require(id);
         service.setName(request.name());
         service.setNameAr(request.nameAr());
         service.setDurationMinutes(request.durationMinutes());
         service.setPrice(request.price());
-        return ServiceView.of(service);
+        return ServiceResponse.of(service);
     }
 
     @PutMapping("/{id}/active")
     @AdminOnly
     @Transactional
-    public ServiceView setActive(
+    public ServiceResponse setActive(
             @PathVariable UUID id,
             @RequestParam boolean value
     ) {
         ClinicService service = require(id);
         service.setActive(value);
-        return ServiceView.of(service);
+        return ServiceResponse.of(service);
     }
 
     private ClinicService require(UUID id) {

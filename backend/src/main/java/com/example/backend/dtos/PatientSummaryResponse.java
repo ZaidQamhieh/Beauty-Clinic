@@ -4,15 +4,15 @@ import com.example.backend.entities.Patient;
 
 import java.util.UUID;
 
-public record PatientSummary(
+public record PatientSummaryResponse(
         UUID id,
         String firstName,
         String lastName,
         String phone,
         String email
 ) {
-    public static PatientSummary of(Patient patient) {
-        return new PatientSummary(
+    public static PatientSummaryResponse of(Patient patient) {
+        return new PatientSummaryResponse(
                 patient.getId(),
                 patient.getFirstName(),
                 patient.getLastName(),

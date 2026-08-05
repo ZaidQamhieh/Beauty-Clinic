@@ -15,6 +15,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.annotations.SoftDelete;
 import org.hibernate.type.SqlTypes;
 
 import java.util.ArrayList;
@@ -25,6 +26,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "doctor")
+@SoftDelete
 @Getter
 @Setter
 @NoArgsConstructor
@@ -48,12 +50,15 @@ public class Doctor {
     @Column
     private String bio;
 
+    // Soft-deleted like every table: dropping a treatment flags the join row
+    // instead of removing it, and re-offering it later inserts a fresh one.
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "doctor_service",
             joinColumns = @JoinColumn(name = "doctor_id"),
             inverseJoinColumns = @JoinColumn(name = "service_id")
     )
+    @SoftDelete
     private Set<ClinicService> services = new LinkedHashSet<>();
 
     // Weekly schedule as jsonb, read and written whole.
