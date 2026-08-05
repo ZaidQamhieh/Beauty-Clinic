@@ -1,7 +1,6 @@
-package com.example.backend.user;
+package com.example.backend.security;
 
 import com.example.backend.entities.UserAccount;
-import com.example.backend.security.Role;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 

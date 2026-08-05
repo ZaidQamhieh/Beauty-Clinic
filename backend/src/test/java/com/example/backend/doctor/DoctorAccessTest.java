@@ -117,7 +117,7 @@ class DoctorAccessTest extends AbstractIntegrationTest {
     @Test
     void aDoctorSetsTheirOwnWorkingHoursButNotSomeoneElses() throws Exception {
         String body = """
-                [{"dayOfWeek": 1, "start": "09:00", "end": "17:00"}]
+                {"availability": [{"dayOfWeek": 1, "start": "09:00", "end": "17:00"}]}
                 """;
 
         mockMvc.perform(put("/api/doctors/" + doctor.getUserId() + "/working-hours")
@@ -132,6 +132,19 @@ class DoctorAccessTest extends AbstractIntegrationTest {
                         .content(body))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.availability[0].dayOfWeek").value(1));
+    }
+
+    @Test
+    void workingHoursOutsideTheWeekAreRejected() throws Exception {
+        String body = """
+                {"availability": [{"dayOfWeek": 9, "start": "09:00", "end": "17:00"}]}
+                """;
+
+        mockMvc.perform(put("/api/doctors/" + doctor.getUserId() + "/working-hours")
+                        .header("Authorization", "Bearer " + doctorToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest());
     }
 
     private String registerRequest(UserAccount account) {

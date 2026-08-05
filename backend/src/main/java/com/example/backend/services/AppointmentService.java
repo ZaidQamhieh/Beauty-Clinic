@@ -1,8 +1,8 @@
 package com.example.backend.services;
 
-import com.example.backend.appointment.AppointmentStatus;
+import com.example.backend.entities.AppointmentStatus;
 import com.example.backend.clinic.ClinicProperties;
-import com.example.backend.doctor.WorkingHours;
+import com.example.backend.entities.WorkingHours;
 import com.example.backend.dtos.AppointmentResponse;
 import com.example.backend.dtos.BookAppointmentRequest;
 import com.example.backend.dtos.FreeSlotResponse;

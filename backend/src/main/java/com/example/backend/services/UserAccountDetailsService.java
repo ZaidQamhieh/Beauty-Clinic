@@ -2,7 +2,7 @@ package com.example.backend.services;
 
 import com.example.backend.entities.UserAccount;
 import com.example.backend.repositories.UserAccountRepository;
-import com.example.backend.user.UserAccountDetails;
+import com.example.backend.security.UserAccountDetails;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;

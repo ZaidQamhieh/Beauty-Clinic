@@ -13,7 +13,6 @@ import com.example.backend.entities.RefreshToken;
 import com.example.backend.repositories.RefreshTokenRepository;
 import com.example.backend.services.AccessTokenService;
 import com.example.backend.entities.UserAccount;
-import com.example.backend.user.UserAccountDetails;
 import com.example.backend.repositories.UserAccountRepository;
 
 import java.time.Instant;

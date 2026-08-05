@@ -1,9 +1,10 @@
 package com.example.backend.controllers;
 
-import com.example.backend.doctor.WorkingHours;
 import com.example.backend.dtos.DoctorResponse;
 import com.example.backend.dtos.EditDoctorProfileRequest;
 import com.example.backend.dtos.RegisterDoctorRequest;
+import com.example.backend.dtos.SetDoctorServicesRequest;
+import com.example.backend.dtos.SetWorkingHoursRequest;
 import com.example.backend.security.access.AdminOnly;
 import com.example.backend.security.access.Authenticated;
 import com.example.backend.security.access.DoctorSelfOrAdmin;
@@ -21,7 +22,6 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 
 @RestController
@@ -63,17 +63,17 @@ public class DoctorController {
     @DoctorSelfOrAdmin
     public DoctorResponse setWorkingHours(
             @PathVariable UUID userId,
-            @Valid @RequestBody List<WorkingHours> availability
+            @Valid @RequestBody SetWorkingHoursRequest request
     ) {
-        return doctors.setWorkingHours(userId, availability);
+        return doctors.setWorkingHours(userId, request);
     }
 
     @PutMapping("/{userId}/services")
     @DoctorSelfOrAdmin
     public DoctorResponse setServices(
             @PathVariable UUID userId,
-            @RequestBody Set<UUID> serviceIds
+            @Valid @RequestBody SetDoctorServicesRequest request
     ) {
-        return doctors.setServices(userId, serviceIds);
+        return doctors.setServices(userId, request);
     }
 }

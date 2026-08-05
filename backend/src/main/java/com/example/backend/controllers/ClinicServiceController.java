@@ -1,7 +1,7 @@
 package com.example.backend.controllers;
 
-import com.example.backend.dtos.ServiceRequest;
-import com.example.backend.dtos.ServiceResponse;
+import com.example.backend.dtos.ClinicServiceRequest;
+import com.example.backend.dtos.ClinicServiceResponse;
 import com.example.backend.entities.ClinicService;
 import com.example.backend.repositories.ClinicServiceRepository;
 import jakarta.validation.Valid;
@@ -32,7 +32,7 @@ public class ClinicServiceController {
     private final ClinicServiceRepository services;
 
     @GetMapping
-    public List<ServiceResponse> list(
+    public List<ClinicServiceResponse> list(
             @RequestParam(name = "includeInactive", defaultValue = "false")
             boolean includeInactive
     ) {
@@ -40,50 +40,50 @@ public class ClinicServiceController {
                 ? services.findAll(ClinicServiceRepository.BY_NAME)
                 : services.findByActiveTrue(ClinicServiceRepository.BY_NAME);
 
-        return found.stream().map(ServiceResponse::of).toList();
+        return found.stream().map(ClinicServiceResponse::of).toList();
     }
 
     @GetMapping("/{id}")
-    public ServiceResponse read(@PathVariable UUID id) {
-        return ServiceResponse.of(require(id));
+    public ClinicServiceResponse read(@PathVariable UUID id) {
+        return ClinicServiceResponse.of(require(id));
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @AdminOnly
-    public ServiceResponse create(@Valid @RequestBody ServiceRequest request) {
+    public ClinicServiceResponse create(@Valid @RequestBody ClinicServiceRequest request) {
         ClinicService service = new ClinicService(
                 request.name(), request.durationMinutes(), request.price()
         );
         service.setNameAr(request.nameAr());
-        return ServiceResponse.of(services.save(service));
+        return ClinicServiceResponse.of(services.save(service));
     }
 
     @PutMapping("/{id}")
     @AdminOnly
     @Transactional
-    public ServiceResponse update(
+    public ClinicServiceResponse update(
             @PathVariable UUID id,
-            @Valid @RequestBody ServiceRequest request
+            @Valid @RequestBody ClinicServiceRequest request
     ) {
         ClinicService service = require(id);
         service.setName(request.name());
         service.setNameAr(request.nameAr());
         service.setDurationMinutes(request.durationMinutes());
         service.setPrice(request.price());
-        return ServiceResponse.of(service);
+        return ClinicServiceResponse.of(service);
     }
 
     @PutMapping("/{id}/active")
     @AdminOnly
     @Transactional
-    public ServiceResponse setActive(
+    public ClinicServiceResponse setActive(
             @PathVariable UUID id,
             @RequestParam boolean value
     ) {
         ClinicService service = require(id);
         service.setActive(value);
-        return ServiceResponse.of(service);
+        return ClinicServiceResponse.of(service);
     }
 
     private ClinicService require(UUID id) {

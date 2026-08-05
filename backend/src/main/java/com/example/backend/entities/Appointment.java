@@ -1,6 +1,5 @@
 package com.example.backend.entities;
 
-import com.example.backend.appointment.AppointmentStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

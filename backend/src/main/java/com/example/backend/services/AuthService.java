@@ -5,7 +5,7 @@ import com.example.backend.dtos.RefreshTokenRequest;
 import com.example.backend.dtos.TokenResponse;
 
 import com.example.backend.entities.UserAccount;
-import com.example.backend.user.UserAccountDetails;
+import com.example.backend.security.UserAccountDetails;
 import com.example.backend.repositories.UserAccountRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;

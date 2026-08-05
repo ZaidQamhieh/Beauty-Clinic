@@ -1,9 +1,10 @@
 package com.example.backend.services;
 
-import com.example.backend.doctor.WorkingHours;
 import com.example.backend.dtos.DoctorResponse;
 import com.example.backend.dtos.EditDoctorProfileRequest;
 import com.example.backend.dtos.RegisterDoctorRequest;
+import com.example.backend.dtos.SetDoctorServicesRequest;
+import com.example.backend.dtos.SetWorkingHoursRequest;
 import com.example.backend.entities.ClinicService;
 import com.example.backend.entities.Doctor;
 import com.example.backend.entities.UserAccount;
@@ -75,16 +76,17 @@ public class DoctorService {
     }
 
     @Transactional
-    public DoctorResponse setWorkingHours(UUID userId, List<WorkingHours> availability) {
+    public DoctorResponse setWorkingHours(UUID userId, SetWorkingHoursRequest request) {
         Doctor doctor = require(userId);
-        doctor.setAvailability(availability);
+        doctor.setAvailability(request.availability());
         return DoctorResponse.of(doctor);
     }
 
     @Transactional
-    public DoctorResponse setServices(UUID userId, Set<UUID> serviceIds) {
+    public DoctorResponse setServices(UUID userId, SetDoctorServicesRequest request) {
         Doctor doctor = require(userId);
 
+        Set<UUID> serviceIds = request.serviceIds();
         List<ClinicService> found = services.findAllById(serviceIds);
         if (found.size() != serviceIds.size()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "One or more services do not exist");

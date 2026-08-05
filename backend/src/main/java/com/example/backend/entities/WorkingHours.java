@@ -1,4 +1,4 @@
-package com.example.backend.doctor;
+package com.example.backend.entities;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.validation.constraints.Max;

@@ -1,6 +1,6 @@
 package com.example.backend.repositories;
 
-import com.example.backend.appointment.AppointmentStatus;
+import com.example.backend.entities.AppointmentStatus;
 import com.example.backend.entities.Appointment;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;

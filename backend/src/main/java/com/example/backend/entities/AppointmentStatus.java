@@ -1,4 +1,4 @@
-package com.example.backend.appointment;
+package com.example.backend.entities;
 
 public enum AppointmentStatus {
     BOOKED,

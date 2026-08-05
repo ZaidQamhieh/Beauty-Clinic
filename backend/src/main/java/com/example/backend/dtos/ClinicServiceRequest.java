@@ -8,7 +8,7 @@ import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
 
-public record ServiceRequest(
+public record ClinicServiceRequest(
         @NotBlank @Size(max = 150) String name,
         @Size(max = 150) String nameAr,
         @NotNull @Positive Integer durationMinutes,

@@ -2,7 +2,6 @@ package com.example.backend.security;
 
 import com.example.backend.services.AccessTokenService;
 import com.example.backend.services.ActivityLogService;
-import com.example.backend.user.UserAccountDetails;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;

@@ -2,6 +2,7 @@ package com.example.backend.doctor;
 
 import com.example.backend.AbstractIntegrationTest;
 import com.example.backend.entities.Doctor;
+import com.example.backend.entities.WorkingHours;
 import com.example.backend.repositories.DoctorRepository;
 import com.example.backend.security.Role;
 import com.example.backend.entities.UserAccount;

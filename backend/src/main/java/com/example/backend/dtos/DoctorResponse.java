@@ -1,6 +1,6 @@
 package com.example.backend.dtos;
 
-import com.example.backend.doctor.WorkingHours;
+import com.example.backend.entities.WorkingHours;
 import com.example.backend.entities.Doctor;
 
 import java.util.Comparator;
@@ -14,7 +14,7 @@ public record DoctorResponse(
         String licenseNumber,
         String bio,
         List<WorkingHours> availability,
-        List<ServiceResponse> services
+        List<ClinicServiceResponse> services
 ) {
     public static DoctorResponse of(Doctor doctor) {
         return new DoctorResponse(
@@ -25,8 +25,8 @@ public record DoctorResponse(
                 doctor.getBio(),
                 doctor.getAvailability(),
                 doctor.getServices().stream()
-                        .map(ServiceResponse::of)
-                        .sorted(Comparator.comparing(ServiceResponse::name))
+                        .map(ClinicServiceResponse::of)
+                        .sorted(Comparator.comparing(ClinicServiceResponse::name))
                         .toList()
         );
     }

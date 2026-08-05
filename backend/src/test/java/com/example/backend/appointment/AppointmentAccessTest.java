@@ -1,7 +1,7 @@
 package com.example.backend.appointment;
 
 import com.example.backend.AbstractIntegrationTest;
-import com.example.backend.doctor.WorkingHours;
+import com.example.backend.entities.WorkingHours;
 import com.example.backend.entities.ClinicService;
 import com.example.backend.entities.Doctor;
 import com.example.backend.entities.Patient;
