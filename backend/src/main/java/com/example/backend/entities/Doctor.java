@@ -36,8 +36,11 @@ public class Doctor {
     @Column(name = "user_id")
     private UUID userId;
 
+    // Eager, and not by choice: Hibernate rejects a lazy to-one pointing at a
+    // @SoftDelete entity, because the proxy would have to be resolved before
+    // anyone could tell whether the row behind it still counts as present.
     @MapsId
-    @OneToOne(fetch = FetchType.LAZY, optional = false)
+    @OneToOne(fetch = FetchType.EAGER, optional = false)
     @JoinColumn(name = "user_id")
     private UserAccount user;
 

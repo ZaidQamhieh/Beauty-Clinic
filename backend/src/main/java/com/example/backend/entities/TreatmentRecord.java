@@ -28,11 +28,14 @@ public class TreatmentRecord {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    // Eager, and not by choice: Hibernate rejects a lazy to-one pointing at a
+    // @SoftDelete entity, because the proxy would have to be resolved before
+    // anyone could tell whether the row behind it still counts as present.
+    @ManyToOne(fetch = FetchType.EAGER, optional = false)
     @JoinColumn(name = "appointment_id", nullable = false)
     private Appointment appointment;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @ManyToOne(fetch = FetchType.EAGER, optional = false)
     @JoinColumn(name = "recorded_by_user_id", nullable = false)
     private UserAccount recordedBy;
 
@@ -45,7 +48,8 @@ public class TreatmentRecord {
     @Column
     private String notes;
 
-    // Table is insert-only: a correction is a new row, not an edit.
+    // Table is insert-only: a correction is a new row, not an edit. Stays lazy
+    // because treatment_record is the one table not soft-deleted.
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "amends_record_id", unique = true)
     private TreatmentRecord amends;

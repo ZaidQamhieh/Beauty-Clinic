@@ -31,8 +31,11 @@ public class Patient {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    // Null for walk-ins: reception can register a patient with no login.
-    @OneToOne(fetch = FetchType.LAZY)
+    // Null for walk-ins: reception can register a patient with no login. Eager,
+    // and not by choice: Hibernate rejects a lazy to-one pointing at a
+    // @SoftDelete entity, because the proxy would have to be resolved before
+    // anyone could tell whether the row behind it still counts as present.
+    @OneToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "user_id", unique = true)
     private UserAccount user;
 
