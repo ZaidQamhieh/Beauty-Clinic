@@ -16,7 +16,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.security.authentication.DisabledException;
-
+import org.springframework.security.authentication.LockedException;
 import java.util.Locale;
 
 @Service
@@ -29,22 +29,42 @@ public class AuthService {
     private final RefreshTokenService refreshTokens;
     private final UserAccountDetailsService userDetailsService;
     private final LoginLockoutService lockouts;
+    private final ActivityLogService activityLogs;
 
     @Transactional
     public TokenResponse login(LoginRequest request) {
-        String identifier = request.email().trim().toLowerCase(Locale.ROOT);
 
-        lockouts.assertNotLocked(identifier);
+        String attemptedIdentifier = request.email();
 
-        var credentials = UsernamePasswordAuthenticationToken
-                .unauthenticated(identifier, request.password());
+        String identifier = attemptedIdentifier
+                .trim()
+                .toLowerCase(Locale.ROOT);
 
         Authentication authentication;
+
         try {
-            authentication = authenticationManager.authenticate(credentials);
+                lockouts.assertNotLocked(identifier);
+
+                var credentials = UsernamePasswordAuthenticationToken
+                        .unauthenticated(
+                                identifier,
+                                request.password()
+                        );
+
+                authentication =
+                        authenticationManager.authenticate(credentials);
+
         } catch (AuthenticationException failure) {
-            lockouts.recordFailure(identifier);
-            throw failure;
+
+                if (!(failure instanceof LockedException)) {
+                lockouts.recordFailure(identifier);
+                }
+
+                activityLogs.recordFailedLogin(
+                        attemptedIdentifier
+                );
+
+                throw failure;
         }
 
         lockouts.recordSuccess(identifier);
@@ -59,14 +79,20 @@ public class AuthService {
                 ));
 
         var refreshToken = refreshTokens.issue(user);
-        var accessToken = accessTokens.issue(principal, refreshToken.sessionId());
+
+        var accessToken = accessTokens.issue(
+                principal,
+                refreshToken.sessionId()
+        );
+
+        activityLogs.recordLogin(user.getId());
 
         return new TokenResponse(
                 accessToken.value(),
                 refreshToken.value(),
                 "Bearer",
                 accessToken.expiresInSeconds()
-        );
+      );
     }
 
     @Transactional
