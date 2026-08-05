@@ -24,11 +24,11 @@ There is no separate staff record: a doctor is a `user_account` with role `DOCTO
 - Browse doctors, their working hours, and the services each one offers
 - View the service list
 - View own appointments, read-only
-- Request a reschedule, which notifies the doctor
+- Ask for a reschedule; the clinic cancels the booking and makes a new one
 - Read own allergies and treatment notes, read-only
 - View own notifications
 
-Patients do not book their own appointments, do not cancel, and never write clinical data. A reschedule request changes nothing on its own — the appointment moves only when a doctor acts on it.
+Patients do not book their own appointments, do not cancel, and never write clinical data. Rescheduling is done by the clinic: the existing booking is cancelled and a replacement created.
 
 ## RECEPTIONIST
 
@@ -60,7 +60,6 @@ No clinical data at all: the front desk cannot read or write allergies or treatm
 - Write, read and amend treatment notes
 - See free slots
 - Book, reschedule and cancel appointments
-- Act on reschedule requests for their own appointments
 - Mark an appointment attended or no-show
 - View the service list
 - View own notifications
@@ -82,7 +81,7 @@ Everything the other three roles can do, plus:
 Not tied to any role — these run on a schedule or as a side effect, with no human caller:
 
 - Appointment reminders
-- Reschedule-request notifications
+- Notifications when a booking is cancelled or replaced
 
 ## Ownership, not just role
 
@@ -94,10 +93,8 @@ Own-scoped operations:
 - Set own working hours and own service list
 - View own appointments, own day schedule, own notifications
 - Read own allergies and treatment notes
-- Request a reschedule on own appointment
-- Act on a reschedule request for own appointment
 
-These need the caller's account id. The access token currently carries `sub` (the email) and no id, so every ownership check would mean a lookup by email per request. Adding a `uid` claim and a principal that exposes it is the first piece of work here, before any guard is written.
+These need the caller's account id. The access token carries a `uid` claim holding it, alongside `sub` for the email, and `CurrentUser` reads it back off the request.
 
 ## Field-level restrictions
 
@@ -106,28 +103,54 @@ Two operations are not all-or-nothing on a record:
 - A patient editing their own profile may write name, phone, address and language preference, but not clinical fields. That has to be a separate request body rather than one endpoint that binds the whole row and checks a role inside.
 - A receptionist may edit patient demographics but must not see allergies, so the patient representation they receive cannot carry clinical fields at all.
 
-## Schema work this depends on
+## Schema the policy rests on
 
-The policy above assumes things the schema does not have yet. These block the endpoints the rules would guard:
-
-1. `doctor_service` — which services each doctor offers. Today `service` stands alone and `appointment` references a doctor and a service independently, so every doctor implicitly offers everything.
-2. `allergies` on `patient`. Clinical data currently exists only as free text on `treatment_record`.
-3. `price` on `service`, for the treatment menu.
-4. `appointment.doctor_id` should reference `user_account`, now that `staff` and `doctor_profile` are gone.
-5. Somewhere to hold a reschedule request. A new `notification` type is enough if nothing needs to list them; a small table of its own is better if a doctor should see pending requests and accept or decline them.
+- `doctor` — a doctor is a `user_account` with role `DOCTOR`; this row holds only what is specific to practising, including working hours as a `jsonb` array.
+- `doctor_service` — which treatments each doctor offers, rather than all of them implicitly.
+- `patient.allergies` — the clinical field reception never receives.
+- `service.price` — the treatment menu.
+- `appointment.replaces_appointment_id` — rescheduling cancels the old booking and creates a new one pointing back at it, rather than moving a row. There is no reschedule-request record: a patient asks off-system and the clinic rebooks.
 
 ## How the rules get written
 
-Role-only operations use plain `hasRole`. Anything ownership-scoped goes through a bean instead, so the policy lives in one testable place rather than being spelled out as expression strings across controllers:
+An endpoint names its rule with an annotation rather than spelling out an expression, so the same check cannot be retyped slightly differently in two places:
 
 ```java
-@PreAuthorize("@access.canReadTreatmentNotes(#patientId)")
+@GetMapping("/{id}/clinical")
+@ClinicalReader
+public PatientRecord readClinical(@PathVariable UUID id)
 ```
 
-The primitive underneath is `CurrentUser`, which reads the caller's account id off the request and is reachable from an expression directly when the check is just "is this you":
+The tags live in `com.example.backend.security.access`.
 
-```java
-@PreAuthorize("@currentUser.is(#userId)")
-```
+Role only:
 
-Rules that need to walk a relationship — is this doctor the one on that appointment, is this patient the subject of those notes — belong on the `@access` bean rather than being written inline.
+| Tag | Admits |
+|---|---|
+| `@AdminOnly` | admin |
+| `@DoctorOnly` | doctor |
+| `@ReceptionistOnly` | receptionist |
+| `@PatientOnly` | patient |
+| `@ClinicStaffOnly` | doctor, receptionist, admin |
+| `@ClinicianOnly` | doctor, admin |
+| `@Authenticated` | anyone signed in |
+
+Role combined with ownership:
+
+| Tag | Admits |
+|---|---|
+| `@StaffOrOwnPatient` | clinic staff, or the patient whose record it is |
+| `@ClinicalReader` | admin, a doctor who has treated them, or the patient themselves |
+| `@ClinicalWriter` | admin, or a doctor who has treated them |
+
+The three mixed tags reference `#id`, so they only work on a method with a parameter of that name. That fails closed: elsewhere the expression resolves to null, the rule returns false, and the caller gets 403.
+
+The ownership half sits on `AccessRules`, registered as `access`:
+
+- `ownsPatient(patientId)` — the patient record belonging to the caller's account
+- `treats(patientId)` — the caller has an appointment with them
+- `isSelf(userId)` — the caller is that account
+
+Each answers only "may this caller", never "does this exist". A missing row is `false` here and a 404 from the handler, so a probe cannot tell an id that exists from one that does not.
+
+Rules are added alongside the endpoints that need them, with tests, rather than ahead of them.
