@@ -1,12 +1,12 @@
 package com.example.backend.services;
 
-import com.example.backend.dtos.EditAllergies;
-import com.example.backend.dtos.EditOwnProfile;
-import com.example.backend.dtos.EditPatient;
-import com.example.backend.dtos.PatientDetail;
-import com.example.backend.dtos.PatientRecord;
-import com.example.backend.dtos.PatientSummary;
-import com.example.backend.dtos.RegisterPatient;
+import com.example.backend.dtos.EditAllergiesRequest;
+import com.example.backend.dtos.EditOwnProfileRequest;
+import com.example.backend.dtos.EditPatientRequest;
+import com.example.backend.dtos.PatientDetailResponse;
+import com.example.backend.dtos.PatientRecordResponse;
+import com.example.backend.dtos.PatientSummaryResponse;
+import com.example.backend.dtos.RegisterPatientRequest;
 import com.example.backend.entities.Patient;
 import com.example.backend.repositories.PatientRepository;
 import com.example.backend.security.CurrentUser;
@@ -28,7 +28,7 @@ public class PatientService {
     private final CurrentUser currentUser;
 
     @Transactional
-    public PatientDetail register(RegisterPatient request) {
+    public PatientDetailResponse register(RegisterPatientRequest request) {
         Patient patient = new Patient(request.firstName(), request.lastName());
         patient.setDateOfBirth(request.dateOfBirth());
         patient.setPhone(request.phone());
@@ -39,27 +39,27 @@ public class PatientService {
             patient.setLanguagePref(request.languagePref());
         }
 
-        return PatientDetail.of(patients.save(patient));
+        return PatientDetailResponse.of(patients.save(patient));
     }
 
     @Transactional(readOnly = true)
-    public Page<PatientSummary> search(String term, Pageable pageable) {
+    public Page<PatientSummaryResponse> search(String term, Pageable pageable) {
         return patients.search(term == null ? "" : term, pageable)
-                .map(PatientSummary::of);
+                .map(PatientSummaryResponse::of);
     }
 
     @Transactional(readOnly = true)
-    public PatientDetail read(UUID id) {
-        return PatientDetail.of(require(id));
+    public PatientDetailResponse read(UUID id) {
+        return PatientDetailResponse.of(require(id));
     }
 
     @Transactional(readOnly = true)
-    public PatientRecord readClinical(UUID id) {
-        return PatientRecord.of(require(id));
+    public PatientRecordResponse readClinical(UUID id) {
+        return PatientRecordResponse.of(require(id));
     }
 
     @Transactional
-    public PatientDetail updateDemographics(UUID id, EditPatient request) {
+    public PatientDetailResponse updateDemographics(UUID id, EditPatientRequest request) {
         Patient patient = require(id);
         patient.setFirstName(request.firstName());
         patient.setLastName(request.lastName());
@@ -72,12 +72,12 @@ public class PatientService {
             patient.setLanguagePref(request.languagePref());
         }
 
-        return PatientDetail.of(patient);
+        return PatientDetailResponse.of(patient);
     }
 
     @Transactional
     // Target comes from the token, so a patient cannot aim this at someone else.
-    public PatientDetail updateOwnProfile(EditOwnProfile request) {
+    public PatientDetailResponse updateOwnProfile(EditOwnProfileRequest request) {
         Patient patient = requireOwn();
         patient.setPhone(request.phone());
         patient.setAddress(request.address());
@@ -86,19 +86,19 @@ public class PatientService {
             patient.setLanguagePref(request.languagePref());
         }
 
-        return PatientDetail.of(patient);
+        return PatientDetailResponse.of(patient);
     }
 
     @Transactional(readOnly = true)
-    public PatientRecord readOwnRecord() {
-        return PatientRecord.of(requireOwn());
+    public PatientRecordResponse readOwnRecord() {
+        return PatientRecordResponse.of(requireOwn());
     }
 
     @Transactional
-    public PatientRecord updateAllergies(UUID id, EditAllergies request) {
+    public PatientRecordResponse updateAllergies(UUID id, EditAllergiesRequest request) {
         Patient patient = require(id);
         patient.setAllergies(request.allergies());
-        return PatientRecord.of(patient);
+        return PatientRecordResponse.of(patient);
     }
 
     private Patient require(UUID id) {

@@ -8,7 +8,7 @@ import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
 
-public record ServiceForm(
+public record ServiceRequest(
         @NotBlank @Size(max = 150) String name,
         @Size(max = 150) String nameAr,
         @NotNull @Positive Integer durationMinutes,

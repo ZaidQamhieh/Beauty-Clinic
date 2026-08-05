@@ -1,12 +1,12 @@
 package com.example.backend.controllers;
 
-import com.example.backend.dtos.EditAllergies;
-import com.example.backend.dtos.EditOwnProfile;
-import com.example.backend.dtos.EditPatient;
-import com.example.backend.dtos.PatientDetail;
-import com.example.backend.dtos.PatientRecord;
-import com.example.backend.dtos.PatientSummary;
-import com.example.backend.dtos.RegisterPatient;
+import com.example.backend.dtos.EditAllergiesRequest;
+import com.example.backend.dtos.EditOwnProfileRequest;
+import com.example.backend.dtos.EditPatientRequest;
+import com.example.backend.dtos.PatientDetailResponse;
+import com.example.backend.dtos.PatientRecordResponse;
+import com.example.backend.dtos.PatientSummaryResponse;
+import com.example.backend.dtos.RegisterPatientRequest;
 import com.example.backend.services.PatientService;
 import com.example.backend.security.access.ClinicStaffOnly;
 import com.example.backend.security.access.ClinicalReader;
@@ -40,13 +40,13 @@ public class PatientController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @ClinicStaffOnly
-    public PatientDetail register(@Valid @RequestBody RegisterPatient request) {
+    public PatientDetailResponse register(@Valid @RequestBody RegisterPatientRequest request) {
         return patients.register(request);
     }
 
     @GetMapping
     @ClinicStaffOnly
-    public Page<PatientSummary> search(
+    public Page<PatientSummaryResponse> search(
             @RequestParam(name = "q", required = false) String term,
             Pageable pageable
     ) {
@@ -55,44 +55,44 @@ public class PatientController {
 
     @GetMapping("/{id}")
     @StaffOrOwnPatient
-    public PatientDetail read(@PathVariable UUID id) {
+    public PatientDetailResponse read(@PathVariable UUID id) {
         return patients.read(id);
     }
 
     @PutMapping("/{id}")
     @ClinicStaffOnly
-    public PatientDetail updateDemographics(
+    public PatientDetailResponse updateDemographics(
             @PathVariable UUID id,
-            @Valid @RequestBody EditPatient request
+            @Valid @RequestBody EditPatientRequest request
     ) {
         return patients.updateDemographics(id, request);
     }
 
     @GetMapping("/me")
     @PatientOnly
-    public PatientRecord readOwnRecord() {
+    public PatientRecordResponse readOwnRecord() {
         return patients.readOwnRecord();
     }
 
     @PutMapping("/me")
     @PatientOnly
-    public PatientDetail updateOwnProfile(
-            @Valid @RequestBody EditOwnProfile request
+    public PatientDetailResponse updateOwnProfile(
+            @Valid @RequestBody EditOwnProfileRequest request
     ) {
         return patients.updateOwnProfile(request);
     }
 
     @GetMapping("/{id}/clinical")
     @ClinicalReader
-    public PatientRecord readClinical(@PathVariable UUID id) {
+    public PatientRecordResponse readClinical(@PathVariable UUID id) {
         return patients.readClinical(id);
     }
 
     @PutMapping("/{id}/allergies")
     @ClinicalWriter
-    public PatientRecord updateAllergies(
+    public PatientRecordResponse updateAllergies(
             @PathVariable UUID id,
-            @Valid @RequestBody EditAllergies request
+            @Valid @RequestBody EditAllergiesRequest request
     ) {
         return patients.updateAllergies(id, request);
     }

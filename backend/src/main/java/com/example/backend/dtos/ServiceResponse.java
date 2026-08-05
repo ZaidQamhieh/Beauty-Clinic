@@ -5,7 +5,7 @@ import com.example.backend.entities.ClinicService;
 import java.math.BigDecimal;
 import java.util.UUID;
 
-public record ServiceView(
+public record ServiceResponse(
         UUID id,
         String name,
         String nameAr,
@@ -13,8 +13,8 @@ public record ServiceView(
         BigDecimal price,
         boolean active
 ) {
-    public static ServiceView of(ClinicService service) {
-        return new ServiceView(
+    public static ServiceResponse of(ClinicService service) {
+        return new ServiceResponse(
                 service.getId(),
                 service.getName(),
                 service.getNameAr(),

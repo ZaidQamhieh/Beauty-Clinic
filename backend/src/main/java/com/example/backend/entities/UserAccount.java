@@ -15,6 +15,7 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.SoftDelete;
 
 import java.time.Instant;
 import java.util.Locale;
@@ -22,6 +23,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "user_account")
+@SoftDelete
 @Getter
 @Setter
 @NoArgsConstructor

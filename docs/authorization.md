@@ -142,6 +142,8 @@ Role combined with ownership:
 | `@StaffOrOwnPatient` | clinic staff, or the patient whose record it is |
 | `@ClinicalReader` | admin, a doctor who has treated them, or the patient themselves |
 | `@ClinicalWriter` | admin, or a doctor who has treated them |
+| `@DoctorSelfOrAdmin` | admin, or the doctor whose own record it is |
+| `@AppointmentReader` | clinic staff, or the patient it belongs to |
 
 The three mixed tags reference `#id`, so they only work on a method with a parameter of that name. That fails closed: elsewhere the expression resolves to null, the rule returns false, and the caller gets 403.
 
@@ -149,6 +151,7 @@ The ownership half sits on `AccessRules`, registered as `access`:
 
 - `ownsPatient(patientId)` — the patient record belonging to the caller's account
 - `treats(patientId)` — the caller has an appointment with them
+- `ownsAppointment(appointmentId)` — the appointment's patient is the caller's own record
 - `isSelf(userId)` — the caller is that account
 
 Each answers only "may this caller", never "does this exist". A missing row is `false` here and a 404 from the handler, so a probe cannot tell an id that exists from one that does not.

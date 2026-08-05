@@ -14,9 +14,11 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.SoftDelete;
 
 @Entity
 @Table(name = "refresh_token")
+@SoftDelete
 @Getter
 @NoArgsConstructor
 public class RefreshToken {
@@ -24,8 +26,11 @@ public class RefreshToken {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    //Identifies which user owns this session
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    //Identifies which user owns this session. Eager, and not by choice:
+    //Hibernate rejects a lazy to-one pointing at a @SoftDelete entity, because
+    //the proxy would have to be resolved before anyone could tell whether the
+    //row behind it still counts as present.
+    @ManyToOne(fetch = FetchType.EAGER, optional = false)
     @JoinColumn(name= "user_id", nullable = false)
     private UserAccount user;
 

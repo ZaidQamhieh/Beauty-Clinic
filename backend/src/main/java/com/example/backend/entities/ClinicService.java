@@ -13,6 +13,7 @@ import jakarta.validation.constraints.PositiveOrZero;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.SoftDelete;
 
 import java.math.BigDecimal;
 import java.util.UUID;
@@ -20,6 +21,7 @@ import java.util.UUID;
 // A treatment the clinic sells. Named ClinicService so it does not read as a Spring service.
 @Entity
 @Table(name = "service")
+@SoftDelete
 @Getter
 @Setter
 @NoArgsConstructor

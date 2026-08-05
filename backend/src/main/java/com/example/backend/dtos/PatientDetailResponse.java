@@ -5,8 +5,8 @@ import com.example.backend.entities.Patient;
 import java.time.LocalDate;
 import java.util.UUID;
 
-// Demographics plus allergies. Admin, treating doctor, or the patient themselves.
-public record PatientRecord(
+// Demographics only. Safe for reception - no clinical field exists to leak.
+public record PatientDetailResponse(
         UUID id,
         String firstName,
         String lastName,
@@ -14,11 +14,10 @@ public record PatientRecord(
         String phone,
         String email,
         String address,
-        String languagePref,
-        String allergies
+        String languagePref
 ) {
-    public static PatientRecord of(Patient patient) {
-        return new PatientRecord(
+    public static PatientDetailResponse of(Patient patient) {
+        return new PatientDetailResponse(
                 patient.getId(),
                 patient.getFirstName(),
                 patient.getLastName(),
@@ -26,8 +25,7 @@ public record PatientRecord(
                 patient.getPhone(),
                 patient.getEmail(),
                 patient.getAddress(),
-                patient.getLanguagePref(),
-                patient.getAllergies()
+                patient.getLanguagePref()
         );
     }
 }

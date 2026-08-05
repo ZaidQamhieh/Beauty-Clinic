@@ -16,12 +16,14 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.SoftDelete;
 
 import java.time.Instant;
 import java.util.UUID;
 
 @Entity
 @Table(name = "appointment")
+@SoftDelete
 @Getter
 @Setter
 @NoArgsConstructor
@@ -31,15 +33,20 @@ public class Appointment {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    // These are eager, and not by choice: Hibernate rejects a lazy to-one
+    // pointing at a @SoftDelete entity, because the proxy would have to be
+    // resolved before anyone could tell whether the row behind it still counts
+    // as present. The three below were being read on every response anyway, so
+    // in practice this trades a per-row lookup for a join.
+    @ManyToOne(fetch = FetchType.EAGER, optional = false)
     @JoinColumn(name = "patient_id", nullable = false)
     private Patient patient;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @ManyToOne(fetch = FetchType.EAGER, optional = false)
     @JoinColumn(name = "doctor_id", nullable = false)
     private Doctor doctor;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @ManyToOne(fetch = FetchType.EAGER, optional = false)
     @JoinColumn(name = "service_id", nullable = false)
     private ClinicService service;
 
@@ -59,15 +66,17 @@ public class Appointment {
     @Column
     private String reason;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "created_by_user_id")
     private UserAccount createdBy;
 
     @Column(name = "cancelled_at")
     private Instant cancelledAt;
 
-    // Rescheduling cancels the old row and books a new one pointing here.
-    @ManyToOne(fetch = FetchType.LAZY)
+    // Rescheduling cancels the old row and books a new one pointing here. Eager
+    // for the same reason as above, so a long reschedule chain is walked as far
+    // as hibernate.max_fetch_depth on every load.
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "replaces_appointment_id")
     private Appointment replaces;
 

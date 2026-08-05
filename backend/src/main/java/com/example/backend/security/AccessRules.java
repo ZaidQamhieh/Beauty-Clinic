@@ -32,6 +32,14 @@ public class AccessRules {
                 .orElse(false);
     }
 
+    // The appointment belongs to the patient record the caller owns.
+    @Transactional(readOnly = true)
+    public boolean ownsAppointment(UUID appointmentId) {
+        return currentUser.id()
+                .map(userId -> appointments.existsByIdAndPatientUserId(appointmentId, userId))
+                .orElse(false);
+    }
+
     public boolean isSelf(UUID userId) {
         return currentUser.is(userId);
     }
