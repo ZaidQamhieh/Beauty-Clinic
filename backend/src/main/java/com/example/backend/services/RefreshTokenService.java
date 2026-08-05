@@ -17,13 +17,14 @@ import java.util.HexFormat;
 import java.util.UUID;
 import com.example.backend.entities.RefreshToken;
 import com.example.backend.repositories.RefreshTokenRepository;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
 public class RefreshTokenService {
 
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
-
+    private final ActivityLogService activityLogs;
     private final RefreshTokenRepository refreshTokens;
     private final TokenProperties properties;
 
@@ -99,7 +100,12 @@ public class RefreshTokenService {
         String tokenHash = hash(rawToken);
 
         refreshTokens.peekByTokenHash(tokenHash)
-                .ifPresent(refreshTokens::delete);
+                .ifPresent(token -> {
+                    UUID userId = token.getUser().getId();
+
+                    refreshTokens.delete(token);
+                    activityLogs.recordLogout(userId);
+                });
     }
 
     public record IssuedRefreshToken(
