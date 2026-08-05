@@ -1,15 +1,17 @@
 package com.example.backend.patient;
 
 import com.example.backend.AbstractIntegrationTest;
-import com.example.backend.appointment.Appointment;
-import com.example.backend.appointment.AppointmentRepository;
-import com.example.backend.catalogue.ClinicService;
-import com.example.backend.catalogue.ClinicServiceRepository;
-import com.example.backend.doctor.Doctor;
-import com.example.backend.doctor.DoctorRepository;
+import com.example.backend.entities.Appointment;
+import com.example.backend.repositories.AppointmentRepository;
+import com.example.backend.entities.ClinicService;
+import com.example.backend.repositories.ClinicServiceRepository;
+import com.example.backend.entities.Doctor;
+import com.example.backend.repositories.DoctorRepository;
+import com.example.backend.entities.Patient;
+import com.example.backend.repositories.PatientRepository;
 import com.example.backend.security.Role;
-import com.example.backend.user.UserAccount;
-import com.example.backend.user.UserAccountRepository;
+import com.example.backend.entities.UserAccount;
+import com.example.backend.repositories.UserAccountRepository;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

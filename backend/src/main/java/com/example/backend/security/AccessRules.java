@@ -1,7 +1,7 @@
 package com.example.backend.security;
 
-import com.example.backend.appointment.AppointmentRepository;
-import com.example.backend.patient.PatientRepository;
+import com.example.backend.repositories.AppointmentRepository;
+import com.example.backend.repositories.PatientRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;

@@ -3,6 +3,7 @@ package com.example.backend.exception;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.security.authorization.AuthorizationDeniedException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -24,6 +25,18 @@ class SecurityExceptionHandler {
     // account it belongs to.
     @ExceptionHandler(UsernameNotFoundException.class)
     ProblemDetail onUsernameNotFound(UsernameNotFoundException ex) {
+        ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.UNAUTHORIZED);
+        problem.setTitle("Authentication Failed");
+        problem.setDetail("Invalid credentials");
+        return problem;
+    }
+
+    // Catches BadCredentialsException, DisabledException, LockedException,
+    // and anything else Spring Security throws during authenticate() that
+    // isn't UsernameNotFoundException - same response shape either way,
+    // instead of falling through to the default entry point's bare 401.
+    @ExceptionHandler(AuthenticationException.class)
+    ProblemDetail onAuthenticationFailed(AuthenticationException ex) {
         ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.UNAUTHORIZED);
         problem.setTitle("Authentication Failed");
         problem.setDetail("Invalid credentials");

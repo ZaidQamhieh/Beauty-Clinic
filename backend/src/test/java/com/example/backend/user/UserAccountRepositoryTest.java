@@ -1,6 +1,8 @@
 package com.example.backend.user;
 
 import com.example.backend.AbstractIntegrationTest;
+import com.example.backend.entities.UserAccount;
+import com.example.backend.repositories.UserAccountRepository;
 import com.example.backend.security.Role;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

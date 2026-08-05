@@ -9,12 +9,12 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.ActiveProfiles;
 
-import com.example.backend.entity.RefreshToken;
-import com.example.backend.repository.RefreshTokenRepository;
-import com.example.backend.service.AccessTokenService;
-import com.example.backend.user.UserAccount;
+import com.example.backend.entities.RefreshToken;
+import com.example.backend.repositories.RefreshTokenRepository;
+import com.example.backend.services.AccessTokenService;
+import com.example.backend.entities.UserAccount;
 import com.example.backend.user.UserAccountDetails;
-import com.example.backend.user.UserAccountRepository;
+import com.example.backend.repositories.UserAccountRepository;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;

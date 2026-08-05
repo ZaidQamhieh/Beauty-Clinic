@@ -1,7 +1,7 @@
 package com.example.backend.security;
 
-import com.example.backend.repository.RefreshTokenRepository;
-import com.example.backend.service.AccessTokenService;
+import com.example.backend.repositories.RefreshTokenRepository;
+import com.example.backend.services.AccessTokenService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.OAuth2TokenValidator;

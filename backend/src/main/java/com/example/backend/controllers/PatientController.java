@@ -1,0 +1,99 @@
+package com.example.backend.controllers;
+
+import com.example.backend.dtos.EditAllergies;
+import com.example.backend.dtos.EditOwnProfile;
+import com.example.backend.dtos.EditPatient;
+import com.example.backend.dtos.PatientDetail;
+import com.example.backend.dtos.PatientRecord;
+import com.example.backend.dtos.PatientSummary;
+import com.example.backend.dtos.RegisterPatient;
+import com.example.backend.services.PatientService;
+import com.example.backend.security.access.ClinicStaffOnly;
+import com.example.backend.security.access.ClinicalReader;
+import com.example.backend.security.access.ClinicalWriter;
+import com.example.backend.security.access.StaffOrOwnPatient;
+import com.example.backend.security.access.PatientOnly;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.UUID;
+
+@RestController
+@RequestMapping("/api/patients")
+@RequiredArgsConstructor
+public class PatientController {
+
+    private final PatientService patients;
+
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    @ClinicStaffOnly
+    public PatientDetail register(@Valid @RequestBody RegisterPatient request) {
+        return patients.register(request);
+    }
+
+    @GetMapping
+    @ClinicStaffOnly
+    public Page<PatientSummary> search(
+            @RequestParam(name = "q", required = false) String term,
+            Pageable pageable
+    ) {
+        return patients.search(term, pageable);
+    }
+
+    @GetMapping("/{id}")
+    @StaffOrOwnPatient
+    public PatientDetail read(@PathVariable UUID id) {
+        return patients.read(id);
+    }
+
+    @PutMapping("/{id}")
+    @ClinicStaffOnly
+    public PatientDetail updateDemographics(
+            @PathVariable UUID id,
+            @Valid @RequestBody EditPatient request
+    ) {
+        return patients.updateDemographics(id, request);
+    }
+
+    @GetMapping("/me")
+    @PatientOnly
+    public PatientRecord readOwnRecord() {
+        return patients.readOwnRecord();
+    }
+
+    @PutMapping("/me")
+    @PatientOnly
+    public PatientDetail updateOwnProfile(
+            @Valid @RequestBody EditOwnProfile request
+    ) {
+        return patients.updateOwnProfile(request);
+    }
+
+    @GetMapping("/{id}/clinical")
+    @ClinicalReader
+    public PatientRecord readClinical(@PathVariable UUID id) {
+        return patients.readClinical(id);
+    }
+
+    @PutMapping("/{id}/allergies")
+    @ClinicalWriter
+    public PatientRecord updateAllergies(
+            @PathVariable UUID id,
+            @Valid @RequestBody EditAllergies request
+    ) {
+        return patients.updateAllergies(id, request);
+    }
+}
