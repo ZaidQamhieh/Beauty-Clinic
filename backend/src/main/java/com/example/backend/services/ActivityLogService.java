@@ -35,8 +35,8 @@ public class ActivityLogService {
         );
     }
 
-    // Own transaction: a permission denial may roll back the one it interrupted.
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    // Joins the caller: REQUIRES_NEW cannot see the uncommitted user it references.
+    @Transactional
     public void recordPermissionDenied(Optional<UUID> userId) {
         activityLogs.save(
                 ActivityLog.permissionDenied(userId.orElse(null))
