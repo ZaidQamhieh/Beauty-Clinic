@@ -20,9 +20,7 @@ class CorsConfigTest extends AbstractIntegrationTest {
     @Autowired
     private MockMvc mockMvc;
 
-    /* The regression this exists to catch: without a CorsConfigurationSource,
-       .anyRequest().authenticated() rejects this token-less preflight with 401
-       before the browser ever sends the real request. */
+    /* Without a CorsConfigurationSource this token-less preflight got rejected with 401. */
     @Test
     void preflightFromTheAllowedOriginSucceedsWithoutAToken() throws Exception {
         mockMvc.perform(options("/test/doctor-only")
