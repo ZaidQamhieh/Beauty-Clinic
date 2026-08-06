@@ -21,6 +21,8 @@ import com.example.backend.repositories.UserAccountRepository;
 import com.example.backend.security.CurrentUser;
 import com.example.backend.security.Role;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -120,8 +122,9 @@ public class AppointmentService {
     }
 
     @Transactional(readOnly = true)
-    public List<AppointmentResponse> readOwnAsPatient() {
-        return sorted(appointments.findByPatientUserId(currentUser.requireId()));
+    public Page<AppointmentResponse> readOwnAsPatient(Pageable pageable) {
+        return withSessions(
+                appointments.findByPatientUserIdOrderByScheduledAtAsc(currentUser.requireId(), pageable));
     }
 
     @Transactional(readOnly = true)
@@ -227,22 +230,32 @@ public class AppointmentService {
                 .toList());
     }
 
-    // Sessions for the whole page in one query, not one query per appointment.
     private List<AppointmentResponse> sorted(List<Appointment> found) {
-        if (found.isEmpty()) {
-            return List.of();
-        }
-
-        Map<UUID, List<AppointmentSessionResponse>> byAppointment =
-                sessions.findByAppointmentIdIn(found.stream().map(Appointment::getId).toList()).stream()
-                        .collect(Collectors.groupingBy(
-                                s -> s.getAppointment().getId(),
-                                Collectors.mapping(AppointmentSessionResponse::of, Collectors.toList())));
+        Map<UUID, List<AppointmentSessionResponse>> byAppointment = sessionsFor(found);
 
         return found.stream()
                 .map(a -> AppointmentResponse.of(a, byAppointment.getOrDefault(a.getId(), List.of())))
                 .sorted(Comparator.comparing(AppointmentResponse::scheduledAt))
                 .toList();
+    }
+
+    // Already ordered by the query, so the page keeps its own sequence.
+    private Page<AppointmentResponse> withSessions(Page<Appointment> page) {
+        Map<UUID, List<AppointmentSessionResponse>> byAppointment = sessionsFor(page.getContent());
+
+        return page.map(a -> AppointmentResponse.of(a, byAppointment.getOrDefault(a.getId(), List.of())));
+    }
+
+    // Sessions for the whole page in one query, not one query per appointment.
+    private Map<UUID, List<AppointmentSessionResponse>> sessionsFor(List<Appointment> found) {
+        if (found.isEmpty()) {
+            return Map.of();
+        }
+
+        return sessions.findByAppointmentIdIn(found.stream().map(Appointment::getId).toList()).stream()
+                .collect(Collectors.groupingBy(
+                        s -> s.getAppointment().getId(),
+                        Collectors.mapping(AppointmentSessionResponse::of, Collectors.toList())));
     }
 
     private Appointment require(UUID id) {
