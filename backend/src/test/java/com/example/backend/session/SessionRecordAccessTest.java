@@ -100,7 +100,7 @@ class SessionRecordAccessTest extends AbstractIntegrationTest {
         mockMvc.perform(get("/api/patients/" + patient.getUserId() + "/session-records")
                         .header("Authorization", "Bearer " + treatingDoctorToken))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].note").value("Mild dermatitis, topical cream, follow up in 2 weeks"));
+                .andExpect(jsonPath("$.content[0].note").value("Mild dermatitis, topical cream, follow up in 2 weeks"));
     }
 
     @Test
@@ -127,7 +127,7 @@ class SessionRecordAccessTest extends AbstractIntegrationTest {
         mockMvc.perform(get("/api/patients/" + patient.getUserId() + "/session-records")
                         .header("Authorization", "Bearer " + patientToken))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].note").value("Mild dermatitis, topical cream, follow up in 2 weeks"));
+                .andExpect(jsonPath("$.content[0].note").value("Mild dermatitis, topical cream, follow up in 2 weeks"));
 
         mockMvc.perform(post("/api/patients/" + patient.getUserId() + "/session-records")
                         .header("Authorization", "Bearer " + patientToken)

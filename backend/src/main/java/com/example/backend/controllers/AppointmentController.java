@@ -12,6 +12,8 @@ import com.example.backend.services.AppointmentService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -54,8 +56,8 @@ public class AppointmentController {
 
     @GetMapping("/me")
     @PatientOnly
-    public List<AppointmentResponse> readOwn() {
-        return appointments.readOwnAsPatient();
+    public Page<AppointmentResponse> readOwn(Pageable pageable) {
+        return appointments.readOwnAsPatient(pageable);
     }
 
     @GetMapping("/me/schedule")
