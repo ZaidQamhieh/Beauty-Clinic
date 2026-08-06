@@ -1,4 +1,4 @@
-package com.example.backend.clinic;
+package com.example.backend.config;
 
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.boot.context.properties.ConfigurationProperties;
