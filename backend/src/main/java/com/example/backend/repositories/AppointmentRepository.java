@@ -1,6 +1,8 @@
 package com.example.backend.repositories;
 
 import com.example.backend.entities.Appointment;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -15,6 +17,9 @@ public interface AppointmentRepository extends JpaRepository<Appointment, UUID> 
     boolean existsByIdAndPatientUserId(UUID appointmentId, UUID patientUserId);
 
     List<Appointment> findByPatientUserId(UUID patientUserId);
+
+    // Ordered in SQL, so a page is a slice of the whole run, not sorted alone.
+    Page<Appointment> findByPatientUserIdOrderByScheduledAtAsc(UUID patientUserId, Pageable pageable);
 
     // Half-open [from, to): a derived Between would hand midnight to two days.
     @Query("""

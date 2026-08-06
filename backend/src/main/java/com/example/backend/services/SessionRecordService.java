@@ -15,6 +15,8 @@ import com.example.backend.repositories.ProductRepository;
 import com.example.backend.repositories.SessionRecordRepository;
 import com.example.backend.security.CurrentUser;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,10 +37,9 @@ public class SessionRecordService {
     private final CurrentUser currentUser;
 
     @Transactional(readOnly = true)
-    public List<SessionRecordResponse> list(UUID patientUserId) {
-        return records.findBySessionAppointmentPatientUserIdOrderByCreatedAtDesc(patientUserId).stream()
-                .map(record -> SessionRecordResponse.of(record, prescribedProductIds(record)))
-                .toList();
+    public Page<SessionRecordResponse> list(UUID patientUserId, Pageable pageable) {
+        return records.findBySessionAppointmentPatientUserIdOrderByCreatedAtDesc(patientUserId, pageable)
+                .map(record -> SessionRecordResponse.of(record, prescribedProductIds(record)));
     }
 
     @Transactional
