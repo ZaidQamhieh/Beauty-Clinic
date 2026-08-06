@@ -1,11 +1,13 @@
 package com.example.backend.dtos;
 
-import com.example.backend.entities.Patient;
+import com.example.backend.entities.UserAccount.Gender;
+import com.example.backend.entities.PatientProfile;
 
 import java.time.LocalDate;
 import java.util.UUID;
 
-// Demographics only. Safe for reception - no clinical field exists to leak.
+// Demographics only, read off the account. Safe for reception - no clinical
+// field exists to leak.
 public record PatientDetailResponse(
         UUID id,
         String firstName,
@@ -13,19 +15,18 @@ public record PatientDetailResponse(
         LocalDate dateOfBirth,
         String phone,
         String email,
-        String address,
-        String languagePref
+        Gender gender
 ) {
-    public static PatientDetailResponse of(Patient patient) {
+    public static PatientDetailResponse of(PatientProfile profile) {
+        var user = profile.getUser();
         return new PatientDetailResponse(
-                patient.getId(),
-                patient.getFirstName(),
-                patient.getLastName(),
-                patient.getDateOfBirth(),
-                patient.getPhone(),
-                patient.getEmail(),
-                patient.getAddress(),
-                patient.getLanguagePref()
+                profile.getUserId(),
+                user.getFirstName(),
+                user.getLastName(),
+                user.getDateOfBirth(),
+                user.getPhone(),
+                user.getEmail(),
+                user.getGender()
         );
     }
 }

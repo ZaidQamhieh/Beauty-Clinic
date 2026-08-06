@@ -46,7 +46,8 @@ class LoginLockoutFlowTest extends AbstractIntegrationTest {
         users.save(new UserAccount(
                 EMAIL,
                 passwordEncoder.encode("correct-password"),
-                "Test User",
+                "Test",
+                "User",
                 Role.PATIENT
         ));
 
@@ -66,7 +67,8 @@ class LoginLockoutFlowTest extends AbstractIntegrationTest {
         users.save(new UserAccount(
                 EMAIL,
                 passwordEncoder.encode("correct-password"),
-                "Test User",
+                "Test",
+                "User",
                 Role.PATIENT
         ));
 

@@ -1,14 +1,10 @@
 package com.example.backend.services;
 
-import com.example.backend.doctor.WorkingHours;
 import com.example.backend.dtos.DoctorResponse;
-import com.example.backend.dtos.EditDoctorProfileRequest;
-import com.example.backend.dtos.RegisterDoctorRequest;
-import com.example.backend.entities.ClinicService;
-import com.example.backend.entities.Doctor;
+import com.example.backend.dtos.DoctorProfileRequest;
+import com.example.backend.entities.DoctorProfile;
 import com.example.backend.entities.UserAccount;
-import com.example.backend.repositories.ClinicServiceRepository;
-import com.example.backend.repositories.DoctorRepository;
+import com.example.backend.repositories.DoctorProfileRepository;
 import com.example.backend.repositories.UserAccountRepository;
 import com.example.backend.security.Role;
 import lombok.RequiredArgsConstructor;
@@ -17,23 +13,21 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class DoctorService {
 
-    private final DoctorRepository doctors;
+    private final DoctorProfileRepository doctors;
     private final UserAccountRepository users;
-    private final ClinicServiceRepository services;
 
     @Transactional
-    public DoctorResponse register(RegisterDoctorRequest request) {
-        UserAccount account = users.findById(request.userId())
+    public DoctorResponse register(UUID userId, DoctorProfileRequest request) {
+        UserAccount account = users.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No such account"));
 
         if (account.getRole() != Role.DOCTOR) {
@@ -44,10 +38,11 @@ public class DoctorService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Doctor profile already exists");
         }
 
-        Doctor doctor = new Doctor(account);
-        doctor.setSpecialty(request.specialty());
-        doctor.setLicenseNumber(request.licenseNumber());
-        doctor.setBio(request.bio());
+        DoctorProfile doctor = new DoctorProfile(account);
+        if (request.specializations() != null) {
+            doctor.setSpecializations(new ArrayList<>(request.specializations()));
+        }
+        doctor.setYearsOfExperience(request.yearsOfExperience());
 
         return DoctorResponse.of(doctors.save(doctor));
     }
@@ -66,49 +61,16 @@ public class DoctorService {
     }
 
     @Transactional
-    public DoctorResponse updateProfile(UUID userId, EditDoctorProfileRequest request) {
-        Doctor doctor = require(userId);
-        doctor.setSpecialty(request.specialty());
-        doctor.setLicenseNumber(request.licenseNumber());
-        doctor.setBio(request.bio());
-        return DoctorResponse.of(doctor);
-    }
-
-    @Transactional
-    public DoctorResponse setWorkingHours(UUID userId, List<WorkingHours> availability) {
-        Doctor doctor = require(userId);
-        doctor.setAvailability(availability);
-        return DoctorResponse.of(doctor);
-    }
-
-    @Transactional
-    public DoctorResponse setServices(UUID userId, Set<UUID> serviceIds) {
-        Doctor doctor = require(userId);
-
-        List<ClinicService> found = services.findAllById(serviceIds);
-        if (found.size() != serviceIds.size()) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "One or more services do not exist");
+    public DoctorResponse updateProfile(UUID userId, DoctorProfileRequest request) {
+        DoctorProfile doctor = require(userId);
+        if (request.specializations() != null) {
+            doctor.setSpecializations(new ArrayList<>(request.specializations()));
         }
-
-        // Edited in place rather than replaced wholesale: handing Hibernate a new
-        // collection makes it drop every row and reinsert the lot, and since these
-        // rows are soft-deleted that would leave a tombstone per treatment on
-        // every save. Mutating the managed set touches only what actually changed.
-        Set<ClinicService> offered = doctor.getServices();
-        offered.removeIf(offering -> !serviceIds.contains(offering.getId()));
-
-        Set<UUID> alreadyOffered = offered.stream()
-                .map(ClinicService::getId)
-                .collect(Collectors.toSet());
-
-        found.stream()
-                .filter(service -> !alreadyOffered.contains(service.getId()))
-                .forEach(offered::add);
-
+        doctor.setYearsOfExperience(request.yearsOfExperience());
         return DoctorResponse.of(doctor);
     }
 
-    private Doctor require(UUID userId) {
+    private DoctorProfile require(UUID userId) {
         return doctors.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No such doctor"));
     }

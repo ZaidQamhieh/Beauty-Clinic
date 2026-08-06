@@ -18,9 +18,11 @@ import lombok.Setter;
 import org.hibernate.annotations.SoftDelete;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Locale;
 import java.util.UUID;
 
+// One row per person. A role profile hangs off it.
 @Entity
 @Table(name = "user_account")
 @SoftDelete
@@ -38,29 +40,37 @@ public class UserAccount {
     @Column(nullable = false, unique = true)
     private String email;
 
-    @Column(unique = true)
+    @Column(unique = true, length = 30)
     private String phone;
 
-    @NotBlank
-    @Column(name = "password_hash", nullable = false)
+    // Null until claimed: reception registers walk-ins, who sit at INVITED.
+    @Column(name = "password_hash")
     private String passwordHash;
 
     @NotBlank
-    @Column(name = "full_name", nullable = false, length = 150)
-    private String fullName;
+    @Column(name = "first_name", nullable = false, length = 100)
+    private String firstName;
+
+    @NotBlank
+    @Column(name = "last_name", nullable = false, length = 100)
+    private String lastName;
+
+    @Column(name = "date_of_birth")
+    private LocalDate dateOfBirth;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private Gender gender;
 
     @NotNull
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
     private Role role;
 
-    @NotBlank
-    @Column(nullable = false)
-    private String status = "ACTIVE";
-
-    @NotBlank
-    @Column(name = "language_pref", nullable = false)
-    private String languagePref = "en";
+    @NotNull
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private AccountStatus status = AccountStatus.ACTIVE;
 
     @Column(name = "failed_login_count", nullable = false)
     private int failedLoginCount = 0;
@@ -77,10 +87,11 @@ public class UserAccount {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt = Instant.now();
 
-    public UserAccount(String email, String passwordHash, String fullName, Role role) {
+    public UserAccount(String email, String passwordHash, String firstName, String lastName, Role role) {
         setEmail(email);
         this.passwordHash = passwordHash;
-        this.fullName = fullName;
+        this.firstName = firstName;
+        this.lastName = lastName;
         this.role = role;
     }
 
@@ -88,11 +99,27 @@ public class UserAccount {
         this.email = email == null ? null : email.trim().toLowerCase(Locale.ROOT);
     }
 
+    public String fullName() {
+        return firstName + " " + lastName;
+    }
+
     public boolean isEnabled() {
-        return "ACTIVE".equals(status);
+        return status == AccountStatus.ACTIVE;
     }
 
     public boolean isLocked(Instant now) {
         return lockedUntil != null && lockedUntil.isAfter(now);
+    }
+
+    public enum Gender {
+        MALE,
+        FEMALE,
+        OTHER
+    }
+
+    public enum AccountStatus {
+        ACTIVE,
+        INVITED,
+        DEACTIVATED
     }
 }

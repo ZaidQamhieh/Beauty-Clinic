@@ -38,7 +38,7 @@ public class LoginLockoutService {
         });
     }
 
-    // Own transaction: login rethrows and rolls back, which would discard the count.
+    // Own transaction: login rethrows and rolls back, discarding the count.
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void recordFailure(String identifier) {
         users.lockByEmail(identifier).ifPresent(account -> {

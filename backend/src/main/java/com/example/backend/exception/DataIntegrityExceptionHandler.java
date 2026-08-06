@@ -1,25 +1,23 @@
 package com.example.backend.exception;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-// The schema enforces rules the application also checks: the double-booking
-// exclusion constraint and the live-row unique indexes. Two requests racing for
-// the same slot both pass their check and one loses at the database, which is
-// the constraint working, not a fault - so it answers 409 like the check would
-// have, rather than the 500 an unhandled violation would produce.
+// Races lose at the database; answer 409, not 500. Ranked ahead of the fallback.
 @RestControllerAdvice
+@Order(Ordered.LOWEST_PRECEDENCE - 10)
 @Slf4j
 class DataIntegrityExceptionHandler {
 
     @ExceptionHandler(DataIntegrityViolationException.class)
     ProblemDetail onDataIntegrityViolation(DataIntegrityViolationException ex) {
-        // Logged in full: a violation the application should have caught first is
-        // a bug, and the response deliberately says nothing about which row.
+        // Logged whole: a violation the application should have caught is a bug.
         log.warn("Database rejected a write as conflicting", ex);
 
         ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.CONFLICT);

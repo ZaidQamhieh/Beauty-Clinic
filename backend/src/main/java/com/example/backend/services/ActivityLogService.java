@@ -35,7 +35,7 @@ public class ActivityLogService {
         );
     }
 
-    // Permission denial may cause the original transaction to roll back.
+    // Joins the caller: REQUIRES_NEW cannot see the uncommitted user it references.
     @Transactional
     public void recordPermissionDenied(Optional<UUID> userId) {
         activityLogs.save(

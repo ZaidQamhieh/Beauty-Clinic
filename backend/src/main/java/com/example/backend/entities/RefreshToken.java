@@ -25,10 +25,7 @@ public class RefreshToken {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    //Identifies which user owns this session. Eager, and not by choice:
-    //Hibernate rejects a lazy to-one pointing at a @SoftDelete entity, because
-    //the proxy would have to be resolved before anyone could tell whether the
-    //row behind it still counts as present.
+    // Eager, not by choice: Hibernate rejects a lazy to-one into a @SoftDelete entity.
     @ManyToOne(fetch = FetchType.EAGER, optional = false)
     @JoinColumn(name= "user_id", nullable = false)
     private UserAccount user;
@@ -54,8 +51,7 @@ public class RefreshToken {
         return !expiresAt.isAfter(now);
     }
 
-    // Narrow, rotation-only setters: the row's identity (id, user) never
-    // changes after creation, only what a rotation refreshes.
+    // Rotation-only: id and user never change after creation.
     public void rotateTo(String tokenHash, Instant expiresAt) {
         this.tokenHash = tokenHash;
         this.expiresAt = expiresAt;

@@ -22,7 +22,7 @@ class UserAccountRepositoryTest extends AbstractIntegrationTest {
 
     @Test
     void storesAndFindsByEmailRegardlessOfCase() {
-        users.save(new UserAccount("Repo-Doctor@Clinic.com", "{bcrypt}hash", "Test User", Role.DOCTOR));
+        users.save(new UserAccount("Repo-Doctor@Clinic.com", "{bcrypt}hash", "Test", "User", Role.DOCTOR));
 
         assertThat(users.findByEmailIgnoreCase("repo-doctor@clinic.com")).isPresent();
         assertThat(users.findByEmailIgnoreCase("REPO-DOCTOR@CLINIC.COM")).isPresent();
@@ -30,14 +30,14 @@ class UserAccountRepositoryTest extends AbstractIntegrationTest {
 
     @Test
     void normalisesEmailOnWrite() {
-        UserAccount saved = users.save(new UserAccount("  Mixed@Case.COM ", "{bcrypt}hash", "Test User", Role.PATIENT));
+        UserAccount saved = users.save(new UserAccount("  Mixed@Case.COM ", "{bcrypt}hash", "Test", "User", Role.PATIENT));
 
         assertThat(saved.getEmail()).isEqualTo("mixed@case.com");
     }
 
     @Test
     void defaultsToEnabledWithGeneratedId() {
-        UserAccount saved = users.save(new UserAccount("a@b.com", "{bcrypt}hash", "Test User", Role.ADMIN));
+        UserAccount saved = users.save(new UserAccount("a@b.com", "{bcrypt}hash", "Test", "User", Role.ADMIN));
 
         assertThat(saved.getId()).isNotNull();
         assertThat(saved.isEnabled()).isTrue();

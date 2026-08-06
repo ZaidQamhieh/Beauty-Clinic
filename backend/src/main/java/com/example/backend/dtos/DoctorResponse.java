@@ -1,33 +1,24 @@
 package com.example.backend.dtos;
 
-import com.example.backend.doctor.WorkingHours;
-import com.example.backend.entities.Doctor;
+import com.example.backend.entities.DoctorProfile;
+import com.example.backend.entities.DoctorProfile.Specialization;
 
-import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
+// Availability is its own table now, read at /api/doctors/{userId}/availability.
 public record DoctorResponse(
         UUID userId,
         String fullName,
-        String specialty,
-        String licenseNumber,
-        String bio,
-        List<WorkingHours> availability,
-        List<ServiceResponse> services
+        List<Specialization> specializations,
+        Integer yearsOfExperience
 ) {
-    public static DoctorResponse of(Doctor doctor) {
+    public static DoctorResponse of(DoctorProfile doctor) {
         return new DoctorResponse(
                 doctor.getUserId(),
-                doctor.getUser().getFullName(),
-                doctor.getSpecialty(),
-                doctor.getLicenseNumber(),
-                doctor.getBio(),
-                doctor.getAvailability(),
-                doctor.getServices().stream()
-                        .map(ServiceResponse::of)
-                        .sorted(Comparator.comparing(ServiceResponse::name))
-                        .toList()
+                doctor.getUser().fullName(),
+                doctor.getSpecializations(),
+                doctor.getYearsOfExperience()
         );
     }
 }

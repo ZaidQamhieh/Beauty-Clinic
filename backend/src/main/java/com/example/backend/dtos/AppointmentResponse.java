@@ -3,34 +3,28 @@ package com.example.backend.dtos;
 import com.example.backend.entities.Appointment;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
+// Appointment holds no collection of sessions, so callers fetch and pass them in.
 public record AppointmentResponse(
         UUID id,
-        UUID patientId,
+        UUID patientUserId,
         String patientName,
-        UUID doctorId,
-        String doctorName,
-        UUID serviceId,
-        String serviceName,
-        Instant startTime,
-        Instant endTime,
+        Instant scheduledAt,
         String status,
-        String reason
+        UUID replacesAppointmentId,
+        List<AppointmentSessionResponse> sessions
 ) {
-    public static AppointmentResponse of(Appointment appointment) {
+    public static AppointmentResponse of(Appointment appointment, List<AppointmentSessionResponse> sessions) {
         return new AppointmentResponse(
                 appointment.getId(),
-                appointment.getPatient().getId(),
-                appointment.getPatient().getFirstName() + " " + appointment.getPatient().getLastName(),
-                appointment.getDoctor().getUserId(),
-                appointment.getDoctor().getUser().getFullName(),
-                appointment.getService().getId(),
-                appointment.getService().getName(),
-                appointment.getStartTime(),
-                appointment.getEndTime(),
+                appointment.getPatient().getUserId(),
+                appointment.getPatient().getUser().fullName(),
+                appointment.getScheduledAt(),
                 appointment.getStatus().name(),
-                appointment.getReason()
+                appointment.getReplaces() != null ? appointment.getReplaces().getId() : null,
+                sessions
         );
     }
 }

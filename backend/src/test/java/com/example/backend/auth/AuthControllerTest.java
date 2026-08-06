@@ -14,6 +14,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.annotation.Transactional;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -40,7 +41,8 @@ class AuthControllerTest extends AbstractIntegrationTest {
         users.save(new UserAccount(
                 "login-test@example.com",
                 passwordEncoder.encode("correct-password"),
-                "Test User",
+                "Test",
+                "User",
                 Role.DOCTOR
         ));
 
@@ -67,7 +69,31 @@ class AuthControllerTest extends AbstractIntegrationTest {
                                   "password": "whatever"
                                 }
                                 """))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title").value("Invalid Request"))
+                .andExpect(jsonPath("$.errors.email").exists());
+    }
+
+    // The rejected value is left out: here it is the password.
+    @Test
+    void anOverlongPasswordIsRejectedWithoutEchoingIt() throws Exception {
+        String password = "leaky".repeat(20);
+
+        String body = mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "someone@example.com",
+                                  "password": "%s"
+                                }
+                                """.formatted(password)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.password").exists())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        assertThat(body).doesNotContain("leaky");
     }
 
     @Test
@@ -85,7 +111,8 @@ class AuthControllerTest extends AbstractIntegrationTest {
         users.save(new UserAccount(
                 "invalid-login@example.com",
                 passwordEncoder.encode("correct-password"),
-                "Test User",
+                "Test",
+                "User",
                 Role.PATIENT
         ));
 
@@ -105,7 +132,8 @@ class AuthControllerTest extends AbstractIntegrationTest {
         users.save(new UserAccount(
                 "refresh@example.com",
                 passwordEncoder.encode("password"),
-                "Test User",
+                "Test",
+                "User",
                 Role.PATIENT
         ));
 
@@ -139,7 +167,8 @@ class AuthControllerTest extends AbstractIntegrationTest {
         users.save(new UserAccount(
                 "logout@example.com",
                 passwordEncoder.encode("password"),
-                "Test User",
+                "Test",
+                "User",
                 Role.PATIENT
         ));
 

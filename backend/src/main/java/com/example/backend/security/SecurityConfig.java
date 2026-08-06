@@ -76,12 +76,11 @@ class SecurityConfig {
         return new SpringAuthorizationEventPublisher(publisher);
     }
 
-    @Bean // AuthenticationManager coordinates credential verification and returns an authenticated user.
+    // Exposed as a bean so AuthService can authenticate a login directly.
+    @Bean
     AuthenticationManager authenticationManager(
-            AuthenticationConfiguration configuration//gives us the manager Spring assembled from existing security components.
+            AuthenticationConfiguration configuration
     ) throws Exception {
-        // Spring builds this manager using the existing
-        // UserAccountDetailsService and PasswordEncoder.
         return configuration.getAuthenticationManager();
     }
 }

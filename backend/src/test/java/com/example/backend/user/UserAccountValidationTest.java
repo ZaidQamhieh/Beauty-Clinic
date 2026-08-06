@@ -23,23 +23,23 @@ class UserAccountValidationTest extends AbstractIntegrationTest {
 
     @Test
     void rejectsMalformedEmail() {
-        UserAccount account = new UserAccount("not-an-email", "{bcrypt}hash", "Test User", Role.PATIENT);
+        UserAccount account = new UserAccount("not-an-email", "{bcrypt}hash", "Test", "User", Role.PATIENT);
 
         assertThatThrownBy(() -> users.saveAndFlush(account))
                 .isInstanceOf(ConstraintViolationException.class);
     }
 
     @Test
-    void rejectsBlankPasswordHash() {
-        UserAccount account = new UserAccount("someone@clinic.com", "  ", "Test User", Role.PATIENT);
+    void rejectsBlankFirstName() {
+        UserAccount account = new UserAccount("someone@clinic.com", "{bcrypt}hash", "  ", "User", Role.PATIENT);
 
         assertThatThrownBy(() -> users.saveAndFlush(account))
                 .isInstanceOf(ConstraintViolationException.class);
     }
 
     @Test
-    void rejectsBlankFullName() {
-        UserAccount account = new UserAccount("nameless@clinic.com", "{bcrypt}hash", "  ", Role.PATIENT);
+    void rejectsBlankLastName() {
+        UserAccount account = new UserAccount("someone@clinic.com", "{bcrypt}hash", "Test", "  ", Role.PATIENT);
 
         assertThatThrownBy(() -> users.saveAndFlush(account))
                 .isInstanceOf(ConstraintViolationException.class);
@@ -47,7 +47,7 @@ class UserAccountValidationTest extends AbstractIntegrationTest {
 
     @Test
     void rejectsAccountWithNoRole() {
-        UserAccount account = new UserAccount("roleless@clinic.com", "{bcrypt}hash", "Test User", null);
+        UserAccount account = new UserAccount("roleless@clinic.com", "{bcrypt}hash", "Test", "User", null);
 
         assertThatThrownBy(() -> users.saveAndFlush(account))
                 .isInstanceOf(ConstraintViolationException.class);

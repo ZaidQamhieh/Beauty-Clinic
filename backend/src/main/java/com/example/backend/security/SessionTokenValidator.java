@@ -11,8 +11,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.UUID;
 
-// Rejects an access token once its refresh-token row is gone (e.g. logout),
-// instead of waiting for the token to expire on its own.
+// Rejects an access token once its refresh-token row is gone, e.g. logout.
 @Component
 @RequiredArgsConstructor
 class SessionTokenValidator implements OAuth2TokenValidator<Jwt> {

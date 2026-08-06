@@ -2,7 +2,7 @@ package com.example.backend.services;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.GrantedAuthority;
-import com.example.backend.user.UserAccountDetails;
+import com.example.backend.security.UserAccountDetails;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.JwsHeader;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
@@ -24,7 +24,7 @@ public class AccessTokenService {
 
     public static final String SESSION_CLAIM = "sid";
 
-    // Account id. Ownership rules compare this, not the email subject.
+    // Account id. Ownership rules compare this, not email subject.
     public static final String USER_ID_CLAIM = "uid";
 
     private final JwtEncoder jwtEncoder;

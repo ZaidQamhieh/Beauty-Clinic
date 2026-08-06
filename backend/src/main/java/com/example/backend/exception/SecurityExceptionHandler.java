@@ -1,5 +1,7 @@
 package com.example.backend.exception;
 
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.security.authorization.AuthorizationDeniedException;
@@ -8,7 +10,9 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+// Ranked ahead of FallbackExceptionHandler, which would otherwise tie with it.
 @RestControllerAdvice
+@Order(Ordered.LOWEST_PRECEDENCE - 10)
 class SecurityExceptionHandler {
 
     @ExceptionHandler(AuthorizationDeniedException.class)
@@ -19,10 +23,7 @@ class SecurityExceptionHandler {
         return problem;
     }
 
-    // Covers the account-vanished-mid-request races in AuthService: the
-    // authenticated user disappearing between authenticate() and the
-    // follow-up lookup in login(), and a refresh token outliving the
-    // account it belongs to.
+    // Covers the account vanishing mid-request, and a token outliving its account.
     @ExceptionHandler(UsernameNotFoundException.class)
     ProblemDetail onUsernameNotFound(UsernameNotFoundException ex) {
         ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.UNAUTHORIZED);
@@ -31,10 +32,7 @@ class SecurityExceptionHandler {
         return problem;
     }
 
-    // Catches BadCredentialsException, DisabledException, LockedException,
-    // and anything else Spring Security throws during authenticate() that
-    // isn't UsernameNotFoundException - same response shape either way,
-    // instead of falling through to the default entry point's bare 401.
+    // Every other authenticate() failure, so all share one shape, not a bare 401.
     @ExceptionHandler(AuthenticationException.class)
     ProblemDetail onAuthenticationFailed(AuthenticationException ex) {
         ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.UNAUTHORIZED);

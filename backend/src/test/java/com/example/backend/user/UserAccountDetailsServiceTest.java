@@ -1,6 +1,7 @@
 package com.example.backend.user;
 
 import com.example.backend.AbstractIntegrationTest;
+import com.example.backend.entities.UserAccount.AccountStatus;
 import com.example.backend.entities.UserAccount;
 import com.example.backend.repositories.UserAccountRepository;
 import com.example.backend.security.Role;
@@ -28,7 +29,7 @@ class UserAccountDetailsServiceTest extends AbstractIntegrationTest {
 
     @Test
     void loadsTheRoleAsAnAuthorityOutsideATransaction() {
-        users.save(new UserAccount("doctor@clinic.com", "{bcrypt}hash", "Test User", Role.DOCTOR));
+        users.save(new UserAccount("doctor@clinic.com", "{bcrypt}hash", "Test", "User", Role.DOCTOR));
 
         UserDetails details = userDetailsService.loadUserByUsername("Doctor@Clinic.com");
 
@@ -39,8 +40,8 @@ class UserAccountDetailsServiceTest extends AbstractIntegrationTest {
 
     @Test
     void disabledAccountIsReportedAsDisabled() {
-        UserAccount account = new UserAccount("retired@clinic.com", "{bcrypt}hash", "Test User", Role.DOCTOR);
-        account.setStatus("DEACTIVATED");
+        UserAccount account = new UserAccount("retired@clinic.com", "{bcrypt}hash", "Test", "User", Role.DOCTOR);
+        account.setStatus(AccountStatus.DEACTIVATED);
         users.save(account);
 
         UserDetails details = userDetailsService.loadUserByUsername("retired@clinic.com");
