@@ -35,9 +35,8 @@ class SecurityConfig {
         // This REST API uses Bearer headers, not login cookies.
         .csrf(csrf -> csrf.disable())
 
-        // Spring Security answers the browser's preflight here, before
-        // authorization ever runs - without it, .anyRequest().authenticated()
-        // rejects the token-less OPTIONS request with 401.
+        // CorsFilter runs ahead of authorization, so a valid preflight never
+        // reaches .anyRequest().authenticated().
         .cors(cors -> cors.configurationSource(corsConfigurationSource))
 
         // Every request must carry its own access token.
@@ -67,8 +66,7 @@ class SecurityConfig {
         .build();
     }
 
-    // Named origins only: a wildcard on an API that reads Authorization would
-    // let any site read a response if a browser ever sent credentials too.
+    // Named origins only: a wildcard here could let any site read a credentialed response.
     @Bean
     CorsConfigurationSource corsConfigurationSource(CorsProperties properties) {
         CorsConfiguration configuration = new CorsConfiguration();
