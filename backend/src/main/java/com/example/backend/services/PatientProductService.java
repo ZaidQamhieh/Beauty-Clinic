@@ -1,6 +1,6 @@
 package com.example.backend.services;
 
-import com.example.backend.clinic.ClinicProperties;
+import com.example.backend.config.ClinicProperties;
 import com.example.backend.dtos.AddPatientProductRequest;
 import com.example.backend.dtos.PatientProductResponse;
 import com.example.backend.entities.PatientProduct;
