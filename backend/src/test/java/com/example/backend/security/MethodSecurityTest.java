@@ -38,10 +38,14 @@ class MethodSecurityTest extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.requiredRoles").doesNotExist());
     }
 
+    // 401, not 403: the filter chain refuses anonymous callers before method security.
     @Test
     void deniesUnauthenticatedRequest() throws Exception {
         mockMvc.perform(get("/test/doctor-only"))
-                .andExpect(status().is4xxClientError());
+                .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(get("/test/meta/any"))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -98,12 +102,6 @@ class MethodSecurityTest extends AbstractIntegrationTest {
     void authenticatedAnnotationAdmitsAnySignedInRole() throws Exception {
         mockMvc.perform(get("/test/meta/any"))
                 .andExpect(status().isOk());
-    }
-
-    @Test
-    void authenticatedAnnotationRejectsAnonymous() throws Exception {
-        mockMvc.perform(get("/test/meta/any"))
-                .andExpect(status().is4xxClientError());
     }
 
     @Test

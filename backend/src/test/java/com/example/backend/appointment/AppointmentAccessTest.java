@@ -1,15 +1,14 @@
 package com.example.backend.appointment;
 
 import com.example.backend.AbstractIntegrationTest;
-import com.example.backend.entities.WorkingHours;
-import com.example.backend.entities.ClinicService;
-import com.example.backend.entities.Doctor;
-import com.example.backend.entities.Patient;
+import com.example.backend.entities.DoctorAvailability;
+import com.example.backend.entities.DoctorAvailability.AvailabilityKind;
+import com.example.backend.entities.DoctorProfile;
+import com.example.backend.entities.PatientProfile;
 import com.example.backend.entities.UserAccount;
-import com.example.backend.repositories.AppointmentRepository;
-import com.example.backend.repositories.ClinicServiceRepository;
-import com.example.backend.repositories.DoctorRepository;
-import com.example.backend.repositories.PatientRepository;
+import com.example.backend.repositories.DoctorAvailabilityRepository;
+import com.example.backend.repositories.DoctorProfileRepository;
+import com.example.backend.repositories.PatientProfileRepository;
 import com.example.backend.repositories.UserAccountRepository;
 import com.example.backend.security.Role;
 import com.jayway.jsonpath.JsonPath;
@@ -24,14 +23,11 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
+import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneOffset;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.stream.IntStream;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -52,23 +48,19 @@ class AppointmentAccessTest extends AbstractIntegrationTest {
     private UserAccountRepository users;
 
     @Autowired
-    private DoctorRepository doctors;
+    private DoctorProfileRepository doctors;
 
     @Autowired
-    private PatientRepository patients;
+    private PatientProfileRepository patients;
 
     @Autowired
-    private ClinicServiceRepository services;
-
-    @Autowired
-    private AppointmentRepository appointments;
+    private DoctorAvailabilityRepository availabilities;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
 
-    private Doctor doctor;
-    private ClinicService service;
-    private Patient patient;
+    private DoctorProfile doctor;
+    private PatientProfile patient;
     private String receptionToken;
     private String doctorToken;
     private String patientToken;
@@ -78,23 +70,10 @@ class AppointmentAccessTest extends AbstractIntegrationTest {
 
     @BeforeEach
     void setUp() throws Exception {
-        service = services.save(new ClinicService("Facial", 30, new BigDecimal("50.00")));
+        doctor = doctors.save(new DoctorProfile(account("doc@clinic.com", Role.DOCTOR)));
 
-        doctor = doctors.save(new Doctor(account("doc@clinic.com", Role.DOCTOR)));
-        // Open every day so the tests never have to chase which weekday it is.
-        doctor.setAvailability(IntStream.range(0, 7)
-                .mapToObj(d -> new WorkingHours((short) d, LocalTime.MIDNIGHT, LocalTime.of(23, 59)))
-                .toList());
-        doctor.setServices(new LinkedHashSet<>(List.of(service)));
-        doctors.save(doctor);
-
-        patient = new Patient("Amal", "Nasser");
-        patient.setUser(account("patient@clinic.com", Role.PATIENT));
-        patients.save(patient);
-
-        Patient otherPatient = new Patient("Rana", "Haddad");
-        otherPatient.setUser(account("other-patient@clinic.com", Role.PATIENT));
-        patients.save(otherPatient);
+        patient = patients.save(new PatientProfile(account("patient@clinic.com", Role.PATIENT)));
+        patients.save(new PatientProfile(account("other-patient@clinic.com", Role.PATIENT)));
 
         account("desk@clinic.com", Role.RECEPTIONIST);
 
@@ -106,12 +85,20 @@ class AppointmentAccessTest extends AbstractIntegrationTest {
         // The test profile pins the clinic to UTC, so this is also the local slot.
         day = LocalDate.now(ZoneOffset.UTC).plusDays(1);
         slotStart = day.atTime(10, 0).atZone(ZoneOffset.UTC).toInstant();
+
+        // Open every day so the tests never have to chase which weekday it is.
+        for (DayOfWeek weekday : DayOfWeek.values()) {
+            availabilities.save(new DoctorAvailability(
+                    doctor, AvailabilityKind.RECURRING, weekday,
+                    LocalTime.MIDNIGHT, LocalTime.of(23, 59), LocalDate.of(2020, 1, 1)
+            ));
+        }
     }
 
     @Test
-    void staffCanBookAnAppointment() throws Exception {
+    void aDoctorCanBookAnAppointment() throws Exception {
         mockMvc.perform(post("/api/appointments")
-                        .header("Authorization", "Bearer " + receptionToken)
+                        .header("Authorization", "Bearer " + doctorToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(bookRequest(slotStart)))
                 .andExpect(status().isCreated())
@@ -119,17 +106,32 @@ class AppointmentAccessTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void patientCannotBookAnAppointment() throws Exception {
+    void receptionCannotBookAnAppointment() throws Exception {
         mockMvc.perform(post("/api/appointments")
-                        .header("Authorization", "Bearer " + patientToken)
+                        .header("Authorization", "Bearer " + receptionToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(bookRequest(slotStart)))
                 .andExpect(status().isForbidden());
     }
 
     @Test
+    void aPatientBooksForThemselvesButNotForSomeoneElse() throws Exception {
+        mockMvc.perform(post("/api/appointments")
+                        .header("Authorization", "Bearer " + patientToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(bookRequest(slotStart)))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(post("/api/appointments")
+                        .header("Authorization", "Bearer " + otherPatientToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(bookRequest(slotStart.plusSeconds(3600))))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void secondOverlappingBookingIsRejected() throws Exception {
-        book(receptionToken, slotStart);
+        book(doctorToken, slotStart);
 
         mockMvc.perform(post("/api/appointments")
                         .header("Authorization", "Bearer " + doctorToken)
@@ -138,20 +140,19 @@ class AppointmentAccessTest extends AbstractIntegrationTest {
                 .andExpect(status().isConflict());
     }
 
-    // The slot is held by every status except CANCELLED, matching the database's
-    // exclusion constraint - checking only BOOKED would pass here and then fail
-    // on the constraint as a 500.
+    // Every status but CANCELLED holds the slot, matching the exclusion constraint.
     @Test
-    void bookingOverACompletedAppointmentIsRejected() throws Exception {
-        String id = book(receptionToken, slotStart);
+    void bookingOverACompletedSessionIsRejected() throws Exception {
+        String appointmentId = book(doctorToken, slotStart);
+        String sessionId = firstSessionId(appointmentId);
 
-        mockMvc.perform(put("/api/appointments/" + id + "/attended")
+        mockMvc.perform(put("/api/appointments/" + appointmentId + "/sessions/" + sessionId + "/attended")
                         .header("Authorization", "Bearer " + receptionToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("COMPLETED"));
 
         mockMvc.perform(post("/api/appointments")
-                        .header("Authorization", "Bearer " + receptionToken)
+                        .header("Authorization", "Bearer " + doctorToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(bookRequest(slotStart)))
                 .andExpect(status().isConflict());
@@ -159,14 +160,14 @@ class AppointmentAccessTest extends AbstractIntegrationTest {
 
     @Test
     void bookingOverACancelledAppointmentIsAllowed() throws Exception {
-        String id = book(receptionToken, slotStart);
+        String id = book(doctorToken, slotStart);
 
         mockMvc.perform(put("/api/appointments/" + id + "/cancel")
                         .header("Authorization", "Bearer " + receptionToken))
                 .andExpect(status().isOk());
 
         mockMvc.perform(post("/api/appointments")
-                        .header("Authorization", "Bearer " + receptionToken)
+                        .header("Authorization", "Bearer " + doctorToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(bookRequest(slotStart)))
                 .andExpect(status().isCreated());
@@ -174,71 +175,47 @@ class AppointmentAccessTest extends AbstractIntegrationTest {
 
     @Test
     void bookingOutsideWorkingHoursIsRejected() throws Exception {
-        doctor.setAvailability(List.of());
-        doctors.save(doctor);
+        availabilities.deleteAll(availabilities.findByDoctorUserId(doctor.getUserId()));
 
         mockMvc.perform(post("/api/appointments")
-                        .header("Authorization", "Bearer " + receptionToken)
+                        .header("Authorization", "Bearer " + doctorToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(bookRequest(slotStart)))
                 .andExpect(status().isConflict());
     }
 
-    // dayOfWeek is Sunday=0..Saturday=6, so the only window left open has to be
-    // the one matching the booked date or the booking is refused.
     @Test
-    void workingHoursMatchTheSundayZeroWeekdayConvention() throws Exception {
-        short weekday = (short) (day.getDayOfWeek().getValue() % 7);
+    void workingHoursMatchTheBookedWeekday() throws Exception {
+        availabilities.deleteAll(availabilities.findByDoctorUserId(doctor.getUserId()));
+        DayOfWeek weekday = day.getDayOfWeek();
 
-        doctor.setAvailability(List.of(
-                new WorkingHours(weekday, LocalTime.of(9, 0), LocalTime.of(17, 0))
+        availabilities.save(new DoctorAvailability(
+                doctor, AvailabilityKind.RECURRING, weekday,
+                LocalTime.of(9, 0), LocalTime.of(17, 0), LocalDate.of(2020, 1, 1)
         ));
-        doctors.save(doctor);
 
         mockMvc.perform(post("/api/appointments")
-                        .header("Authorization", "Bearer " + receptionToken)
+                        .header("Authorization", "Bearer " + doctorToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(bookRequest(slotStart)))
                 .andExpect(status().isCreated());
 
-        doctor.setAvailability(List.of(
-                new WorkingHours((short) ((weekday + 1) % 7), LocalTime.of(9, 0), LocalTime.of(17, 0))
+        availabilities.deleteAll(availabilities.findByDoctorUserId(doctor.getUserId()));
+        availabilities.save(new DoctorAvailability(
+                doctor, AvailabilityKind.RECURRING, weekday.plus(1),
+                LocalTime.of(9, 0), LocalTime.of(17, 0), LocalDate.of(2020, 1, 1)
         ));
-        doctors.save(doctor);
 
         mockMvc.perform(post("/api/appointments")
-                        .header("Authorization", "Bearer " + receptionToken)
+                        .header("Authorization", "Bearer " + doctorToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(bookRequest(slotStart.plusSeconds(3600))))
                 .andExpect(status().isConflict());
     }
 
     @Test
-    void bookingAServiceTheDoctorDoesNotOfferIsRejected() throws Exception {
-        ClinicService other = services.save(new ClinicService("Peel", 30, new BigDecimal("70.00")));
-
-        mockMvc.perform(post("/api/appointments")
-                        .header("Authorization", "Bearer " + receptionToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(bookRequest(slotStart, other.getId().toString())))
-                .andExpect(status().isConflict());
-    }
-
-    @Test
-    void bookingAnInactiveServiceIsRejected() throws Exception {
-        service.setActive(false);
-        services.save(service);
-
-        mockMvc.perform(post("/api/appointments")
-                        .header("Authorization", "Bearer " + receptionToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(bookRequest(slotStart)))
-                .andExpect(status().isConflict());
-    }
-
-    @Test
     void patientReadsTheirOwnAppointmentButNotSomeoneElses() throws Exception {
-        String id = book(receptionToken, slotStart);
+        String id = book(doctorToken, slotStart);
 
         mockMvc.perform(get("/api/appointments/" + id)
                         .header("Authorization", "Bearer " + patientToken))
@@ -251,7 +228,7 @@ class AppointmentAccessTest extends AbstractIntegrationTest {
 
     @Test
     void onlyStaffCanCancelAnAppointment() throws Exception {
-        String id = book(receptionToken, slotStart);
+        String id = book(doctorToken, slotStart);
 
         mockMvc.perform(put("/api/appointments/" + id + "/cancel")
                         .header("Authorization", "Bearer " + patientToken))
@@ -265,7 +242,7 @@ class AppointmentAccessTest extends AbstractIntegrationTest {
 
     @Test
     void reschedulingReplacesTheOriginalBooking() throws Exception {
-        String id = book(receptionToken, slotStart);
+        String id = book(doctorToken, slotStart);
 
         String body = reschedule(id, slotStart.plusSeconds(3600));
         String newId = JsonPath.read(body, "$.id");
@@ -281,12 +258,10 @@ class AppointmentAccessTest extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.status").value("BOOKED"));
     }
 
-    // Moving a booking forward by a few minutes overlaps the slot it is vacating.
-    // That only works because the cancel is flushed ahead of the replacement's
-    // insert; without it the exclusion constraint rejects the new row.
+    // Works only because the cancel is flushed ahead of the replacement's insert.
     @Test
     void reschedulingIntoTheSlotItIsVacatingIsAllowed() throws Exception {
-        String id = book(receptionToken, slotStart);
+        String id = book(doctorToken, slotStart);
 
         String body = reschedule(id, slotStart.plusSeconds(900));
         String newId = JsonPath.read(body, "$.id");
@@ -299,25 +274,43 @@ class AppointmentAccessTest extends AbstractIntegrationTest {
 
     @Test
     void freeSlotsSkipTheBookedWindow() throws Exception {
-        doctor.setAvailability(List.of(
-                new WorkingHours((short) (day.getDayOfWeek().getValue() % 7),
-                        LocalTime.of(10, 0), LocalTime.of(11, 0))
+        availabilities.deleteAll(availabilities.findByDoctorUserId(doctor.getUserId()));
+        availabilities.save(new DoctorAvailability(
+                doctor, AvailabilityKind.RECURRING, day.getDayOfWeek(),
+                LocalTime.of(10, 0), LocalTime.of(11, 0), LocalDate.of(2020, 1, 1)
         ));
-        doctors.save(doctor);
 
-        book(receptionToken, slotStart);
+        book(doctorToken, slotStart);
 
         // 10:00-11:00 holds two 30-minute slots and the first is now taken.
         mockMvc.perform(get("/api/appointments/free-slots")
                         .header("Authorization", "Bearer " + receptionToken)
                         .param("doctorId", doctor.getUserId().toString())
-                        .param("serviceId", service.getId().toString())
+                        .param("durationMinutes", "30")
                         .param("date", day.toString()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].startTime").value(
                         slotStart.plusSeconds(1800).toString()
                 ));
+    }
+
+    // Zero never advanced the slot cursor, so the scan looped until the thread died.
+    @Test
+    void freeSlotsRejectsANonPositiveDuration() throws Exception {
+        mockMvc.perform(get("/api/appointments/free-slots")
+                        .header("Authorization", "Bearer " + receptionToken)
+                        .param("doctorId", doctor.getUserId().toString())
+                        .param("durationMinutes", "0")
+                        .param("date", day.toString()))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(get("/api/appointments/free-slots")
+                        .header("Authorization", "Bearer " + receptionToken)
+                        .param("doctorId", doctor.getUserId().toString())
+                        .param("durationMinutes", "-30")
+                        .param("date", day.toString()))
+                .andExpect(status().isBadRequest());
     }
 
     private String reschedule(String id, Instant newStart) throws Exception {
@@ -344,24 +337,34 @@ class AppointmentAccessTest extends AbstractIntegrationTest {
         return JsonPath.read(body, "$.id");
     }
 
-    private String bookRequest(Instant startTime) {
-        return bookRequest(startTime, service.getId().toString());
+    private String firstSessionId(String appointmentId) throws Exception {
+        String body = mockMvc.perform(get("/api/appointments/" + appointmentId)
+                        .header("Authorization", "Bearer " + receptionToken))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        return JsonPath.read(body, "$.sessions[0].id");
     }
 
-    private String bookRequest(Instant startTime, String serviceId) {
+    private String bookRequest(Instant startTime) {
         return """
                 {
-                  "patientId": "%s",
-                  "doctorId": "%s",
-                  "serviceId": "%s",
-                  "startTime": "%s",
-                  "reason": "Checkup"
+                  "patientUserId": "%s",
+                  "session": {
+                    "practitionerUserId": "%s",
+                    "category": "FACIAL",
+                    "treatmentName": "HYDRAFACIAL",
+                    "priceCharged": 50.00,
+                    "durationMinutes": 30,
+                    "startTime": "%s"
+                  }
                 }
-                """.formatted(patient.getId(), doctor.getUserId(), serviceId, startTime);
+                """.formatted(patient.getUserId(), doctor.getUserId(), startTime);
     }
 
     private UserAccount account(String email, Role role) {
-        return users.save(new UserAccount(email, passwordEncoder.encode("password"), "Test User", role));
+        return users.save(new UserAccount(email, passwordEncoder.encode("password"), "Test", "User", role));
     }
 
     private String login(String email) throws Exception {

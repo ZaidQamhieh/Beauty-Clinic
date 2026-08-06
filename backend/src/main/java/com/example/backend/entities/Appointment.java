@@ -20,6 +20,8 @@ import org.hibernate.annotations.SoftDelete;
 import java.time.Instant;
 import java.util.UUID;
 
+// A visit. Treatments and practitioners live on AppointmentSession, since one visit
+// carries several.
 @Entity
 @Table(name = "appointment")
 @SoftDelete
@@ -32,52 +34,31 @@ public class Appointment {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    // These are eager, and not by choice: Hibernate rejects a lazy to-one
-    // pointing at a @SoftDelete entity, because the proxy would have to be
-    // resolved before anyone could tell whether the row behind it still counts
-    // as present. The three below were being read on every response anyway, so
-    // in practice this trades a per-row lookup for a join.
+    // Eager, not by choice: Hibernate rejects a lazy to-one into a @SoftDelete entity.
     @ManyToOne(fetch = FetchType.EAGER, optional = false)
-    @JoinColumn(name = "patient_id", nullable = false)
-    private Patient patient;
-
-    @ManyToOne(fetch = FetchType.EAGER, optional = false)
-    @JoinColumn(name = "doctor_id", nullable = false)
-    private Doctor doctor;
-
-    @ManyToOne(fetch = FetchType.EAGER, optional = false)
-    @JoinColumn(name = "service_id", nullable = false)
-    private ClinicService service;
+    @JoinColumn(name = "patient_user_id", nullable = false)
+    private PatientProfile patient;
 
     @NotNull
-    @Column(name = "start_time", nullable = false)
-    private Instant startTime;
-
-    @NotNull
-    @Column(name = "end_time", nullable = false)
-    private Instant endTime;
+    @Column(name = "scheduled_at", nullable = false)
+    private Instant scheduledAt;
 
     @NotNull
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private AppointmentStatus status = AppointmentStatus.BOOKED;
 
-    @Column
-    private String reason;
-
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "created_by_user_id")
     private UserAccount createdBy;
 
-    @Column(name = "cancelled_at")
-    private Instant cancelledAt;
-
-    // Rescheduling cancels the old row and books a new one pointing here. Eager
-    // for the same reason as above, so a long reschedule chain is walked as far
-    // as hibernate.max_fetch_depth on every load.
+    // Rescheduling cancels the old row and books a new one pointing here.
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "replaces_appointment_id")
     private Appointment replaces;
+
+    @Column(name = "cancelled_at")
+    private Instant cancelledAt;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
@@ -85,30 +66,19 @@ public class Appointment {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt = Instant.now();
 
-    public Appointment(
-            Patient patient,
-            Doctor doctor,
-            ClinicService service,
-            Instant startTime,
-            Instant endTime
-    ) {
+    public Appointment(PatientProfile patient, Instant scheduledAt) {
         this.patient = patient;
-        this.doctor = doctor;
-        this.service = service;
-        this.startTime = startTime;
-        this.endTime = endTime;
-    }
-
-    public boolean isTreatedBy(UUID doctorUserId) {
-        return doctor.getUserId().equals(doctorUserId);
-    }
-
-    public boolean isFor(UUID patientUserId) {
-        return patient.isOwnedBy(patientUserId);
+        this.scheduledAt = scheduledAt;
     }
 
     public void cancel() {
         this.status = AppointmentStatus.CANCELLED;
         this.cancelledAt = Instant.now();
+    }
+
+    // Visit-level only. Whether work happened is a property of the sessions.
+    public enum AppointmentStatus {
+        BOOKED,
+        CANCELLED
     }
 }

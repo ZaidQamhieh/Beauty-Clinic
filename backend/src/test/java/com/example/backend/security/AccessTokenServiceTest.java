@@ -44,7 +44,8 @@ class AccessTokenServiceTest extends AbstractIntegrationTest {
         UserAccount account = users.save(new UserAccount(
                 "doctor@example.com",
                 passwordEncoder.encode("unused"),
-                "Test User",
+                "Test",
+                "User",
                 Role.DOCTOR
         ));
         RefreshToken session = refreshTokens.save(new RefreshToken(

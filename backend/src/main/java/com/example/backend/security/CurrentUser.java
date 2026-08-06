@@ -40,4 +40,12 @@ public class CurrentUser {
     public boolean is(UUID userId) {
         return id().filter(userId::equals).isPresent();
     }
+
+    public boolean hasRole(Role role) {
+        Authentication authentication =
+                SecurityContextHolder.getContext().getAuthentication();
+
+        return authentication != null
+                && authentication.getAuthorities().contains(role.authority());
+    }
 }

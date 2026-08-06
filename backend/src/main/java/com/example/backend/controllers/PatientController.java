@@ -1,17 +1,15 @@
 package com.example.backend.controllers;
 
-import com.example.backend.dtos.EditAllergiesRequest;
+import com.example.backend.dtos.EditClinicalProfileRequest;
 import com.example.backend.dtos.EditOwnProfileRequest;
-import com.example.backend.dtos.EditPatientRequest;
+import com.example.backend.dtos.PatientDetailsRequest;
 import com.example.backend.dtos.PatientDetailResponse;
 import com.example.backend.dtos.PatientRecordResponse;
-import com.example.backend.dtos.PatientSummaryResponse;
-import com.example.backend.dtos.RegisterPatientRequest;
-import com.example.backend.services.PatientService;
+import com.example.backend.services.PatientProfileService;
 import com.example.backend.security.access.ClinicStaffOnly;
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.example.backend.security.access.ClinicalReader;
 import com.example.backend.security.access.ClinicalWriter;
-import com.example.backend.security.access.StaffOrOwnPatient;
 import com.example.backend.security.access.PatientOnly;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -35,18 +33,18 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class PatientController {
 
-    private final PatientService patients;
+    private final PatientProfileService patients;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @ClinicStaffOnly
-    public PatientDetailResponse register(@Valid @RequestBody RegisterPatientRequest request) {
+    public PatientDetailResponse register(@Valid @RequestBody PatientDetailsRequest request) {
         return patients.register(request);
     }
 
     @GetMapping
     @ClinicStaffOnly
-    public Page<PatientSummaryResponse> search(
+    public Page<PatientDetailResponse> search(
             @RequestParam(name = "q", required = false) String term,
             Pageable pageable
     ) {
@@ -54,7 +52,7 @@ public class PatientController {
     }
 
     @GetMapping("/{id}")
-    @StaffOrOwnPatient
+    @PreAuthorize("hasAnyRole('DOCTOR', 'RECEPTIONIST', 'ADMIN') or @access.isSelf(#id)")
     public PatientDetailResponse read(@PathVariable UUID id) {
         return patients.read(id);
     }
@@ -63,7 +61,7 @@ public class PatientController {
     @ClinicStaffOnly
     public PatientDetailResponse updateDemographics(
             @PathVariable UUID id,
-            @Valid @RequestBody EditPatientRequest request
+            @Valid @RequestBody PatientDetailsRequest request
     ) {
         return patients.updateDemographics(id, request);
     }
@@ -88,12 +86,12 @@ public class PatientController {
         return patients.readClinical(id);
     }
 
-    @PutMapping("/{id}/allergies")
+    @PutMapping("/{id}/clinical")
     @ClinicalWriter
-    public PatientRecordResponse updateAllergies(
+    public PatientRecordResponse updateClinicalProfile(
             @PathVariable UUID id,
-            @Valid @RequestBody EditAllergiesRequest request
+            @Valid @RequestBody EditClinicalProfileRequest request
     ) {
-        return patients.updateAllergies(id, request);
+        return patients.updateClinicalProfile(id, request);
     }
 }

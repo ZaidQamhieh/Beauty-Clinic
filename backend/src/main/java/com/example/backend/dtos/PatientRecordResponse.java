@@ -1,11 +1,19 @@
 package com.example.backend.dtos;
 
-import com.example.backend.entities.Patient;
+import com.example.backend.entities.PatientProfile.Allergy;
+import com.example.backend.entities.PatientProfile.ChronicCondition;
+import com.example.backend.entities.UserAccount.Gender;
+import com.example.backend.entities.PatientProfile.Medication;
+import com.example.backend.entities.PatientProfile;
+import com.example.backend.entities.PatientProfile.SkinType;
+import com.example.backend.entities.PatientProfile.SmokingStatus;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
-// Demographics plus allergies. Admin, treating doctor, or the patient themselves.
+// Demographics plus clinical intake. Admin, treating doctor, or the patient
+// themselves.
 public record PatientRecordResponse(
         UUID id,
         String firstName,
@@ -13,21 +21,30 @@ public record PatientRecordResponse(
         LocalDate dateOfBirth,
         String phone,
         String email,
-        String address,
-        String languagePref,
-        String allergies
+        Gender gender,
+        boolean pregnantBreastfeeding,
+        SkinType skinType,
+        SmokingStatus smokingStatus,
+        List<Allergy> allergies,
+        List<Medication> medications,
+        List<ChronicCondition> chronicConditions
 ) {
-    public static PatientRecordResponse of(Patient patient) {
+    public static PatientRecordResponse of(PatientProfile profile) {
+        var user = profile.getUser();
         return new PatientRecordResponse(
-                patient.getId(),
-                patient.getFirstName(),
-                patient.getLastName(),
-                patient.getDateOfBirth(),
-                patient.getPhone(),
-                patient.getEmail(),
-                patient.getAddress(),
-                patient.getLanguagePref(),
-                patient.getAllergies()
+                profile.getUserId(),
+                user.getFirstName(),
+                user.getLastName(),
+                user.getDateOfBirth(),
+                user.getPhone(),
+                user.getEmail(),
+                user.getGender(),
+                profile.isPregnantBreastfeeding(),
+                profile.getSkinType(),
+                profile.getSmokingStatus(),
+                profile.getAllergies(),
+                profile.getMedications(),
+                profile.getChronicConditions()
         );
     }
 }

@@ -35,8 +35,8 @@ public class ActivityLogService {
         );
     }
 
-    // Permission denial may cause the original transaction to roll back.
-    @Transactional
+    // Own transaction: a permission denial may roll back the one it interrupted.
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void recordPermissionDenied(Optional<UUID> userId) {
         activityLogs.save(
                 ActivityLog.permissionDenied(userId.orElse(null))

@@ -8,6 +8,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
+// An INVITED walk-in has no password, but isEnabled() is false and Spring checks
+// that first.
 public final class UserAccountDetails implements UserDetails {
 
     private final UUID userId;

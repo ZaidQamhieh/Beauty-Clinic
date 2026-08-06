@@ -11,6 +11,6 @@ import java.lang.annotation.Target;
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
-@PreAuthorize("hasRole('ADMIN') or (hasRole('DOCTOR') and @access.treats(#id)) or @access.ownsPatient(#id)")
+@PreAuthorize("hasRole('ADMIN') or (hasRole('DOCTOR') and @access.treats(#id)) or @access.isSelf(#id)")
 public @interface ClinicalReader {
 }

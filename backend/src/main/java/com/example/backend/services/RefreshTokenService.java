@@ -17,7 +17,6 @@ import java.util.HexFormat;
 import java.util.UUID;
 import com.example.backend.entities.RefreshToken;
 import com.example.backend.repositories.RefreshTokenRepository;
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -56,7 +55,7 @@ public class RefreshTokenService {
             throw invalidToken();
         }
 
-        // Rotate in place so the session id, and any access token on it, stays valid.
+        // Rotate in place: session id stays valid, so do access tokens on it.
         String newRawToken = generateToken();
         currentToken.rotateTo(hash(newRawToken), Instant.now().plus(properties.refreshTtl()));
         refreshTokens.save(currentToken);

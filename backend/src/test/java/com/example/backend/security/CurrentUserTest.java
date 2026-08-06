@@ -71,7 +71,8 @@ class CurrentUserTest extends AbstractIntegrationTest {
         return users.save(new UserAccount(
                 email,
                 passwordEncoder.encode("password"),
-                "Test User",
+                "Test",
+                "User",
                 Role.PATIENT
         ));
     }

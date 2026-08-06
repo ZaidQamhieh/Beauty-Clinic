@@ -10,8 +10,8 @@
 -- value, which fights Flyway, and Postgres can never remove an enum value. A
 -- CHECK is edited freely in a later migration.
 
+-- btree_gist lets the session overlap constraint mix uuid = with range &&.
 CREATE EXTENSION IF NOT EXISTS btree_gist;
-CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
 CREATE FUNCTION set_updated_at() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
@@ -62,9 +62,11 @@ CREATE TABLE user_account (
 -- Scoped to live rows: a soft-deleted account must not hold its email forever.
 CREATE UNIQUE INDEX uq_user_account_email ON user_account(email) WHERE NOT deleted;
 CREATE UNIQUE INDEX uq_user_account_phone ON user_account(phone) WHERE NOT deleted;
-CREATE INDEX idx_user_account_name_trgm ON user_account
-    USING gin ((first_name || ' ' || last_name) gin_trgm_ops);
 CREATE INDEX idx_user_account_role ON user_account(role) WHERE NOT deleted;
+
+-- Patient search scans. No index yet: it matches lower(first_name) and
+-- lower(last_name) separately, so add one tuned to that once there is data
+-- to measure against.
 
 CREATE TABLE refresh_token (
     id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -161,8 +163,10 @@ CREATE TABLE appointment (
     id                      uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     patient_user_id         uuid NOT NULL REFERENCES patient_profile(user_id) ON DELETE RESTRICT,
     scheduled_at            timestamptz NOT NULL,
+    -- Visit-level only. Whether the work was done is a property of the sessions,
+    -- so an appointment whose sessions disagree has no contradictory state here.
     status                  varchar(20) NOT NULL DEFAULT 'BOOKED'
-                            CHECK (status IN ('BOOKED','COMPLETED','CANCELLED','NO_SHOW')),
+                            CHECK (status IN ('BOOKED','CANCELLED')),
     created_by_user_id      uuid REFERENCES user_account(id) ON DELETE SET NULL,
     replaces_appointment_id uuid REFERENCES appointment(id) ON DELETE SET NULL,
     cancelled_at            timestamptz,

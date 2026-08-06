@@ -24,7 +24,7 @@ public class AccessTokenService {
 
     public static final String SESSION_CLAIM = "sid";
 
-    // Account id. Ownership rules compare this, not the email subject.
+    // Account id. Ownership rules compare this, not email subject.
     public static final String USER_ID_CLAIM = "uid";
 
     private final JwtEncoder jwtEncoder;

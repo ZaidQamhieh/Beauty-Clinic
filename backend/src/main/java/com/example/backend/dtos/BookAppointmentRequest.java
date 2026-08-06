@@ -1,17 +1,13 @@
 package com.example.backend.dtos;
 
-import jakarta.validation.constraints.FutureOrPresent;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
 
-import java.time.Instant;
 import java.util.UUID;
 
+// Reuses AddSessionRequest for the first treatment rather than repeating its fields.
 public record BookAppointmentRequest(
-        @NotNull UUID patientId,
-        @NotNull UUID doctorId,
-        @NotNull UUID serviceId,
-        @NotNull @FutureOrPresent Instant startTime,
-        @Size(max = 255) String reason
+        @NotNull UUID patientUserId,
+        @NotNull @Valid AddSessionRequest session
 ) {
 }

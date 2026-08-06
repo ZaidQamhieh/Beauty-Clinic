@@ -4,12 +4,13 @@ import com.example.backend.dtos.AppointmentResponse;
 import com.example.backend.dtos.BookAppointmentRequest;
 import com.example.backend.dtos.FreeSlotResponse;
 import com.example.backend.dtos.RescheduleAppointmentRequest;
-import com.example.backend.security.access.AppointmentReader;
+import com.example.backend.security.access.AppointmentCreator;
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.example.backend.security.access.ClinicStaffOnly;
-import com.example.backend.security.access.DoctorOnly;
 import com.example.backend.security.access.PatientOnly;
 import com.example.backend.services.AppointmentService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
@@ -34,9 +35,10 @@ public class AppointmentController {
 
     private final AppointmentService appointments;
 
+    // Receptionist deliberately excluded - see AppointmentCreator.
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    @ClinicStaffOnly
+    @AppointmentCreator
     public AppointmentResponse book(@Valid @RequestBody BookAppointmentRequest request) {
         return appointments.book(request);
     }
@@ -57,7 +59,7 @@ public class AppointmentController {
     }
 
     @GetMapping("/me/schedule")
-    @DoctorOnly
+    @PreAuthorize("hasRole('DOCTOR')")
     public List<AppointmentResponse> readOwnSchedule(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date
     ) {
@@ -68,14 +70,15 @@ public class AppointmentController {
     @ClinicStaffOnly
     public List<FreeSlotResponse> freeSlots(
             @RequestParam UUID doctorId,
-            @RequestParam UUID serviceId,
+            // Zero never advances the slot cursor, so the scan would not terminate.
+            @RequestParam @Positive int durationMinutes,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date
     ) {
-        return appointments.freeSlots(doctorId, serviceId, date);
+        return appointments.freeSlots(doctorId, durationMinutes, date);
     }
 
     @GetMapping("/{id}")
-    @AppointmentReader
+    @PreAuthorize("hasAnyRole('DOCTOR', 'RECEPTIONIST', 'ADMIN') or @access.ownsAppointment(#id)")
     public AppointmentResponse read(@PathVariable UUID id) {
         return appointments.read(id);
     }
@@ -93,17 +96,5 @@ public class AppointmentController {
     @ClinicStaffOnly
     public AppointmentResponse cancel(@PathVariable UUID id) {
         return appointments.cancel(id);
-    }
-
-    @PutMapping("/{id}/attended")
-    @ClinicStaffOnly
-    public AppointmentResponse markAttended(@PathVariable UUID id) {
-        return appointments.markAttended(id);
-    }
-
-    @PutMapping("/{id}/no-show")
-    @ClinicStaffOnly
-    public AppointmentResponse markNoShow(@PathVariable UUID id) {
-        return appointments.markNoShow(id);
     }
 }
