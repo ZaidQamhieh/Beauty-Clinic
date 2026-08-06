@@ -25,7 +25,7 @@ import java.util.List;
 
 @Configuration
 @EnableMethodSecurity
-/* Activates and validates values under app.cors. */
+// Activates and validates values under app.cors.
 @EnableConfigurationProperties(CorsProperties.class)
 class SecurityConfig {
 
@@ -35,8 +35,7 @@ class SecurityConfig {
         // This REST API uses Bearer headers, not login cookies.
         .csrf(csrf -> csrf.disable())
 
-        /* CorsFilter runs ahead of authorization, so a valid preflight never
-           reaches .anyRequest().authenticated(). */
+        // CorsFilter runs ahead of authorization, so a valid preflight never reaches it.
         .cors(cors -> cors.configurationSource(corsConfigurationSource))
 
         // Every request must carry its own access token.
@@ -66,7 +65,7 @@ class SecurityConfig {
         .build();
     }
 
-    /* Named origins only: a wildcard here could let any site read a credentialed response. */
+    // Named origins only: a wildcard here could let any site read a credentialed response.
     @Bean
     CorsConfigurationSource corsConfigurationSource(CorsProperties properties) {
         CorsConfiguration configuration = new CorsConfiguration();
