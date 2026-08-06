@@ -18,7 +18,7 @@ public interface AppointmentRepository extends JpaRepository<Appointment, UUID> 
 
     List<Appointment> findByPatientUserId(UUID patientUserId);
 
-    // Ordered in SQL, so a page is a slice of the whole run, not sorted alone.
+    // Ordered in SQL, so a page is a slice of the run, not sorted alone.
     Page<Appointment> findByPatientUserIdOrderByScheduledAtAsc(UUID patientUserId, Pageable pageable);
 
     // Half-open [from, to): a derived Between would hand midnight to two days.

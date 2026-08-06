@@ -1,6 +1,6 @@
 package com.example.backend.services;
 
-import com.example.backend.clinic.ClinicProperties;
+import com.example.backend.config.ClinicProperties;
 import com.example.backend.dtos.AddSessionRequest;
 import com.example.backend.dtos.AppointmentResponse;
 import com.example.backend.dtos.AppointmentSessionResponse;
