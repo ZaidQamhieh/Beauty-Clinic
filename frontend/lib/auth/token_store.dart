@@ -10,8 +10,13 @@ abstract interface class TokenStore {
   Future<void> clear();
 }
 
-class SecureTokenStore implements TokenStore {
-  SecureTokenStore({FlutterSecureStorage? storage})
+/// Persists the token pair in storage owned by this browser origin.
+///
+/// On Flutter web this is browser storage, not an operating-system keychain.
+/// Code running in the page can access it, so the backend intentionally keeps
+/// the refresh-token lifetime short to limit the impact of a leaked token.
+class BrowserTokenStore implements TokenStore {
+  BrowserTokenStore({FlutterSecureStorage? storage})
     : _storage = storage ?? const FlutterSecureStorage();
 
   static const _accessTokenKey = 'auth.access_token';

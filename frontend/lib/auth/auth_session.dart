@@ -1,5 +1,3 @@
-// ignore_for_file: prefer_initializing_formals
-
 import 'dart:async';
 
 import 'package:dio/dio.dart';
@@ -24,21 +22,22 @@ class SessionExpiredException extends AuthException {
 }
 
 class AuthSession extends ChangeNotifier {
-  AuthSession({
-    required Dio authDio,
-    required TokenStore tokenStore,
+  AuthSession(
+    this._authDio,
+    this._tokenStore, {
     DateTime Function()? now,
     this.refreshLeeway = const Duration(seconds: 30),
     this.scheduleProactiveRefresh = true,
-  }) : _authDio = authDio,
-       _tokenStore = tokenStore,
-       _now = now ?? _utcNow;
+    this.scheduledRefreshRetryDelays = const [
+      Duration(seconds: 30),
+      Duration(seconds: 60),
+      Duration(seconds: 120),
+      Duration(seconds: 240),
+    ],
+  }) : _now = now ?? _utcNow;
 
   factory AuthSession.production() {
-    return AuthSession(
-      authDio: ApiConfig.createDio(),
-      tokenStore: SecureTokenStore(),
-    );
+    return AuthSession(ApiConfig.createDio(), BrowserTokenStore());
   }
 
   final Dio _authDio;
@@ -46,11 +45,13 @@ class AuthSession extends ChangeNotifier {
   final DateTime Function() _now;
   final Duration refreshLeeway;
   final bool scheduleProactiveRefresh;
+  final List<Duration> scheduledRefreshRetryDelays;
 
   AuthStatus _status = AuthStatus.initializing;
   TokenPair? _tokens;
   Future<TokenPair>? _refreshInFlight;
   Timer? _refreshTimer;
+  int _scheduledRefreshFailures = 0;
   bool _disposed = false;
 
   AuthStatus get status => _status;
@@ -66,7 +67,9 @@ class AuthSession extends ChangeNotifier {
     try {
       _tokens = await _tokenStore.read();
     } catch (_) {
-      await _invalidateSession(clearStorage: false);
+      // An unreadable value cannot recover on its own. Clear it so the next
+      // launch starts from a clean, logged-out state.
+      await _invalidateSession();
       return;
     }
 
@@ -149,7 +152,7 @@ class AuthSession extends ChangeNotifier {
 
     Object? storageError;
     try {
-      await _invalidateSession();
+      await _invalidateSession(reportStorageError: true);
     } catch (error) {
       storageError = error;
     }
@@ -189,15 +192,36 @@ class AuthSession extends ChangeNotifier {
   }
 
   Future<TokenPair> _performRefresh() async {
-    final refreshToken = _tokens?.refreshToken;
-    if (refreshToken == null) {
+    final currentTokens = _tokens;
+    if (currentTokens == null) {
       throw const SessionExpiredException();
+    }
+
+    // A sibling browser tab may have rotated the refresh token since this tab
+    // started. Read storage immediately before refreshing and adopt a newer
+    // pair instead of submitting the stale in-memory token.
+    TokenPair? storedTokens;
+    try {
+      storedTokens = await _tokenStore.read();
+    } catch (_) {
+      await _invalidateSession();
+      throw const SessionExpiredException();
+    }
+    if (storedTokens == null) {
+      await _invalidateSession();
+      throw const SessionExpiredException();
+    }
+    if (!_sameTokenPair(currentTokens, storedTokens)) {
+      _adoptStoredTokens(storedTokens);
+      if (!_shouldRefresh(storedTokens)) {
+        return storedTokens;
+      }
     }
 
     try {
       final response = await _authDio.post<dynamic>(
         '/api/auth/refresh',
-        data: {'refreshToken': refreshToken},
+        data: {'refreshToken': storedTokens.refreshToken},
       );
       final tokens = _tokensFromResponse(response.data);
       await _replaceTokens(tokens);
@@ -234,17 +258,36 @@ class AuthSession extends ChangeNotifier {
     }
 
     _tokens = tokens;
+    _scheduledRefreshFailures = 0;
     _setStatus(AuthStatus.authenticated);
     _scheduleRefresh();
   }
 
-  Future<void> _invalidateSession({bool clearStorage = true}) async {
+  void _adoptStoredTokens(TokenPair tokens) {
+    _tokens = tokens;
+    _scheduledRefreshFailures = 0;
+    _setStatus(AuthStatus.authenticated);
+    _scheduleRefresh();
+  }
+
+  bool _sameTokenPair(TokenPair first, TokenPair second) {
+    return first.accessToken == second.accessToken &&
+        first.refreshToken == second.refreshToken &&
+        first.expiresAt == second.expiresAt;
+  }
+
+  Future<void> _invalidateSession({bool reportStorageError = false}) async {
     _refreshTimer?.cancel();
     _refreshTimer = null;
+    _scheduledRefreshFailures = 0;
     _tokens = null;
     _setStatus(AuthStatus.unauthenticated);
-    if (clearStorage) {
+    try {
       await _tokenStore.clear();
+    } catch (_) {
+      if (reportStorageError) {
+        rethrow;
+      }
     }
   }
 
@@ -267,11 +310,20 @@ class AuthSession extends ChangeNotifier {
     } on SessionExpiredException {
       // _performRefresh has already returned the app to the login screen.
     } on AuthException {
-      if (_tokens != null && !_disposed) {
-        _refreshTimer = Timer(const Duration(seconds: 30), () {
-          unawaited(_runScheduledRefresh());
-        });
+      if (_tokens == null || _disposed) {
+        return;
       }
+
+      if (_scheduledRefreshFailures >= scheduledRefreshRetryDelays.length) {
+        await _invalidateSession();
+        return;
+      }
+
+      final retryDelay = scheduledRefreshRetryDelays[_scheduledRefreshFailures];
+      _scheduledRefreshFailures += 1;
+      _refreshTimer = Timer(retryDelay, () {
+        unawaited(_runScheduledRefresh());
+      });
     }
   }
 

@@ -1,10 +1,18 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 abstract final class ApiConfig {
-  static const baseUrl = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: 'http://localhost:8080',
-  );
+  static const _configuredBaseUrl = String.fromEnvironment('API_BASE_URL');
+
+  // Local development keeps the existing backend default. Release builds use
+  // relative URLs unless API_BASE_URL is supplied, so they target the origin
+  // that served the Flutter app instead of a user's localhost.
+  static String get baseUrl {
+    if (_configuredBaseUrl.isNotEmpty) {
+      return _configuredBaseUrl;
+    }
+    return kDebugMode ? 'http://localhost:8080' : '';
+  }
 
   static Dio createDio({String? baseUrl}) {
     return Dio(

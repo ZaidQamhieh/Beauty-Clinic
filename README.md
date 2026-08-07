@@ -29,7 +29,7 @@ DB_PASSWORD=
 AUTH_JWT_SECRET=          # required, Base64, at least 32 bytes
 AUTH_TOKEN_ISSUER=https://beauty-clinic.example
 AUTH_ACCESS_TTL=15m
-AUTH_REFRESH_TTL=7d
+AUTH_REFRESH_TTL=12h
 ```
 
 Then:

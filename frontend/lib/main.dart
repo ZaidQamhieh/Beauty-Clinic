@@ -28,7 +28,7 @@ class _MyAppState extends State<MyApp> {
     super.initState();
     _ownsServices = widget.authSession == null;
     _authSession = widget.authSession ?? AuthSession.production();
-    _apiClient = ApiClient(authSession: _authSession);
+    _apiClient = ApiClient(_authSession);
     _authSession.initialize();
   }
 

@@ -1,5 +1,3 @@
-// ignore_for_file: prefer_initializing_formals
-
 import 'package:dio/dio.dart';
 
 import '../auth/auth_session.dart';
@@ -7,9 +5,8 @@ import '../config/api_config.dart';
 
 class ApiClient {
   static const authorizationHeader = 'Authorization';
-  ApiClient({required AuthSession authSession, Dio? dio})
-    : _authSession = authSession,
-      dio = dio ?? ApiConfig.createDio() {
+  ApiClient(this._authSession, {Dio? dio})
+    : dio = dio ?? ApiConfig.createDio() {
     this.dio.interceptors.add(
       QueuedInterceptorsWrapper(onRequest: _onRequest, onError: _onError),
     );
