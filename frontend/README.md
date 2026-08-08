@@ -1,4 +1,4 @@
-# beauty_clinic
+# beauty_clinic_app
 
 A new Flutter project.
 
