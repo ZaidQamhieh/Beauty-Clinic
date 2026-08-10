@@ -27,11 +27,15 @@ import java.util.List;
 @Configuration
 @EnableMethodSecurity
 // Activates and validates values under app.cors.
-@EnableConfigurationProperties(CorsProperties.class)
+@EnableConfigurationProperties({CorsProperties.class, RateLimitProperties.class})
 class SecurityConfig {
 
     @Bean
-    SecurityFilterChain filterChain(HttpSecurity http, CorsConfigurationSource corsConfigurationSource) throws Exception {
+    SecurityFilterChain filterChain(
+            HttpSecurity http,
+            CorsConfigurationSource corsConfigurationSource,
+            RateLimitProperties rateLimits
+    ) throws Exception {
         return http
         // This REST API uses Bearer headers, not login cookies.
         .csrf(csrf -> csrf.disable())
@@ -40,7 +44,7 @@ class SecurityConfig {
         .cors(cors -> cors.configurationSource(corsConfigurationSource))
 
         // Ahead of authentication; not a bean, or it would also run in the servlet chain.
-        .addFilterBefore(new AuthRateLimitFilter(), UsernamePasswordAuthenticationFilter.class)
+        .addFilterBefore(new AuthRateLimitFilter(rateLimits), UsernamePasswordAuthenticationFilter.class)
 
         // Every request must carry its own access token.
         .sessionManagement(session -> session

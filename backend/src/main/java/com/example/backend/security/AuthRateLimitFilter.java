@@ -27,13 +27,17 @@ class AuthRateLimitFilter extends OncePerRequestFilter {
             "/api/auth/refresh"
     );
 
-    private static final int MAX_REQUESTS = 20;
-    private static final Duration WINDOW = Duration.ofMinutes(1);
-
     // Past this, expired windows are swept, so many sources cannot grow the map unbounded.
     private static final int PRUNE_ABOVE = 10_000;
 
     private final Map<String, Window> windows = new ConcurrentHashMap<>();
+    private final int maxRequests;
+    private final Duration window;
+
+    AuthRateLimitFilter(RateLimitProperties properties) {
+        this.maxRequests = properties.maxRequests();
+        this.window = properties.window();
+    }
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
@@ -61,32 +65,32 @@ class AuthRateLimitFilter extends OncePerRequestFilter {
         Instant now = Instant.now();
         pruneIfLarge(now);
 
-        Window window = windows.compute(address, (key, current) -> {
-            if (current == null || current.hasExpired(now)) {
+        Window current = windows.compute(address, (key, existing) -> {
+            if (existing == null || hasExpired(existing, now)) {
                 return Window.startedAt(now);
             }
-            current.count().incrementAndGet();
-            return current;
+            existing.count().incrementAndGet();
+            return existing;
         });
 
-        return window.count().get() <= MAX_REQUESTS;
+        return current.count().get() <= maxRequests;
     }
 
     private void pruneIfLarge(Instant now) {
         if (windows.size() <= PRUNE_ABOVE) {
             return;
         }
-        windows.values().removeIf(window -> window.hasExpired(now));
+        windows.values().removeIf(tracked -> hasExpired(tracked, now));
+    }
+
+    private boolean hasExpired(Window tracked, Instant now) {
+        return tracked.startedAt().plus(window).isBefore(now);
     }
 
     private record Window(Instant startedAt, AtomicInteger count) {
 
         static Window startedAt(Instant now) {
             return new Window(now, new AtomicInteger(1));
-        }
-
-        boolean hasExpired(Instant now) {
-            return startedAt.plus(WINDOW).isBefore(now);
         }
     }
 }
