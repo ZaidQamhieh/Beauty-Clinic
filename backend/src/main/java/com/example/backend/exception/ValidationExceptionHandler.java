@@ -33,6 +33,9 @@ class ValidationExceptionHandler {
     }
 
     private String messageOf(FieldError error) {
-        return error.getDefaultMessage() != null ? error.getDefaultMessage() : "is invalid";
+        if (error.getDefaultMessage() == null) {
+            return "is invalid";
+        }
+        return error.getDefaultMessage();
     }
 }

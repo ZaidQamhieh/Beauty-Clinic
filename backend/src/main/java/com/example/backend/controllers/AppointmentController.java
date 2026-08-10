@@ -4,8 +4,10 @@ import com.example.backend.dtos.AppointmentResponse;
 import com.example.backend.dtos.BookAppointmentRequest;
 import com.example.backend.dtos.FreeSlotResponse;
 import com.example.backend.dtos.RescheduleAppointmentRequest;
+import com.example.backend.entities.AppointmentSession.TreatmentName;
 import com.example.backend.security.access.AppointmentCreator;
 import org.springframework.security.access.prepost.PreAuthorize;
+import com.example.backend.security.access.Authenticated;
 import com.example.backend.security.access.ClinicStaffOnly;
 import com.example.backend.security.access.PatientOnly;
 import com.example.backend.services.AppointmentService;
@@ -37,7 +39,6 @@ public class AppointmentController {
 
     private final AppointmentService appointments;
 
-    // Receptionist deliberately excluded - see AppointmentCreator.
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @AppointmentCreator
@@ -68,15 +69,15 @@ public class AppointmentController {
         return appointments.readOwnSchedule(date);
     }
 
+    // Open to patients too: they book, so they need free windows. No patient or visit is named.
     @GetMapping("/free-slots")
-    @ClinicStaffOnly
+    @Authenticated
     public List<FreeSlotResponse> freeSlots(
             @RequestParam UUID doctorId,
-            // Zero never advances the slot cursor, so the scan would not terminate.
-            @RequestParam @Positive int durationMinutes,
+            @RequestParam TreatmentName treatmentName,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date
     ) {
-        return appointments.freeSlots(doctorId, durationMinutes, date);
+        return appointments.freeSlots(doctorId, treatmentName, date);
     }
 
     @GetMapping("/{id}")
@@ -85,8 +86,9 @@ public class AppointmentController {
         return appointments.read(id);
     }
 
+    // A patient may move and cancel their own booking - story 3.1 AC3; everyone else must be staff.
     @PutMapping("/{id}/reschedule")
-    @ClinicStaffOnly
+    @PreAuthorize("hasAnyRole('DOCTOR', 'RECEPTIONIST', 'ADMIN') or @access.ownsAppointment(#id)")
     public AppointmentResponse reschedule(
             @PathVariable UUID id,
             @Valid @RequestBody RescheduleAppointmentRequest request
@@ -95,7 +97,7 @@ public class AppointmentController {
     }
 
     @PutMapping("/{id}/cancel")
-    @ClinicStaffOnly
+    @PreAuthorize("hasAnyRole('DOCTOR', 'RECEPTIONIST', 'ADMIN') or @access.ownsAppointment(#id)")
     public AppointmentResponse cancel(@PathVariable UUID id) {
         return appointments.cancel(id);
     }

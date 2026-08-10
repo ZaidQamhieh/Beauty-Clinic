@@ -27,9 +27,17 @@ public record SessionRecordResponse(
                 record.getNote(),
                 record.getSkinReaction(),
                 record.getFollowUpDate(),
-                record.getAmends() != null ? record.getAmends().getId() : null,
+                amendedIdOf(record),
                 record.getCreatedAt(),
                 prescribedProductIds
         );
+    }
+
+    // Null for an original note: only a correction amends anything.
+    private static UUID amendedIdOf(SessionRecord record) {
+        if (record.getAmends() == null) {
+            return null;
+        }
+        return record.getAmends().getId();
     }
 }

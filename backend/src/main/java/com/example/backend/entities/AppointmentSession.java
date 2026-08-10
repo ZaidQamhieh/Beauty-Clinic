@@ -17,8 +17,12 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.SoftDelete;
 
+import com.example.backend.entities.DoctorProfile.Specialization;
+
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.Collection;
+import java.util.Set;
 import java.util.UUID;
 
 // Price and duration copied at booking, so a tariff change never re-prices past work.
@@ -112,26 +116,52 @@ public class AppointmentSession {
         NO_SHOW
     }
 
+    // Which specialization qualifies someone to perform the category; empty means anyone may.
     public enum TreatmentCategory {
-        FACIAL,
-        LASER,
-        INJECTABLE,
-        BODY,
-        CONSULTATION
+        FACIAL(Set.of(Specialization.COSMETIC_DERMATOLOGY, Specialization.DERMATOLOGY)),
+        LASER(Set.of(Specialization.LASER_THERAPY)),
+        INJECTABLE(Set.of(Specialization.INJECTABLES)),
+        BODY(Set.of(Specialization.AESTHETIC_MEDICINE)),
+        CONSULTATION(Set.of());
+
+        private final Set<Specialization> qualifying;
+
+        TreatmentCategory(Set<Specialization> qualifying) {
+            this.qualifying = qualifying;
+        }
+
+        public Set<Specialization> qualifying() {
+            return qualifying;
+        }
+
+        public boolean qualifies(Collection<Specialization> held) {
+            return qualifying.isEmpty() || held.stream().anyMatch(qualifying::contains);
+        }
     }
 
+    // Category belongs to the treatment; the columns CHECK apart, so BOTOX could store as FACIAL.
     public enum TreatmentName {
-        HYDRAFACIAL,
-        CHEMICAL_PEEL,
-        MICRONEEDLING,
-        DERMAPLANING,
-        LASER_HAIR_REMOVAL,
-        LASER_RESURFACING,
-        IPL_PHOTOFACIAL,
-        BOTOX,
-        DERMAL_FILLER,
-        MESOTHERAPY,
-        BODY_CONTOURING,
-        CONSULTATION
+        HYDRAFACIAL(TreatmentCategory.FACIAL),
+        CHEMICAL_PEEL(TreatmentCategory.FACIAL),
+        MICRONEEDLING(TreatmentCategory.FACIAL),
+        DERMAPLANING(TreatmentCategory.FACIAL),
+        LASER_HAIR_REMOVAL(TreatmentCategory.LASER),
+        LASER_RESURFACING(TreatmentCategory.LASER),
+        IPL_PHOTOFACIAL(TreatmentCategory.LASER),
+        BOTOX(TreatmentCategory.INJECTABLE),
+        DERMAL_FILLER(TreatmentCategory.INJECTABLE),
+        MESOTHERAPY(TreatmentCategory.INJECTABLE),
+        BODY_CONTOURING(TreatmentCategory.BODY),
+        CONSULTATION(TreatmentCategory.CONSULTATION);
+
+        private final TreatmentCategory category;
+
+        TreatmentName(TreatmentCategory category) {
+            this.category = category;
+        }
+
+        public TreatmentCategory category() {
+            return category;
+        }
     }
 }

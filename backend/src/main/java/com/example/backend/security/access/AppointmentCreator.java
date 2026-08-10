@@ -8,10 +8,10 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-// Receptionist deliberately excluded; a patient may only book for themselves.
+// Every role books; that a patient books only for themselves is on a body field, so book checks it.
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
-@PreAuthorize("hasAnyRole('DOCTOR', 'ADMIN', 'PATIENT')")
+@PreAuthorize("hasAnyRole('DOCTOR', 'RECEPTIONIST', 'ADMIN', 'PATIENT')")
 public @interface AppointmentCreator {
 }

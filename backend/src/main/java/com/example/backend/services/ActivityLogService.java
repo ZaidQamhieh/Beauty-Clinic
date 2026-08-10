@@ -35,6 +35,21 @@ public class ActivityLogService {
         );
     }
 
+    // Joins the caller's transaction: if the booking rolls back, so does the claim it happened.
+    @Transactional
+    public void recordAppointment(UUID actorId, UUID patientUserId, ActivityAction action, UUID appointmentId) {
+        activityLogs.save(
+                ActivityLog.onEntity(actorId, patientUserId, action, "appointment", appointmentId)
+        );
+    }
+
+    @Transactional
+    public void recordSession(UUID actorId, UUID patientUserId, ActivityAction action, UUID sessionId) {
+        activityLogs.save(
+                ActivityLog.onEntity(actorId, patientUserId, action, "appointment_session", sessionId)
+        );
+    }
+
     // Joins the caller: REQUIRES_NEW cannot see the uncommitted user it references.
     @Transactional
     public void recordPermissionDenied(Optional<UUID> userId) {

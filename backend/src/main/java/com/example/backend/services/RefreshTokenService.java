@@ -102,6 +102,10 @@ public class RefreshTokenService {
                 .ifPresent(token -> {
                     UUID userId = token.getUser().getId();
 
+                    // Stamped before the row goes, so revoked stays distinguishable from removed.
+                    token.revoke(Instant.now());
+                    refreshTokens.saveAndFlush(token);
+
                     refreshTokens.delete(token);
                     activityLogs.recordLogout(userId);
                 });
