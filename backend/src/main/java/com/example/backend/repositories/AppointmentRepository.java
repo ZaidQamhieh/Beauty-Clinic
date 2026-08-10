@@ -21,6 +21,21 @@ public interface AppointmentRepository extends JpaRepository<Appointment, UUID> 
     // Ordered in SQL, so a page is a slice of the run, not sorted alone.
     Page<Appointment> findByPatientUserIdOrderByScheduledAtAsc(UUID patientUserId, Pageable pageable);
 
+    // A rescheduled visit is superseded, so the replacement shows and the original does not.
+    @Query(value = """
+            select a from Appointment a
+            where a.patient.userId = :patientUserId
+              and not exists (select 1 from Appointment r where r.replaces = a)
+            order by a.scheduledAt asc
+            """,
+            countQuery = """
+            select count(a) from Appointment a
+            where a.patient.userId = :patientUserId
+              and not exists (select 1 from Appointment r where r.replaces = a)
+            """)
+    Page<Appointment> findNotSupersededForPatient(
+            @Param("patientUserId") UUID patientUserId, Pageable pageable);
+
     // Half-open [from, to): a derived Between would hand midnight to two days.
     @Query("""
             select a from Appointment a

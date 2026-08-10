@@ -80,6 +80,15 @@ public class PatientController {
         return patients.updateOwnProfile(request);
     }
 
+    // The health form is the patient's own to fill; without this only an admin could.
+    @PutMapping("/me/clinical")
+    @PatientOnly
+    public PatientRecordResponse updateOwnClinicalProfile(
+            @Valid @RequestBody EditClinicalProfileRequest request
+    ) {
+        return patients.updateOwnClinicalProfile(request);
+    }
+
     @GetMapping("/{id}/clinical")
     @ClinicalReader
     public PatientRecordResponse readClinical(@PathVariable UUID id) {

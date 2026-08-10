@@ -2,9 +2,8 @@ package com.example.backend.controllers;
 
 import com.example.backend.dtos.AppointmentResponse;
 import com.example.backend.dtos.BookAppointmentRequest;
+import com.example.backend.dtos.FreeSlotQuery;
 import com.example.backend.dtos.FreeSlotResponse;
-import com.example.backend.dtos.RescheduleAppointmentRequest;
-import com.example.backend.entities.AppointmentSession.TreatmentName;
 import com.example.backend.security.access.AppointmentCreator;
 import org.springframework.security.access.prepost.PreAuthorize;
 import com.example.backend.security.access.Authenticated;
@@ -12,7 +11,6 @@ import com.example.backend.security.access.ClinicStaffOnly;
 import com.example.backend.security.access.PatientOnly;
 import com.example.backend.services.AppointmentService;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -69,15 +67,11 @@ public class AppointmentController {
         return appointments.readOwnSchedule(date);
     }
 
-    // Open to patients too: they book, so they need free windows. No patient or visit is named.
-    @GetMapping("/free-slots")
+    // Open to patients, who book. A body, because it carries picks not stored yet.
+    @PostMapping("/free-slots")
     @Authenticated
-    public List<FreeSlotResponse> freeSlots(
-            @RequestParam UUID doctorId,
-            @RequestParam TreatmentName treatmentName,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date
-    ) {
-        return appointments.freeSlots(doctorId, treatmentName, date);
+    public List<FreeSlotResponse> freeSlots(@Valid @RequestBody FreeSlotQuery query) {
+        return appointments.freeSlots(query);
     }
 
     @GetMapping("/{id}")
@@ -86,16 +80,7 @@ public class AppointmentController {
         return appointments.read(id);
     }
 
-    // A patient may move and cancel their own booking - story 3.1 AC3; everyone else must be staff.
-    @PutMapping("/{id}/reschedule")
-    @PreAuthorize("hasAnyRole('DOCTOR', 'RECEPTIONIST', 'ADMIN') or @access.ownsAppointment(#id)")
-    public AppointmentResponse reschedule(
-            @PathVariable UUID id,
-            @Valid @RequestBody RescheduleAppointmentRequest request
-    ) {
-        return appointments.reschedule(id, request);
-    }
-
+    // No reschedule: a different time is a cancellation and a fresh booking.
     @PutMapping("/{id}/cancel")
     @PreAuthorize("hasAnyRole('DOCTOR', 'RECEPTIONIST', 'ADMIN') or @access.ownsAppointment(#id)")
     public AppointmentResponse cancel(@PathVariable UUID id) {

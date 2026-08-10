@@ -2,7 +2,9 @@ package com.example.backend.repositories;
 
 import com.example.backend.entities.AppointmentSession;
 import com.example.backend.entities.AppointmentSession.SessionStatus;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -21,17 +23,28 @@ public interface AppointmentSessionRepository extends JpaRepository<AppointmentS
     // Matched in SQL: the parent is a @SoftDelete to-one and would read as null.
     Optional<AppointmentSession> findByIdAndAppointmentId(UUID id, UUID appointmentId);
 
-    // Backs the rule letting a doctor reach patients they have treated.
+    // Held for the transaction, so two status changes queue instead of overwriting.
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    Optional<AppointmentSession> findWithLockByIdAndAppointmentId(UUID id, UUID appointmentId);
+
+    // Lets a doctor reach patients they treat. Cancelled does not count, or access never ends.
     @Query("""
             select case when count(s) > 0 then true else false end
             from AppointmentSession s
             where s.practitioner.userId = :doctorUserId
               and s.appointment.patient.userId = :patientUserId
+              and s.status <> :cancelled
             """)
-    boolean existsByPractitionerAndPatient(
+    boolean existsLiveSessionForPractitionerAndPatient(
             @Param("doctorUserId") UUID doctorUserId,
-            @Param("patientUserId") UUID patientUserId
+            @Param("patientUserId") UUID patientUserId,
+            @Param("cancelled") SessionStatus cancelled
     );
+
+    default boolean existsByPractitionerAndPatient(UUID doctorUserId, UUID patientUserId) {
+        return existsLiveSessionForPractitionerAndPatient(
+                doctorUserId, patientUserId, SessionStatus.CANCELLED);
+    }
 
     // Overlap, not start time: a session running past midnight still holds the room next day.
     @Query("""
@@ -42,6 +55,32 @@ public interface AppointmentSessionRepository extends JpaRepository<AppointmentS
             """)
     List<AppointmentSession> findForPractitionerBetween(
             @Param("doctorUserId") UUID doctorUserId,
+            @Param("from") Instant from,
+            @Param("to") Instant to
+    );
+
+    // Every candidate doctor's day in one read, so a slot search is not one query per doctor.
+    @Query("""
+            select s from AppointmentSession s
+            where s.practitioner.userId in :doctorUserIds
+              and s.startTime < :to
+              and s.endTime > :from
+            """)
+    List<AppointmentSession> findForPractitionersBetween(
+            @Param("doctorUserIds") Collection<UUID> doctorUserIds,
+            @Param("from") Instant from,
+            @Param("to") Instant to
+    );
+
+    // The patient is one body: what they already hold blocks every doctor, not just one.
+    @Query("""
+            select s from AppointmentSession s
+            where s.appointment.patient.userId = :patientUserId
+              and s.startTime < :to
+              and s.endTime > :from
+            """)
+    List<AppointmentSession> findForPatientBetween(
+            @Param("patientUserId") UUID patientUserId,
             @Param("from") Instant from,
             @Param("to") Instant to
     );

@@ -106,6 +106,12 @@ public class PatientProfileService {
         return PatientRecordResponse.of(requireOwn());
     }
 
+    // The patient filling their own form; no other route lets them write a clinical field.
+    @Transactional
+    public PatientRecordResponse updateOwnClinicalProfile(EditClinicalProfileRequest request) {
+        return updateClinicalProfile(currentUser.requireId(), request);
+    }
+
     @Transactional
     public PatientRecordResponse updateClinicalProfile(UUID userId, EditClinicalProfileRequest request) {
         PatientProfile profile = require(userId);

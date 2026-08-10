@@ -4,9 +4,9 @@ import com.example.backend.config.ClinicProperties;
 import com.example.backend.config.ClinicProperties.Tariff;
 import com.example.backend.entities.ActivityAction;
 import com.example.backend.security.CurrentUser;
-import com.example.backend.security.Role;
 import com.example.backend.dtos.AddSessionRequest;
 import com.example.backend.dtos.AppointmentSessionResponse;
+import com.example.backend.exception.SlotTakenException;
 import com.example.backend.entities.Appointment;
 import com.example.backend.entities.Appointment.AppointmentStatus;
 import com.example.backend.entities.AppointmentSession;
@@ -18,6 +18,7 @@ import com.example.backend.repositories.AppointmentSessionRepository;
 import com.example.backend.repositories.DoctorProfileRepository;
 import com.example.backend.repositories.PatientProfileRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,9 +26,10 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.ZonedDateTime;
 import java.util.Comparator;
-import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Stream;
 
@@ -45,13 +47,6 @@ public class AppointmentSessionService {
     private final ActivityLogService activityLogs;
     private final CurrentUser currentUser;
 
-    @Transactional(readOnly = true)
-    public List<AppointmentSessionResponse> list(UUID appointmentId) {
-        return sessions.findByAppointmentId(appointmentId).stream()
-                .map(AppointmentSessionResponse::of)
-                .toList();
-    }
-
     @Transactional
     public AppointmentSessionResponse add(UUID appointmentId, AddSessionRequest request) {
         Appointment appointment = appointments.findById(appointmentId)
@@ -61,51 +56,54 @@ public class AppointmentSessionService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Appointment is not booked");
         }
 
+        // Taken once, as book() does: the patient-overlap check has no constraint behind it.
+        patients.lockForBooking(appointment.getPatient().getUserId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No such patient"));
+
+        // A later treatment joins the day the visit already has, or it drags the visit back.
+        LocalDate visitDay = appointment.getScheduledAt().atZone(clinic.zone()).toLocalDate();
+        LocalDate addedDay = request.startTime().atZone(clinic.zone()).toLocalDate();
+
+        if (!addedDay.equals(visitDay)) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "That treatment is not on the day of this visit");
+        }
+
         return AppointmentSessionResponse.of(schedule(appointment, request));
     }
 
-    // Priced at today's tariff, and its own length unless the caller may ask for longer.
+    // Priced and timed at today's tariff. Nobody picks a length; the treatment carries one.
     @Transactional
     public AppointmentSession schedule(Appointment appointment, AddSessionRequest request) {
-        Tariff standard = clinic.tariffFor(request.treatmentName());
-
-        int minutes = standard.durationMinutes();
-        if (request.durationMinutes() != null) {
-            minutes = request.durationMinutes();
-        }
-
-        assertMayRunFor(minutes);
-
-        return schedule(appointment, request, new Tariff(standard.price(), minutes));
+        return schedule(appointment, request, clinic.tariffFor(request.treatmentName()));
     }
 
-    // Past the standard maximum the chair is blocked long enough that it is a clinical call.
-    private void assertMayRunFor(int minutes) {
-        if (minutes <= clinic.standardSessionMaxMinutes()) {
+    // A patient may change their visit until its day begins; the desk works the day itself.
+    public void assertChangeable(Instant startTime) {
+        Instant now = Instant.now();
+
+        if (currentUser.isClinicStaff()) {
+            if (!startTime.isAfter(now)) {
+                throw new ResponseStatusException(
+                        HttpStatus.CONFLICT, "That appointment has already started");
+            }
             return;
         }
 
-        if (!mayExceedStandardLength()) {
+        // Clinic midnight, not the caller's: the appointment's day is a wall-clock day.
+        Instant dayBegins = startTime.atZone(clinic.zone())
+                .toLocalDate()
+                .atStartOfDay(clinic.zone())
+                .toInstant();
+
+        if (!now.isBefore(dayBegins)) {
             throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN,
-                    "Sessions longer than " + clinic.standardSessionMaxMinutes()
-                            + " minutes can only be booked by a doctor or an admin");
+                    HttpStatus.CONFLICT,
+                    "Changes close at midnight before the day of the appointment");
         }
     }
 
-    // How long a chair is blocked is a clinical call, which the desk does not make.
-    private boolean mayExceedStandardLength() {
-        return currentUser.hasRole(Role.DOCTOR) || currentUser.hasRole(Role.ADMIN);
-    }
-
-    // The desk works the exceptions the published pattern cannot know: walk-ins, phone deals.
-    private boolean isClinicStaff() {
-        return currentUser.hasRole(Role.DOCTOR)
-                || currentUser.hasRole(Role.RECEPTIONIST)
-                || currentUser.hasRole(Role.ADMIN);
-    }
-
-    // Only way a session exists, so no path skips a guard. The passed tariff never re-prices.
+    // The only way a session exists. Caller holds the patient lock; the tariff never re-prices.
     @Transactional
     public AppointmentSession schedule(Appointment appointment, AddSessionRequest request, Tariff tariff) {
         DoctorProfile practitioner = doctors.findById(request.practitionerUserId())
@@ -127,9 +125,38 @@ public class AppointmentSessionService {
                 tariff.price(), tariff.durationMinutes(), startTime, endTime
         ));
 
+        // Written now, not at commit, so a race that beat the checks fails where we can name it.
+        try {
+            sessions.flush();
+        } catch (DataIntegrityViolationException race) {
+            throw slotTakenOrRethrow(race);
+        }
+
+        activityLogs.recordSession(
+                currentUser.id().orElse(null),
+                appointment.getPatient().getUserId(),
+                ActivityAction.SESSION_SCHEDULED,
+                saved.getId());
+
         resyncScheduledAt(appointment, startTime);
 
         return saved;
+    }
+
+    // Only the overlap constraints mean a lost slot; every other violation keeps its own error.
+    private RuntimeException slotTakenOrRethrow(DataIntegrityViolationException race) {
+        Throwable cause = race.getMostSpecificCause();
+        String message = cause.getMessage() == null ? "" : cause.getMessage();
+
+        if (message.contains("session_no_practitioner_overlap")) {
+            return new SlotTakenException("Doctor already has a booking then, or too close to one");
+        }
+
+        if (message.contains("session_no_patient_overlap")) {
+            return new SlotTakenException("The patient already has a treatment booked then");
+        }
+
+        return race;
     }
 
     // The visit begins when its earliest live treatment does, or the day's schedule missorts.
@@ -145,11 +172,25 @@ public class AppointmentSessionService {
         }
     }
 
-    // A cancellation may push the start later; with no live session left, the time stands.
-    private void resyncScheduledAtAfterCancel(Appointment appointment) {
-        liveStartTimes(appointment.getId())
-                .min(Comparator.naturalOrder())
-                .ifPresent(appointment::setScheduledAt);
+    // A cancellation may push the start later; the last one leaves no visit to keep.
+    private void closeOrResyncAfterCancel(Appointment appointment) {
+        Optional<Instant> earliest = liveStartTimes(appointment.getId()).min(Comparator.naturalOrder());
+
+        if (earliest.isPresent()) {
+            appointment.setScheduledAt(earliest.get());
+            return;
+        }
+
+        if (appointment.getStatus() == AppointmentStatus.BOOKED) {
+            appointment.cancel();
+
+            // The visit ended here, not just this treatment, so the log says so at both levels.
+            activityLogs.recordAppointment(
+                    currentUser.id().orElse(null),
+                    appointment.getPatient().getUserId(),
+                    ActivityAction.APPOINTMENT_CANCELLED,
+                    appointment.getId());
+        }
     }
 
     private Stream<Instant> liveStartTimes(UUID appointmentId) {
@@ -158,26 +199,33 @@ public class AppointmentSessionService {
                 .map(AppointmentSession::getStartTime);
     }
 
+    // Dropping one treatment out of a visit. Bound by the same cutoff as dropping the visit.
     @Transactional
     public AppointmentSessionResponse cancel(UUID appointmentId, UUID sessionId) {
-        return transition(appointmentId, sessionId, SessionStatus.CANCELLED);
+        AppointmentSession session = require(appointmentId, sessionId);
+        assertChangeable(session.getStartTime());
+
+        return transition(session, SessionStatus.CANCELLED);
     }
 
+    // Attendance is recorded after the fact, so no cutoff applies to either of these.
     @Transactional
     public AppointmentSessionResponse markAttended(UUID appointmentId, UUID sessionId) {
-        return transition(appointmentId, sessionId, SessionStatus.COMPLETED);
+        return transition(require(appointmentId, sessionId), SessionStatus.COMPLETED);
     }
 
     @Transactional
     public AppointmentSessionResponse markNoShow(UUID appointmentId, UUID sessionId) {
-        return transition(appointmentId, sessionId, SessionStatus.NO_SHOW);
+        return transition(require(appointmentId, sessionId), SessionStatus.NO_SHOW);
     }
 
-    // Scoped to the appointment in the path, so a wrong id cannot hit another visit.
-    private AppointmentSessionResponse transition(UUID appointmentId, UUID sessionId, SessionStatus to) {
-        AppointmentSession session = sessions.findByIdAndAppointmentId(sessionId, appointmentId)
+    // Scoped to the path's appointment, and locked: every caller changes this row's status.
+    private AppointmentSession require(UUID appointmentId, UUID sessionId) {
+        return sessions.findWithLockByIdAndAppointmentId(sessionId, appointmentId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No such session"));
+    }
 
+    private AppointmentSessionResponse transition(AppointmentSession session, SessionStatus to) {
         if (session.getStatus() != SessionStatus.PLANNED) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Session is not planned");
         }
@@ -185,16 +233,26 @@ public class AppointmentSessionService {
         session.setStatus(to);
 
         if (to == SessionStatus.CANCELLED) {
-            resyncScheduledAtAfterCancel(session.getAppointment());
+            closeOrResyncAfterCancel(session.getAppointment());
         }
 
         activityLogs.recordSession(
                 currentUser.id().orElse(null),
                 session.getAppointment().getPatient().getUserId(),
-                ActivityAction.SESSION_STATUS_CHANGED,
+                actionFor(to),
                 session.getId());
 
         return AppointmentSessionResponse.of(session);
+    }
+
+    // The log names the status reached, so reading it back does not need the row it describes.
+    private static ActivityAction actionFor(SessionStatus status) {
+        return switch (status) {
+            case CANCELLED -> ActivityAction.SESSION_CANCELLED;
+            case COMPLETED -> ActivityAction.SESSION_COMPLETED;
+            case NO_SHOW -> ActivityAction.SESSION_NO_SHOW;
+            case PLANNED -> ActivityAction.SESSION_SCHEDULED;
+        };
     }
 
     // Enforced only here: the schema stores specializations and never reads them.
@@ -219,7 +277,7 @@ public class AppointmentSessionService {
                     "Bookings open only " + clinic.maxHorizonDays() + " days ahead");
         }
 
-        if (isClinicStaff()) {
+        if (currentUser.isClinicStaff()) {
             return;
         }
 
@@ -236,28 +294,23 @@ public class AppointmentSessionService {
 
         if (sessions.existsOverlappingActiveSession(
                 practitionerUserId, startTime.minus(turnover), endTime.plus(turnover))) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT, "Doctor already has a booking then, or too close to one");
+            throw new SlotTakenException("Doctor already has a booking then, or too close to one");
         }
     }
 
-    // Spans every visit, which session_no_patient_overlap does not; without the lock, a race.
+    // Spans every visit; session_no_patient_overlap is keyed on one, so the lock does the rest.
     private void assertPatientFree(Appointment appointment, Instant startTime, Instant endTime) {
         UUID patientUserId = appointment.getPatient().getUserId();
 
-        patients.lockForBooking(patientUserId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No such patient"));
-
         if (sessions.existsOverlappingActiveSessionForPatient(patientUserId, startTime, endTime)) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT, "The patient already has a treatment booked then");
+            throw new SlotTakenException("The patient already has a treatment booked then");
         }
     }
 
     // Working hours are clinic wall clock, so resolve in clinic zone.
     private void assertWithinWorkingHours(UUID practitionerUserId, Instant startTime, Instant endTime) {
         // The pattern is what the public is offered, not a rule binding the clinic itself.
-        if (isClinicStaff()) {
+        if (currentUser.isClinicStaff()) {
             return;
         }
 

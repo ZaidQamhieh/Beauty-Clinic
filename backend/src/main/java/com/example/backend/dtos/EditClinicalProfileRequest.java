@@ -12,8 +12,9 @@ import java.util.List;
 // A PUT states every clinical fact; send [] to clear a list.
 public record EditClinicalProfileRequest(
         @NotNull Boolean pregnantBreastfeeding,
-        // Nullable columns, so an absent value legitimately means unknown.
-        SkinType skinType,
+        // Required: the one answer that marks the form filled, since the rest may be empty.
+        @NotNull SkinType skinType,
+        // Nullable column, so an absent value legitimately means unknown.
         SmokingStatus smokingStatus,
         @NotNull List<Allergy> allergies,
         @NotNull List<Medication> medications,
