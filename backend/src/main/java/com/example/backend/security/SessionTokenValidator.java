@@ -2,7 +2,6 @@ package com.example.backend.security;
 
 import com.example.backend.entities.UserAccount;
 import com.example.backend.repositories.RefreshTokenRepository;
-import com.example.backend.repositories.UserAccountRepository;
 import com.example.backend.services.AccessTokenService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.oauth2.core.OAuth2Error;
@@ -19,10 +18,6 @@ import java.util.UUID;
 @RequiredArgsConstructor
 class SessionTokenValidator implements OAuth2TokenValidator<Jwt> {
 
-    private static final OAuth2Error REVOKED = new OAuth2Error(
-            "invalid_token", "Session has been revoked", null
-    );
-
     private static final OAuth2Error MALFORMED_SESSION = new OAuth2Error(
             "invalid_token", "Token is missing a valid session claim", null
     );
@@ -37,7 +32,6 @@ class SessionTokenValidator implements OAuth2TokenValidator<Jwt> {
     );
 
     private final RefreshTokenRepository refreshTokens;
-    private final UserAccountRepository users;
 
     @Override
     public OAuth2TokenValidatorResult validate(Jwt token) {
@@ -46,17 +40,13 @@ class SessionTokenValidator implements OAuth2TokenValidator<Jwt> {
             return OAuth2TokenValidatorResult.failure(MALFORMED_SESSION);
         }
 
-        if (!refreshTokens.existsById(sessionId.get())) {
-            return OAuth2TokenValidatorResult.failure(REVOKED);
-        }
-
         Optional<UUID> userId = uuidClaim(token, AccessTokenService.USER_ID_CLAIM);
         if (userId.isEmpty()) {
             return OAuth2TokenValidatorResult.failure(MALFORMED_USER);
         }
 
-        // Absent covers deleted and soft-deleted, which UserAccount filters out of every read.
-        boolean stillCurrent = users.findById(userId.get())
+        // One read, and it ties the two claims: a session must belong to the id named.
+        boolean stillCurrent = refreshTokens.findSessionOwner(sessionId.get(), userId.get())
                 .filter(UserAccount::isEnabled)
                 .filter(account -> carriesCurrentRole(token, account))
                 .isPresent();

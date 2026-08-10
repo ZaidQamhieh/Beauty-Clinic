@@ -77,6 +77,11 @@ public class PatientProfile {
         this.user = user;
     }
 
+    // Skin type marks the form as filled: every other answer may truthfully be empty.
+    public boolean hasCompletedHealthForm() {
+        return skinType != null;
+    }
+
     public enum SkinType {
         NORMAL,
         DRY,
