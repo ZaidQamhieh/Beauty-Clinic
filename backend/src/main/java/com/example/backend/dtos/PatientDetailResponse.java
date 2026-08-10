@@ -6,8 +6,7 @@ import com.example.backend.entities.PatientProfile;
 import java.time.LocalDate;
 import java.util.UUID;
 
-// Demographics only, read off the account. Safe for reception - no clinical
-// field exists to leak.
+// Demographics only, so reception gets a shape with no clinical field to leak.
 public record PatientDetailResponse(
         UUID id,
         String firstName,

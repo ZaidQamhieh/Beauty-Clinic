@@ -12,8 +12,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
-// Demographics plus clinical intake. Admin, treating doctor, or the patient
-// themselves.
+// Demographics plus clinical intake: admin, treating doctor, or the patient themselves.
 public record PatientRecordResponse(
         UUID id,
         String firstName,
