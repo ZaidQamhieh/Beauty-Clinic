@@ -11,4 +11,7 @@ public interface SessionRecordRepository extends JpaRepository<SessionRecord, UU
 
     Page<SessionRecord> findBySessionAppointmentPatientUserIdOrderByCreatedAtDesc(
             UUID patientUserId, Pageable pageable);
+
+    // Mirrors the UNIQUE on amends_record_id: a record is amended at most once.
+    boolean existsByAmendsId(UUID amendsRecordId);
 }

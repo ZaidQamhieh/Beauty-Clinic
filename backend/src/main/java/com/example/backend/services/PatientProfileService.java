@@ -20,7 +20,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -34,6 +37,11 @@ public class PatientProfileService {
     public PatientDetailResponse register(PatientDetailsRequest request) {
         if (users.findByEmailIgnoreCase(request.email()).isPresent()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already registered");
+        }
+
+        // Phone carries its own unique index, so it needs its own answer, not a bare conflict.
+        if (request.phone() != null && users.existsByPhone(request.phone())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Phone number already registered");
         }
 
         // No password: the account is INVITED until the patient claims it.
@@ -53,7 +61,12 @@ public class PatientProfileService {
 
     @Transactional(readOnly = true)
     public Page<PatientDetailResponse> search(String term, Pageable pageable) {
-        return patients.search(term == null ? "" : term, pageable)
+        String needle = term;
+        if (needle == null) {
+            needle = "";
+        }
+
+        return patients.search(needle, pageable)
                 .map(PatientDetailResponse::of);
     }
 
@@ -99,10 +112,21 @@ public class PatientProfileService {
         profile.setPregnantBreastfeeding(request.pregnantBreastfeeding());
         profile.setSkinType(request.skinType());
         profile.setSmokingStatus(request.smokingStatus());
-        profile.setAllergies(request.allergies());
-        profile.setMedications(request.medications());
-        profile.setChronicConditions(request.chronicConditions());
+        profile.setAllergies(distinct(request.allergies()));
+        profile.setMedications(distinct(request.medications()));
+        profile.setChronicConditions(distinct(request.chronicConditions()));
         return PatientRecordResponse.of(profile);
+    }
+
+    // The column CHECK only tests containment, so ['NUTS','NUTS'] passes. Copies, and never null.
+    private static <T> List<T> distinct(List<T> values) {
+        if (values == null) {
+            return new ArrayList<>();
+        }
+
+        return values.stream()
+                .distinct()
+                .collect(Collectors.toCollection(ArrayList::new));
     }
 
     private PatientProfile require(UUID userId) {

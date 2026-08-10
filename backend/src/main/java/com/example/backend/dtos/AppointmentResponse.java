@@ -23,8 +23,16 @@ public record AppointmentResponse(
                 appointment.getPatient().getUser().fullName(),
                 appointment.getScheduledAt(),
                 appointment.getStatus().name(),
-                appointment.getReplaces() != null ? appointment.getReplaces().getId() : null,
+                replacedIdOf(appointment),
                 sessions
         );
+    }
+
+    // Null for a first booking: only a reschedule leaves an appointment behind.
+    private static UUID replacedIdOf(Appointment appointment) {
+        if (appointment.getReplaces() == null) {
+            return null;
+        }
+        return appointment.getReplaces().getId();
     }
 }

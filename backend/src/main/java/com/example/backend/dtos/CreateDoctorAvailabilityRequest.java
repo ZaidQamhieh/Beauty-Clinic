@@ -24,4 +24,22 @@ public record CreateDoctorAvailabilityRequest(
     private boolean isWindowOrdered() {
         return startTime == null || endTime == null || endTime.isAfter(startTime);
     }
+
+    // Mirrors doctor_availability_shape, so the caller gets a named error rather than a bare 409.
+    @AssertTrue(message = "dayOfWeek is required for RECURRING and must be absent for OVERRIDE")
+    private boolean isShapeValid() {
+        if (kind == null) {
+            return true;
+        }
+        if (kind == AvailabilityKind.RECURRING) {
+            return dayOfWeek != null;
+        }
+        return dayOfWeek == null;
+    }
+
+    // Mirrors the effective_to CHECK: an inverted range is rejected here, not by the database.
+    @AssertTrue(message = "effectiveTo must not be before effectiveFrom")
+    private boolean isEffectiveRangeOrdered() {
+        return effectiveFrom == null || effectiveTo == null || !effectiveTo.isBefore(effectiveFrom);
+    }
 }

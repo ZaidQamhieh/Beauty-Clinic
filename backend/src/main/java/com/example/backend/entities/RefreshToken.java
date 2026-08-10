@@ -30,12 +30,20 @@ public class RefreshToken {
     @JoinColumn(name= "user_id", nullable = false)
     private UserAccount user;
 
-    //Only the hash is stored, the client receives the raw token
-    @Column(name = "token_hash", nullable = false, unique = true, length = 64)
+    // Only the hash is stored; length and uniqueness describe the column, not the SHA-256 value.
+    @Column(name = "token_hash", nullable = false, length = 255)
     private String tokenHash;
 
     @Column(name = "expires_at", nullable = false)
     private Instant expiresAt;
+
+    // Filled by the column default, so the application reads it and never writes it.
+    @Column(name = "issued_at", nullable = false, insertable = false, updatable = false)
+    private Instant issuedAt;
+
+    // Revocation is explicit; unwritten, logging out was indistinguishable from a deleted row.
+    @Column(name = "revoked_at")
+    private Instant revokedAt;
 
     public RefreshToken(
         UserAccount user,
@@ -49,6 +57,14 @@ public class RefreshToken {
 
     public boolean isExpired(Instant now) {
         return !expiresAt.isAfter(now);
+    }
+
+    public boolean isRevoked() {
+        return revokedAt != null;
+    }
+
+    public void revoke(Instant at) {
+        this.revokedAt = at;
     }
 
     // Rotation-only: id and user never change after creation.

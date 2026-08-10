@@ -65,6 +65,12 @@ public class SessionRecordService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No such session record for this patient");
         }
 
+        // A record is amended at most once, so the chain stays linear and the live note is clear.
+        if (records.existsByAmendsId(original.getId())) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "That record has already been amended; amend the correction instead");
+        }
+
         DoctorProfile author = requireAuthor();
 
         SessionRecord correction = records.save(original.amendedWith(

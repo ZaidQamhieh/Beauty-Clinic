@@ -21,8 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-// Keyed on the account it belongs to, same reasoning as PatientProfile: one
-// person, one identifier.
+// Keyed on the account it belongs to: one person, one identifier.
 @Entity
 @Table(name = "doctor_profile")
 @SoftDelete

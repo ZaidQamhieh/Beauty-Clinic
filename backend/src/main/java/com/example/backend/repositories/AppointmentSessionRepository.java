@@ -66,4 +66,27 @@ public interface AppointmentSessionRepository extends JpaRepository<AppointmentS
                 doctorUserId, SessionStatus.CANCELLED, startTime, endTime
         );
     }
+
+    // Across every visit: session_no_patient_overlap is keyed on appointment_id, so it sees one.
+    @Query("""
+            select case when count(s) > 0 then true else false end
+            from AppointmentSession s
+            where s.appointment.patient.userId = :patientUserId
+              and s.status <> :cancelled
+              and s.startTime < :endTime
+              and s.endTime > :startTime
+            """)
+    boolean existsOverlappingForPatientExcluding(
+            @Param("patientUserId") UUID patientUserId,
+            @Param("cancelled") SessionStatus cancelled,
+            @Param("startTime") Instant startTime,
+            @Param("endTime") Instant endTime
+    );
+
+    default boolean existsOverlappingActiveSessionForPatient(
+            UUID patientUserId, Instant startTime, Instant endTime) {
+        return existsOverlappingForPatientExcluding(
+                patientUserId, SessionStatus.CANCELLED, startTime, endTime
+        );
+    }
 }
