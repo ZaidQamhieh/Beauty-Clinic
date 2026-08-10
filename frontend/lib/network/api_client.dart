@@ -3,6 +3,11 @@ import 'package:dio/dio.dart';
 import '../auth/auth_session.dart';
 import '../config/api_config.dart';
 
+/// Signed in, but this role or record is not theirs; refreshing cannot widen a role.
+class ForbiddenException implements Exception {
+  const ForbiddenException();
+}
+
 class ApiClient {
   static const authorizationHeader = 'Authorization';
   ApiClient(this._authSession, {Dio? dio})
@@ -56,8 +61,21 @@ class ApiClient {
     ErrorInterceptorHandler handler,
   ) async {
     final request = error.requestOptions;
-    if (error.response?.statusCode != 401 ||
-        request.extra[_retriedAfterRefresh] == true) {
+    final statusCode = error.response?.statusCode;
+
+    if (statusCode == 403) {
+      handler.next(
+        DioException(
+          requestOptions: request,
+          response: error.response,
+          type: error.type,
+          error: const ForbiddenException(),
+        ),
+      );
+      return;
+    }
+
+    if (statusCode != 401 || request.extra[_retriedAfterRefresh] == true) {
       handler.next(error);
       return;
     }

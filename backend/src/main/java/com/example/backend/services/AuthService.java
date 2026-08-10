@@ -2,12 +2,19 @@ package com.example.backend.services;
 
 import com.example.backend.dtos.LoginRequest;
 import com.example.backend.dtos.RefreshTokenRequest;
+import com.example.backend.dtos.RegisterRequest;
 import com.example.backend.dtos.TokenResponse;
 
+import com.example.backend.entities.PatientProfile;
 import com.example.backend.entities.UserAccount;
+import com.example.backend.security.Role;
 import com.example.backend.security.UserAccountDetails;
+import com.example.backend.repositories.PatientProfileRepository;
 import com.example.backend.repositories.UserAccountRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -25,11 +32,52 @@ public class AuthService {
 
     private final AuthenticationManager authenticationManager;
     private final UserAccountRepository users;
+    private final PatientProfileRepository patientProfiles;
+    private final PasswordEncoder passwordEncoder;
     private final AccessTokenService accessTokens;
     private final RefreshTokenService refreshTokens;
     private final UserAccountDetailsService userDetailsService;
     private final LoginLockoutService lockouts;
     private final ActivityLogService activityLogs;
+
+    @Transactional
+    public TokenResponse register(RegisterRequest request) {
+        if (users.findByEmailIgnoreCase(request.email()).isPresent()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already registered");
+        }
+
+        // Phone carries its own unique index, so it needs its own answer, not a bare conflict.
+        if (request.phone() != null && users.existsByPhone(request.phone())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Phone number already registered");
+        }
+
+        // Role is fixed here, never read from the body: self-registration cannot mint staff.
+        UserAccount account = new UserAccount(
+                request.email(), null, request.firstName(), request.lastName(), Role.PATIENT
+        );
+        account.setPhone(request.phone());
+        account.setDateOfBirth(request.dateOfBirth());
+        account.setGender(request.gender());
+
+        // The only path that may set a password, so user_account_credentials always holds.
+        account.activateWith(passwordEncoder.encode(request.password()));
+        users.save(account);
+
+        patientProfiles.save(new PatientProfile(account));
+        activityLogs.recordRegistration(account.getId());
+
+        UserAccountDetails principal = UserAccountDetails.of(account);
+        var refreshToken = refreshTokens.issue(account);
+        var accessToken = accessTokens.issue(principal, refreshToken.sessionId());
+
+        return new TokenResponse(
+                accessToken.value(),
+                refreshToken.value(),
+                "Bearer",
+                accessToken.expiresInSeconds(),
+                principal.getRole().name()
+        );
+    }
 
     @Transactional
     public TokenResponse login(LoginRequest request) {
@@ -91,7 +139,8 @@ public class AuthService {
                 accessToken.value(),
                 refreshToken.value(),
                 "Bearer",
-                accessToken.expiresInSeconds()
+                accessToken.expiresInSeconds(),
+                principal.getRole().name()
       );
     }
 
@@ -113,11 +162,13 @@ public class AuthService {
 
         var accessToken = accessTokens.issue(principal, rotatedToken.sessionId());
 
+        // Reloaded from the account, so a role changed mid-session reaches the client here.
         return new TokenResponse(
                 accessToken.value(),
                 rotatedToken.value(),
                 "Bearer",
-                accessToken.expiresInSeconds()
+                accessToken.expiresInSeconds(),
+                principal.getRole().name()
         );
     }
 

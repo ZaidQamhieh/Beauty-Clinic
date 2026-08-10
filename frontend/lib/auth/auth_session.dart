@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
 import '../config/api_config.dart';
+import 'role.dart';
 import 'token_pair.dart';
 import 'token_store.dart';
 
@@ -56,6 +57,9 @@ class AuthSession extends ChangeNotifier {
 
   AuthStatus get status => _status;
   bool get isAuthenticated => _status == AuthStatus.authenticated;
+
+  /// The signed-in user's role, renewed on every rotation; null while signed out.
+  Role? get role => _tokens?.role;
 
   static DateTime _utcNow() => DateTime.now().toUtc();
 
