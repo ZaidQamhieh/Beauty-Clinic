@@ -27,11 +27,31 @@ public class ActivityLogService {
         recordUserEvent(userId, ActivityAction.LOGOUT);
     }
 
+    @Transactional
+    public void recordRegistration(UUID userId) {
+        recordUserEvent(userId, ActivityAction.ACCOUNT_REGISTERED);
+    }
+
     // Must survive the rejected login transaction rolling back.
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void recordFailedLogin(String attemptedIdentifier) {
         activityLogs.save(
                 ActivityLog.failedLogin(attemptedIdentifier)
+        );
+    }
+
+    // Joins the caller's transaction: if the booking rolls back, so does the claim it happened.
+    @Transactional
+    public void recordAppointment(UUID actorId, UUID patientUserId, ActivityAction action, UUID appointmentId) {
+        activityLogs.save(
+                ActivityLog.onEntity(actorId, patientUserId, action, "appointment", appointmentId)
+        );
+    }
+
+    @Transactional
+    public void recordSession(UUID actorId, UUID patientUserId, ActivityAction action, UUID sessionId) {
+        activityLogs.save(
+                ActivityLog.onEntity(actorId, patientUserId, action, "appointment_session", sessionId)
         );
     }
 

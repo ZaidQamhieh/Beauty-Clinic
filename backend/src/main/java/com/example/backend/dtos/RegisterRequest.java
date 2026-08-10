@@ -8,14 +8,16 @@ import jakarta.validation.constraints.Size;
 
 import java.time.LocalDate;
 
-// Serves register and edit; registering also creates an INVITED, passwordless account.
-public record PatientDetailsRequest(
+// Self-registration. There is deliberately no role field: the server always assigns PATIENT.
+public record RegisterRequest(
         @NotBlank @Size(max = 100) String firstName,
         @NotBlank @Size(max = 100) String lastName,
-        @Past LocalDate dateOfBirth,
-        @Size(max = 30) String phone,
         // 254 is the RFC limit; 255 would register an unloggable address.
         @NotBlank @Email @Size(max = 254) String email,
+        // 72 is bcrypt's ceiling; anything past it is silently ignored when hashing.
+        @NotBlank @Size(min = 8, max = 72) String password,
+        @Size(max = 30) String phone,
+        @Past LocalDate dateOfBirth,
         Gender gender
 ) {
 }

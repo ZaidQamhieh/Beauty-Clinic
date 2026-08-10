@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
+import java.util.stream.Collectors;
 import java.util.List;
 import java.util.UUID;
 
@@ -27,9 +28,18 @@ public class ProductService {
 
     @Transactional
     public ProductResponse create(CreateProductRequest request) {
+        // Named here rather than left to the unique index, which cannot say which pair clashed.
+        if (products.existsByBrandAndProductType(request.brand(), request.productType())) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "That brand and product type is already in the catalogue");
+        }
+
         Product product = new Product(request.brand(), request.productType());
         if (request.ingredients() != null) {
-            product.setIngredients(new ArrayList<>(request.ingredients()));
+            // The column CHECK tests containment, not distinctness, so duplicates store.
+            product.setIngredients(
+                    request.ingredients().stream().distinct()
+                            .collect(Collectors.toCollection(ArrayList::new)));
         }
         return ProductResponse.of(products.save(product));
     }

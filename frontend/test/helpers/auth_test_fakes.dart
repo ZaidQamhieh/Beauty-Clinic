@@ -40,12 +40,14 @@ Map<String, dynamic> tokenResponse(
   String accessToken,
   String refreshToken, {
   int expiresInSeconds = 900,
+  String role = 'PATIENT',
 }) {
   return {
     'accessToken': accessToken,
     'refreshToken': refreshToken,
     'tokenType': 'Bearer',
     'expiresInSeconds': expiresInSeconds,
+    'role': role,
   };
 }
 

@@ -15,6 +15,9 @@ public interface UserAccountRepository extends JpaRepository<UserAccount, UUID> 
 
     Optional<UserAccount> findByEmailIgnoreCase(String email);
 
+    // Mirrors uq_user_account_phone, which is scoped to live rows, so a soft delete frees it.
+    boolean existsByPhone(String phone);
+
     // Locked: concurrent failed logins must not lose an increment.
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select u from UserAccount u where lower(u.email) = lower(:email)")

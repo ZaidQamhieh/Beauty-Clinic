@@ -59,38 +59,28 @@ public class DoctorAvailabilityService {
         availabilities.delete(availability);
     }
 
-    // Windows doctor open for on a date. OVERRIDE beats RECURRING, so holiday holds.
+    // Open rows added up, unavailable ones cut out, so extra hours extend rather than replace.
     @Transactional(readOnly = true)
-    public List<DoctorAvailability> openWindowsOn(UUID doctorUserId, LocalDate date) {
-        List<DoctorAvailability> all = availabilities.findByDoctorUserId(doctorUserId);
+    public List<TimeRange> openWindowsOn(UUID doctorUserId, LocalDate date) {
+        List<DoctorAvailability> effective = availabilities.findEffectiveOn(
+                doctorUserId, date, date.getDayOfWeek(), AvailabilityKind.OVERRIDE);
 
-        List<DoctorAvailability> overrides = all.stream()
-                .filter(a -> a.getKind() == AvailabilityKind.OVERRIDE)
-                .filter(a -> covers(a, date))
-                .toList();
+        List<TimeRange> open = spansOf(effective, true);
+        List<TimeRange> closed = spansOf(effective, false);
 
-        if (!overrides.isEmpty()) {
-            return overrides.stream().filter(DoctorAvailability::isAvailable).toList();
-        }
-
-        return all.stream()
-                .filter(a -> a.getKind() == AvailabilityKind.RECURRING)
-                .filter(a -> a.getDayOfWeek() == date.getDayOfWeek())
-                .filter(a -> covers(a, date))
-                .filter(DoctorAvailability::isAvailable)
-                .toList();
+        return TimeRange.subtract(TimeRange.union(open), closed);
     }
 
     // Do these wall-clock times fit inside one open window?
     @Transactional(readOnly = true)
     public boolean isOpenFor(UUID doctorUserId, LocalDate date, LocalTime start, LocalTime end) {
-        return openWindowsOn(doctorUserId, date).stream().anyMatch(window ->
-                !start.isBefore(window.getStartTime()) && !end.isAfter(window.getEndTime())
-        );
+        return openWindowsOn(doctorUserId, date).stream().anyMatch(window -> window.covers(start, end));
     }
 
-    private boolean covers(DoctorAvailability availability, LocalDate date) {
-        return !date.isBefore(availability.getEffectiveFrom())
-                && (availability.getEffectiveTo() == null || !date.isAfter(availability.getEffectiveTo()));
+    private List<TimeRange> spansOf(List<DoctorAvailability> rows, boolean available) {
+        return rows.stream()
+                .filter(a -> a.isAvailable() == available)
+                .map(a -> new TimeRange(a.getStartTime(), a.getEndTime()))
+                .toList();
     }
 }

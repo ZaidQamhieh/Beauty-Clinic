@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
+import java.util.stream.Collectors;
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
@@ -40,7 +41,10 @@ public class DoctorService {
 
         DoctorProfile doctor = new DoctorProfile(account);
         if (request.specializations() != null) {
-            doctor.setSpecializations(new ArrayList<>(request.specializations()));
+            // The column CHECK tests containment, not distinctness, so duplicates store.
+            doctor.setSpecializations(
+                    request.specializations().stream().distinct()
+                            .collect(Collectors.toCollection(ArrayList::new)));
         }
         doctor.setYearsOfExperience(request.yearsOfExperience());
 
@@ -64,7 +68,10 @@ public class DoctorService {
     public DoctorResponse updateProfile(UUID userId, DoctorProfileRequest request) {
         DoctorProfile doctor = require(userId);
         if (request.specializations() != null) {
-            doctor.setSpecializations(new ArrayList<>(request.specializations()));
+            // The column CHECK tests containment, not distinctness, so duplicates store.
+            doctor.setSpecializations(
+                    request.specializations().stream().distinct()
+                            .collect(Collectors.toCollection(ArrayList::new)));
         }
         doctor.setYearsOfExperience(request.yearsOfExperience());
         return DoctorResponse.of(doctor);

@@ -89,6 +89,9 @@ public class LoginLockoutService {
             escalated = escalated.multipliedBy(2);
         }
 
-        return escalated.compareTo(MAX_LOCKOUT) > 0 ? MAX_LOCKOUT : escalated;
+        if (escalated.compareTo(MAX_LOCKOUT) > 0) {
+            return MAX_LOCKOUT;
+        }
+        return escalated;
     }
 }

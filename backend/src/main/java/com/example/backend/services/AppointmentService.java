@@ -1,17 +1,19 @@
 package com.example.backend.services;
 
 import com.example.backend.config.ClinicProperties;
+import com.example.backend.config.ClinicProperties.Tariff;
 import com.example.backend.dtos.AddSessionRequest;
 import com.example.backend.dtos.AppointmentResponse;
 import com.example.backend.dtos.AppointmentSessionResponse;
 import com.example.backend.dtos.BookAppointmentRequest;
 import com.example.backend.dtos.FreeSlotResponse;
 import com.example.backend.dtos.RescheduleAppointmentRequest;
+import com.example.backend.entities.ActivityAction;
 import com.example.backend.entities.Appointment;
 import com.example.backend.entities.Appointment.AppointmentStatus;
 import com.example.backend.entities.AppointmentSession;
 import com.example.backend.entities.AppointmentSession.SessionStatus;
-import com.example.backend.entities.DoctorAvailability;
+import com.example.backend.entities.AppointmentSession.TreatmentName;
 import com.example.backend.entities.PatientProfile;
 import com.example.backend.repositories.AppointmentRepository;
 import com.example.backend.repositories.AppointmentSessionRepository;
@@ -31,7 +33,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalTime;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -54,6 +56,7 @@ public class AppointmentService {
     private final UserAccountRepository users;
     private final CurrentUser currentUser;
     private final ClinicProperties clinic;
+    private final ActivityLogService activityLogs;
 
     @Transactional
     public AppointmentResponse book(BookAppointmentRequest request) {
@@ -70,6 +73,7 @@ public class AppointmentService {
         appointments.save(appointment);
 
         AppointmentSession session = sessionService.schedule(appointment, request.session());
+        record(ActivityAction.APPOINTMENT_BOOKED, appointment);
 
         return AppointmentResponse.of(appointment, List.of(AppointmentSessionResponse.of(session)));
     }
@@ -79,8 +83,9 @@ public class AppointmentService {
         Appointment original = require(id);
         assertBooked(original);
 
+        // Only unstarted work moves; COMPLETED or NO_SHOW stays, with its clinical record.
         List<AppointmentSession> moving = sessions.findByAppointmentId(original.getId()).stream()
-                .filter(s -> s.getStatus() != SessionStatus.CANCELLED)
+                .filter(s -> s.getStatus() == SessionStatus.PLANNED)
                 .toList();
 
         Duration delta = Duration.between(original.getScheduledAt(), request.startTime());
@@ -97,8 +102,11 @@ public class AppointmentService {
 
         List<AppointmentSessionResponse> rebuilt = moving.stream()
                 .map(s -> AppointmentSessionResponse.of(
-                        sessionService.schedule(replacement, movedBy(s, delta))))
+                        sessionService.schedule(replacement, movedBy(s, delta), originalTariff(s))))
                 .toList();
+
+        // Logged against the replacement, which is the row that now exists.
+        record(ActivityAction.APPOINTMENT_RESCHEDULED, replacement);
 
         return AppointmentResponse.of(replacement, rebuilt);
     }
@@ -107,11 +115,14 @@ public class AppointmentService {
     public AppointmentResponse cancel(UUID id) {
         Appointment appointment = require(id);
         assertBooked(appointment);
+        assertNotStarted(appointment);
         appointment.cancel();
 
         sessions.findByAppointmentId(id).stream()
                 .filter(s -> s.getStatus() == SessionStatus.PLANNED)
                 .forEach(s -> s.setStatus(SessionStatus.CANCELLED));
+
+        record(ActivityAction.APPOINTMENT_CANCELLED, appointment);
 
         return withSessions(appointment);
     }
@@ -142,13 +153,14 @@ public class AppointmentService {
         return sorted(appointments.findBetween(startOfDay(day), startOfDay(day.plusDays(1))));
     }
 
+    // Asked per treatment, not per length: how long it runs is the treatment's own property.
     @Transactional(readOnly = true)
-    public List<FreeSlotResponse> freeSlots(UUID doctorId, int durationMinutes, LocalDate date) {
+    public List<FreeSlotResponse> freeSlots(UUID doctorId, TreatmentName treatmentName, LocalDate date) {
         if (!doctors.existsById(doctorId)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No such doctor");
         }
 
-        Duration duration = Duration.ofMinutes(durationMinutes);
+        Duration duration = Duration.ofMinutes(clinic.tariffFor(treatmentName).durationMinutes());
 
         // Every status but CANCELLED holds its slot, matching the constraint.
         List<AppointmentSession> busy = sessionsFor(doctorId, date).stream()
@@ -161,39 +173,98 @@ public class AppointmentService {
                 .toList();
     }
 
-    // Same treatment and practitioner, shifted by the reschedule delta.
+    // Same treatment, practitioner and length, shifted by the delta; no length is being chosen.
     private AddSessionRequest movedBy(AppointmentSession session, Duration delta) {
         return new AddSessionRequest(
                 session.getPractitioner().getUserId(),
-                session.getCategory(),
                 session.getTreatmentName(),
-                session.getPriceCharged(),
-                session.getDurationMinutes(),
-                session.getStartTime().plus(delta)
+                session.getStartTime().plus(delta),
+                session.getDurationMinutes()
         );
     }
 
+    // What the session was sold at, not what the same treatment costs today.
+    private Tariff originalTariff(AppointmentSession session) {
+        return new Tariff(session.getPriceCharged(), session.getDurationMinutes());
+    }
+
+    // Who changed which visit, for whom. The actor is absent for work with no caller.
+    private void record(ActivityAction action, Appointment appointment) {
+        activityLogs.recordAppointment(
+                currentUser.id().orElse(null),
+                appointment.getPatient().getUserId(),
+                action,
+                appointment.getId());
+    }
+
+    // Walks each free stretch on the grid, so an off-grid booking blanks only what it holds.
     private List<FreeSlotResponse> slotsWithin(
-            LocalDate date, DoctorAvailability window, Duration duration, List<AppointmentSession> busy
+            LocalDate date, TimeRange window, Duration duration, List<AppointmentSession> busy
     ) {
+        Instant windowStart = date.atTime(window.start()).atZone(clinic.zone()).toInstant();
+        Instant windowEnd = date.atTime(window.end()).atZone(clinic.zone()).toInstant();
+
+        Duration stride = clinic.slotGranularity();
         List<FreeSlotResponse> free = new ArrayList<>();
 
-        LocalTime cursor = window.getStartTime();
-        while (!cursor.plus(duration).isAfter(window.getEndTime())) {
-            Instant start = date.atTime(cursor).atZone(clinic.zone()).toInstant();
-            Instant end = start.plus(duration);
-
-            boolean taken = busy.stream().anyMatch(
-                    s -> start.isBefore(s.getEndTime()) && end.isAfter(s.getStartTime()));
-
-            if (!taken) {
-                free.add(new FreeSlotResponse(start, end));
+        for (Instant[] gap : gapsIn(windowStart, windowEnd, busy)) {
+            Instant cursor = onGrid(gap[0], stride);
+            while (!cursor.plus(duration).isAfter(gap[1])) {
+                free.add(new FreeSlotResponse(cursor, cursor.plus(duration)));
+                cursor = cursor.plus(stride);
             }
-
-            cursor = cursor.plus(duration);
         }
 
         return free;
+    }
+
+    // Forward to the next grid mark, measured from clinic midnight rather than the window.
+    private Instant onGrid(Instant candidate, Duration stride) {
+        ZonedDateTime local = candidate.atZone(clinic.zone());
+        ZonedDateTime midnight = local.toLocalDate().atStartOfDay(clinic.zone());
+
+        long strideMinutes = stride.toMinutes();
+        long elapsed = Duration.between(midnight, local).toMinutes();
+        long marks = (elapsed + strideMinutes - 1) / strideMinutes;
+
+        Instant aligned = midnight.plusMinutes(marks * strideMinutes).toInstant();
+
+        // Rounding down is never allowed: the gap starts where it starts.
+        if (aligned.isBefore(candidate)) {
+            return candidate;
+        }
+
+        return aligned;
+    }
+
+    // The window minus what holds time in it, turnover included, as [start, end) pairs.
+    private List<Instant[]> gapsIn(Instant windowStart, Instant windowEnd, List<AppointmentSession> busy) {
+        Duration turnover = clinic.turnover();
+
+        List<Instant[]> held = busy.stream()
+                .map(s -> new Instant[]{s.getStartTime().minus(turnover), s.getEndTime().plus(turnover)})
+                .filter(h -> h[0].isBefore(windowEnd) && h[1].isAfter(windowStart))
+                .sorted(Comparator.comparing((Instant[] h) -> h[0]))
+                .toList();
+
+        List<Instant[]> gaps = new ArrayList<>();
+        Instant cursor = windowStart;
+
+        for (Instant[] taken : held) {
+            if (taken[0].isAfter(cursor)) {
+                gaps.add(new Instant[]{cursor, taken[0]});
+            }
+            // Bookings can overlap each other across doctors, so never walk backwards.
+            if (taken[1].isAfter(cursor)) {
+                cursor = taken[1];
+            }
+        }
+
+        if (cursor.isBefore(windowEnd)) {
+            gaps.add(new Instant[]{cursor, windowEnd});
+        }
+
+        return gaps;
     }
 
     // Deduped by id: Appointment has no equals, so distinct() would rely on identity.
@@ -216,8 +287,19 @@ public class AppointmentService {
         }
     }
 
+    // No notice period, but a visit already under way is undone per session, not cancelled.
+    private void assertNotStarted(Appointment appointment) {
+        if (!appointment.getScheduledAt().isAfter(Instant.now())) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "That appointment has already started");
+        }
+    }
+
     private LocalDate dayOrToday(LocalDate date) {
-        return date != null ? date : LocalDate.now(clinic.zone());
+        if (date != null) {
+            return date;
+        }
+        return LocalDate.now(clinic.zone());
     }
 
     private Instant startOfDay(LocalDate date) {

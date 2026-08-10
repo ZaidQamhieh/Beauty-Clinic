@@ -35,12 +35,13 @@ public class UserAccount {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    // Not unique = true: uq_user_account_email is scoped to live rows, so a soft delete frees it.
     @Email
     @NotBlank
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false)
     private String email;
 
-    @Column(unique = true, length = 30)
+    @Column(length = 30)
     private String phone;
 
     // Null until claimed: reception registers walk-ins, who sit at INVITED.
@@ -96,7 +97,11 @@ public class UserAccount {
     }
 
     public void setEmail(String email) {
-        this.email = email == null ? null : email.trim().toLowerCase(Locale.ROOT);
+        if (email == null) {
+            this.email = null;
+            return;
+        }
+        this.email = email.trim().toLowerCase(Locale.ROOT);
     }
 
     public String fullName() {
@@ -105,6 +110,20 @@ public class UserAccount {
 
     public boolean isEnabled() {
         return status == AccountStatus.ACTIVE;
+    }
+
+    // Mirrors user_account_credentials: only this path may activate, so setStatus cannot break it.
+    public void activateWith(String passwordHash) {
+        if (passwordHash == null || passwordHash.isBlank()) {
+            throw new IllegalArgumentException("An active account must have a password");
+        }
+
+        this.passwordHash = passwordHash;
+        this.status = AccountStatus.ACTIVE;
+    }
+
+    public boolean isClaimed() {
+        return passwordHash != null;
     }
 
     public boolean isLocked(Instant now) {

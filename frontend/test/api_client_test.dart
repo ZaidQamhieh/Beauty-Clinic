@@ -1,6 +1,10 @@
 import 'package:beauty_clinic_app/auth/auth_session.dart';
 import 'package:beauty_clinic_app/auth/token_pair.dart';
 import 'package:beauty_clinic_app/network/api_client.dart';
+import 'package:beauty_clinic/auth/auth_session.dart';
+import 'package:beauty_clinic/auth/role.dart';
+import 'package:beauty_clinic/auth/token_pair.dart';
+import 'package:beauty_clinic/network/api_client.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -109,6 +113,7 @@ void main() {
       accessToken: 'sibling-access',
       refreshToken: 'sibling-refresh',
       expiresAt: now.add(const Duration(minutes: 15)),
+      role: Role.patient,
     );
     final apiAdapter = QueueAdapter([
       (_) {

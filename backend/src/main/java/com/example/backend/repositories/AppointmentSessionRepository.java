@@ -33,11 +33,12 @@ public interface AppointmentSessionRepository extends JpaRepository<AppointmentS
             @Param("patientUserId") UUID patientUserId
     );
 
+    // Overlap, not start time: a session running past midnight still holds the room next day.
     @Query("""
             select s from AppointmentSession s
             where s.practitioner.userId = :doctorUserId
-              and s.startTime >= :from
               and s.startTime < :to
+              and s.endTime > :from
             """)
     List<AppointmentSession> findForPractitionerBetween(
             @Param("doctorUserId") UUID doctorUserId,
@@ -64,6 +65,29 @@ public interface AppointmentSessionRepository extends JpaRepository<AppointmentS
     default boolean existsOverlappingActiveSession(UUID doctorUserId, Instant startTime, Instant endTime) {
         return existsOverlappingSessionExcluding(
                 doctorUserId, SessionStatus.CANCELLED, startTime, endTime
+        );
+    }
+
+    // Across every visit: session_no_patient_overlap is keyed on appointment_id, so it sees one.
+    @Query("""
+            select case when count(s) > 0 then true else false end
+            from AppointmentSession s
+            where s.appointment.patient.userId = :patientUserId
+              and s.status <> :cancelled
+              and s.startTime < :endTime
+              and s.endTime > :startTime
+            """)
+    boolean existsOverlappingForPatientExcluding(
+            @Param("patientUserId") UUID patientUserId,
+            @Param("cancelled") SessionStatus cancelled,
+            @Param("startTime") Instant startTime,
+            @Param("endTime") Instant endTime
+    );
+
+    default boolean existsOverlappingActiveSessionForPatient(
+            UUID patientUserId, Instant startTime, Instant endTime) {
+        return existsOverlappingForPatientExcluding(
+                patientUserId, SessionStatus.CANCELLED, startTime, endTime
         );
     }
 }

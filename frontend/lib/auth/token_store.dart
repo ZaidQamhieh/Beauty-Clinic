@@ -1,5 +1,6 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+import 'role.dart';
 import 'token_pair.dart';
 
 abstract interface class TokenStore {
@@ -22,6 +23,7 @@ class BrowserTokenStore implements TokenStore {
   static const _accessTokenKey = 'auth.access_token';
   static const _refreshTokenKey = 'auth.refresh_token';
   static const _expiresAtKey = 'auth.access_token_expires_at';
+  static const _roleKey = 'auth.role';
 
   final FlutterSecureStorage _storage;
 
@@ -31,6 +33,7 @@ class BrowserTokenStore implements TokenStore {
       _storage.read(key: _accessTokenKey),
       _storage.read(key: _refreshTokenKey),
       _storage.read(key: _expiresAtKey),
+      _storage.read(key: _roleKey),
     ]);
 
     if (values.every((value) => value == null)) {
@@ -40,7 +43,12 @@ class BrowserTokenStore implements TokenStore {
     final accessToken = values[0];
     final refreshToken = values[1];
     final expiresAt = DateTime.tryParse(values[2] ?? '');
-    if (accessToken == null || refreshToken == null || expiresAt == null) {
+    // A session stored before the role existed reads as incomplete and gets cleared.
+    final role = Role.tryParse(values[3]);
+    if (accessToken == null ||
+        refreshToken == null ||
+        expiresAt == null ||
+        role == null) {
       await clear();
       return null;
     }
@@ -49,6 +57,7 @@ class BrowserTokenStore implements TokenStore {
       accessToken: accessToken,
       refreshToken: refreshToken,
       expiresAt: expiresAt.toUtc(),
+      role: role,
     );
   }
 
@@ -60,6 +69,7 @@ class BrowserTokenStore implements TokenStore {
     try {
       await _storage.write(key: _refreshTokenKey, value: tokens.refreshToken);
       await _storage.write(key: _accessTokenKey, value: tokens.accessToken);
+      await _storage.write(key: _roleKey, value: tokens.role.wireName);
       await _storage.write(
         key: _expiresAtKey,
         value: tokens.expiresAt.toUtc().toIso8601String(),
@@ -76,6 +86,7 @@ class BrowserTokenStore implements TokenStore {
       _storage.delete(key: _accessTokenKey),
       _storage.delete(key: _refreshTokenKey),
       _storage.delete(key: _expiresAtKey),
+      _storage.delete(key: _roleKey),
     ]);
   }
 }
