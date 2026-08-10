@@ -70,3 +70,5 @@ Every PR and push to `main` runs the backend (Maven build + test) and frontend (
 ## Contributing
 
 Branch naming and PR conventions are documented in [`CONTRIBUTING.md`](CONTRIBUTING.md). `main` is protected by required CI checks — merges must have passing builds.
+
+
