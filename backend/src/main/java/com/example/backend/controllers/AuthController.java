@@ -2,6 +2,7 @@ package com.example.backend.controllers;
 
 import com.example.backend.dtos.LoginRequest;
 import com.example.backend.dtos.RefreshTokenRequest;
+import com.example.backend.dtos.RegisterRequest;
 import com.example.backend.dtos.TokenResponse;
 import com.example.backend.services.AuthService;
 
@@ -20,6 +21,13 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class AuthController {
     private final AuthService authService;
+
+    // Signs the new patient straight in, so the client never replays the password.
+    @PostMapping("/register")
+    @ResponseStatus(HttpStatus.CREATED)
+    public TokenResponse register(@Valid @RequestBody RegisterRequest request) {
+        return authService.register(request);
+    }
 
     @PostMapping("/login")
     public TokenResponse login(@Valid @RequestBody LoginRequest request) {

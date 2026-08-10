@@ -1,3 +1,4 @@
+import 'package:beauty_clinic/auth/role.dart';
 import 'package:beauty_clinic/auth/token_pair.dart';
 import 'package:beauty_clinic/auth/token_store.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -15,6 +16,7 @@ void main() {
       accessToken: 'access-1',
       refreshToken: 'refresh-1',
       expiresAt: DateTime.utc(2026, 8, 6, 12, 15),
+      role: Role.patient,
     );
 
     await store.write(tokens);

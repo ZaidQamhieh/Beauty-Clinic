@@ -27,6 +27,11 @@ public class ActivityLogService {
         recordUserEvent(userId, ActivityAction.LOGOUT);
     }
 
+    @Transactional
+    public void recordRegistration(UUID userId) {
+        recordUserEvent(userId, ActivityAction.ACCOUNT_REGISTERED);
+    }
+
     // Must survive the rejected login transaction rolling back.
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void recordFailedLogin(String attemptedIdentifier) {
