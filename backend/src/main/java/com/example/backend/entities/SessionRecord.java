@@ -22,8 +22,7 @@ import java.time.LocalDate;
 import java.util.Objects;
 import java.util.UUID;
 
-// Insert-only, enforced by trg_session_record_immutable. A correction is a new row
-// pointing at the original.
+// Insert-only per trg_session_record_immutable; a correction is a new row citing the original.
 @Entity
 @Table(name = "session_record")
 @Immutable

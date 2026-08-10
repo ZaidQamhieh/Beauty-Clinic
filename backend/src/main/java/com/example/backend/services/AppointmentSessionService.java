@@ -85,12 +85,24 @@ public class AppointmentSessionService {
             return;
         }
 
-        if (!currentUser.hasRole(Role.DOCTOR) && !currentUser.hasRole(Role.ADMIN)) {
+        if (!mayExceedStandardLength()) {
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
                     "Sessions longer than " + clinic.standardSessionMaxMinutes()
                             + " minutes can only be booked by a doctor or an admin");
         }
+    }
+
+    // How long a chair is blocked is a clinical call, which the desk does not make.
+    private boolean mayExceedStandardLength() {
+        return currentUser.hasRole(Role.DOCTOR) || currentUser.hasRole(Role.ADMIN);
+    }
+
+    // The desk works the exceptions the published pattern cannot know: walk-ins, phone deals.
+    private boolean isClinicStaff() {
+        return currentUser.hasRole(Role.DOCTOR)
+                || currentUser.hasRole(Role.RECEPTIONIST)
+                || currentUser.hasRole(Role.ADMIN);
     }
 
     // Only way a session exists, so no path skips a guard. The passed tariff never re-prices.
@@ -105,6 +117,7 @@ public class AppointmentSessionService {
         Instant endTime = startTime.plus(Duration.ofMinutes(tariff.durationMinutes()));
 
         assertQualified(practitioner, treatment);
+        assertBookableWindow(startTime);
         assertWithinWorkingHours(practitioner.getUserId(), startTime, endTime);
         assertFree(practitioner.getUserId(), startTime, endTime);
         assertPatientFree(appointment, startTime, endTime);
@@ -196,10 +209,35 @@ public class AppointmentSessionService {
                         + "; it needs one of " + treatment.category().qualifying());
     }
 
-    // Mirrors session_no_practitioner_overlap. Checked here so caller gets 409, not 500.
+    // The calendar opens for a season, not forever, and needs notice. Staff take walk-ins.
+    private void assertBookableWindow(Instant startTime) {
+        Instant now = Instant.now();
+
+        if (startTime.isAfter(now.plus(clinic.horizon()))) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Bookings open only " + clinic.maxHorizonDays() + " days ahead");
+        }
+
+        if (isClinicStaff()) {
+            return;
+        }
+
+        if (startTime.isBefore(now.plus(clinic.minLeadTime()))) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Bookings need " + clinic.minLeadTimeMinutes() + " minutes' notice");
+        }
+    }
+
+    // Mirrors session_no_practitioner_overlap, widened by turnover, which is a clinic rule.
     private void assertFree(UUID practitionerUserId, Instant startTime, Instant endTime) {
-        if (sessions.existsOverlappingActiveSession(practitionerUserId, startTime, endTime)) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Doctor already has a booking then");
+        Duration turnover = clinic.turnover();
+
+        if (sessions.existsOverlappingActiveSession(
+                practitionerUserId, startTime.minus(turnover), endTime.plus(turnover))) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "Doctor already has a booking then, or too close to one");
         }
     }
 
@@ -218,6 +256,11 @@ public class AppointmentSessionService {
 
     // Working hours are clinic wall clock, so resolve in clinic zone.
     private void assertWithinWorkingHours(UUID practitionerUserId, Instant startTime, Instant endTime) {
+        // The pattern is what the public is offered, not a rule binding the clinic itself.
+        if (isClinicStaff()) {
+            return;
+        }
+
         ZonedDateTime start = startTime.atZone(clinic.zone());
         ZonedDateTime end = endTime.atZone(clinic.zone());
 

@@ -14,8 +14,7 @@ import org.hibernate.annotations.Immutable;
 
 import java.util.Objects;
 
-// Immutable with its parent SessionRecord, enforced by trg_prescription_product_immutable:
-// one clinical fact.
+// One clinical fact with its parent SessionRecord, held by trg_prescription_product_immutable.
 @Entity
 @Table(name = "prescription_product")
 @Immutable

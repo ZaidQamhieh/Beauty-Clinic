@@ -8,8 +8,7 @@ import jakarta.validation.constraints.Size;
 
 import java.time.LocalDate;
 
-// Serves register and edit. Registration also creates the account, INVITED and
-// passwordless.
+// Serves register and edit; registering also creates an INVITED, passwordless account.
 public record PatientDetailsRequest(
         @NotBlank @Size(max = 100) String firstName,
         @NotBlank @Size(max = 100) String lastName,

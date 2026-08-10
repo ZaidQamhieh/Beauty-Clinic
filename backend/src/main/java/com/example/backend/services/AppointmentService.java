@@ -14,7 +14,6 @@ import com.example.backend.entities.Appointment.AppointmentStatus;
 import com.example.backend.entities.AppointmentSession;
 import com.example.backend.entities.AppointmentSession.SessionStatus;
 import com.example.backend.entities.AppointmentSession.TreatmentName;
-import com.example.backend.entities.DoctorAvailability;
 import com.example.backend.entities.PatientProfile;
 import com.example.backend.repositories.AppointmentRepository;
 import com.example.backend.repositories.AppointmentSessionRepository;
@@ -34,7 +33,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalTime;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -198,43 +197,66 @@ public class AppointmentService {
                 appointment.getId());
     }
 
-    // Walks each free stretch from its own start; striding one anchor blanked the whole step.
+    // Walks each free stretch on the grid, so an off-grid booking blanks only what it holds.
     private List<FreeSlotResponse> slotsWithin(
-            LocalDate date, DoctorAvailability window, Duration duration, List<AppointmentSession> busy
+            LocalDate date, TimeRange window, Duration duration, List<AppointmentSession> busy
     ) {
-        Instant windowStart = date.atTime(window.getStartTime()).atZone(clinic.zone()).toInstant();
-        Instant windowEnd = date.atTime(window.getEndTime()).atZone(clinic.zone()).toInstant();
+        Instant windowStart = date.atTime(window.start()).atZone(clinic.zone()).toInstant();
+        Instant windowEnd = date.atTime(window.end()).atZone(clinic.zone()).toInstant();
 
+        Duration stride = clinic.slotGranularity();
         List<FreeSlotResponse> free = new ArrayList<>();
 
         for (Instant[] gap : gapsIn(windowStart, windowEnd, busy)) {
-            Instant cursor = gap[0];
+            Instant cursor = onGrid(gap[0], stride);
             while (!cursor.plus(duration).isAfter(gap[1])) {
                 free.add(new FreeSlotResponse(cursor, cursor.plus(duration)));
-                cursor = cursor.plus(duration);
+                cursor = cursor.plus(stride);
             }
         }
 
         return free;
     }
 
-    // The window minus everything holding time in it, as [start, end) pairs.
+    // Forward to the next grid mark, measured from clinic midnight rather than the window.
+    private Instant onGrid(Instant candidate, Duration stride) {
+        ZonedDateTime local = candidate.atZone(clinic.zone());
+        ZonedDateTime midnight = local.toLocalDate().atStartOfDay(clinic.zone());
+
+        long strideMinutes = stride.toMinutes();
+        long elapsed = Duration.between(midnight, local).toMinutes();
+        long marks = (elapsed + strideMinutes - 1) / strideMinutes;
+
+        Instant aligned = midnight.plusMinutes(marks * strideMinutes).toInstant();
+
+        // Rounding down is never allowed: the gap starts where it starts.
+        if (aligned.isBefore(candidate)) {
+            return candidate;
+        }
+
+        return aligned;
+    }
+
+    // The window minus what holds time in it, turnover included, as [start, end) pairs.
     private List<Instant[]> gapsIn(Instant windowStart, Instant windowEnd, List<AppointmentSession> busy) {
-        List<AppointmentSession> overlapping = busy.stream()
-                .filter(s -> s.getStartTime().isBefore(windowEnd) && s.getEndTime().isAfter(windowStart))
-                .sorted(Comparator.comparing(AppointmentSession::getStartTime))
+        Duration turnover = clinic.turnover();
+
+        List<Instant[]> held = busy.stream()
+                .map(s -> new Instant[]{s.getStartTime().minus(turnover), s.getEndTime().plus(turnover)})
+                .filter(h -> h[0].isBefore(windowEnd) && h[1].isAfter(windowStart))
+                .sorted(Comparator.comparing((Instant[] h) -> h[0]))
                 .toList();
 
         List<Instant[]> gaps = new ArrayList<>();
         Instant cursor = windowStart;
 
-        for (AppointmentSession taken : overlapping) {
-            if (taken.getStartTime().isAfter(cursor)) {
-                gaps.add(new Instant[]{cursor, taken.getStartTime()});
+        for (Instant[] taken : held) {
+            if (taken[0].isAfter(cursor)) {
+                gaps.add(new Instant[]{cursor, taken[0]});
             }
             // Bookings can overlap each other across doctors, so never walk backwards.
-            if (taken.getEndTime().isAfter(cursor)) {
-                cursor = taken.getEndTime();
+            if (taken[1].isAfter(cursor)) {
+                cursor = taken[1];
             }
         }
 

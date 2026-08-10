@@ -33,11 +33,12 @@ public interface AppointmentSessionRepository extends JpaRepository<AppointmentS
             @Param("patientUserId") UUID patientUserId
     );
 
+    // Overlap, not start time: a session running past midnight still holds the room next day.
     @Query("""
             select s from AppointmentSession s
             where s.practitioner.userId = :doctorUserId
-              and s.startTime >= :from
               and s.startTime < :to
+              and s.endTime > :from
             """)
     List<AppointmentSession> findForPractitionerBetween(
             @Param("doctorUserId") UUID doctorUserId,

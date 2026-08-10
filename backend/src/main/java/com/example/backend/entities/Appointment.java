@@ -20,8 +20,7 @@ import org.hibernate.annotations.SoftDelete;
 import java.time.Instant;
 import java.util.UUID;
 
-// A visit. Treatments and practitioners live on AppointmentSession, since one visit
-// carries several.
+// A visit; treatments and practitioners live on AppointmentSession, one visit carrying several.
 @Entity
 @Table(name = "appointment")
 @SoftDelete
