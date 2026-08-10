@@ -1,4 +1,4 @@
-import 'package:beauty_clinic/main.dart';
+import 'package:beauty_clinic_app/app.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -17,8 +17,7 @@ void main() {
     final session = testSession(adapter, store, now);
     addTearDown(session.dispose);
 
-    await tester.pumpWidget(MyApp(authSession: session));
-    await tester.pumpAndSettle();
+    await tester.pumpWidget(const BeautyClinicApp());    await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const Key('emailField')),
       'owner@example.com',
@@ -44,8 +43,7 @@ void main() {
     );
     addTearDown(session.dispose);
 
-    await tester.pumpWidget(MyApp(authSession: session));
-    await tester.pumpAndSettle();
+    await tester.pumpWidget(const BeautyClinicApp());    await tester.pumpAndSettle();
 
     expect(find.text('Sign in'), findsOneWidget);
     expect(find.textContaining('access revoked'), findsNothing);
