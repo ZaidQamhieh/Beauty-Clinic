@@ -7,7 +7,7 @@ class TokenPair {
 
   final String accessToken;
   final String refreshToken;
-  final DateTime expiresAt;  
+  final DateTime expiresAt;
 
   factory TokenPair.fromJson(Map<String, dynamic> json, {DateTime? now}) {
     final accessToken = json['accessToken'];
