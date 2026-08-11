@@ -18,7 +18,7 @@ void main() {
     addTearDown(session.dispose);
 
     await tester.pumpWidget(const BeautyClinicApp());
-    await tester.pumpAndSettle();
+    await tester.pump();
     await tester.enterText(
       find.byKey(const Key('emailField')),
       'owner@example.com',
@@ -28,7 +28,8 @@ void main() {
       'wrong-password',
     );
     await tester.tap(find.byKey(const Key('loginButton')));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump();
 
     expect(find.text('Invalid credentials.'), findsOneWidget);
     expect(find.textContaining('raw server secret'), findsNothing);
@@ -45,7 +46,7 @@ void main() {
     addTearDown(session.dispose);
 
     await tester.pumpWidget(const BeautyClinicApp());
-    await tester.pumpAndSettle();
+    await tester.pump();
 
     expect(find.text('Sign in'), findsOneWidget);
     expect(find.textContaining('access revoked'), findsNothing);
