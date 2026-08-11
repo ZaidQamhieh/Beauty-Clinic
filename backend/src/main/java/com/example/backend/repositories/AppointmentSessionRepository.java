@@ -92,6 +92,13 @@ public interface AppointmentSessionRepository extends JpaRepository<AppointmentS
             select case when count(s) > 0 then true else false end
             from AppointmentSession s
             where s.practitioner.userId = :doctorUserId
+            """)
+    boolean existsByPractitioner(@Param("doctorUserId") UUID doctorUserId);
+
+    @Query("""
+            select case when count(s) > 0 then true else false end
+            from AppointmentSession s
+            where s.practitioner.userId = :doctorUserId
               and s.status <> :cancelled
               and s.startTime < :endTime
               and s.endTime > :startTime
