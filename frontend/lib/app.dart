@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:beauty_clinic_app/auth/auth_session.dart';
 import 'package:beauty_clinic_app/core/theme/app_theme.dart';
 import 'package:beauty_clinic_app/core/theme/app_typography.dart';
 import 'package:beauty_clinic_app/core/theme/app_colors.dart';
@@ -8,10 +9,15 @@ import 'package:beauty_clinic_app/features/dashboard/presentation/dashboard_scre
 import 'package:beauty_clinic_app/features/doctor_profile/presentation/doctor_profile_screen.dart';
 import 'package:beauty_clinic_app/features/patient_profile/presentation/patient_profile_screen.dart';
 import 'package:beauty_clinic_app/features/landing/presentation/landing_screen.dart';
+import 'package:beauty_clinic_app/screens/login_screen.dart';
 
 /// Main Application Entry Widget for Yasmine Beauty Clinic
 class BeautyClinicApp extends StatelessWidget {
-  const BeautyClinicApp({super.key});
+  const BeautyClinicApp({super.key, this.authSession});
+
+  /// Injectable for tests; when omitted the app owns a production session
+  /// backed by the browser's secure storage and the backend API base URL.
+  final AuthSession? authSession;
 
   @override
   Widget build(BuildContext context) {
@@ -19,24 +25,91 @@ class BeautyClinicApp extends StatelessWidget {
       title: 'Yasmine Beauty & Derma Clinic',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
-      home: const MainRootController(),
+      home: AuthGate(authSession: authSession),
     );
+  }
+}
+
+/// Switches between the login screen and the clinic shell based on the session.
+class AuthGate extends StatefulWidget {
+  const AuthGate({super.key, this.authSession});
+
+  final AuthSession? authSession;
+
+  @override
+  State<AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<AuthGate> {
+  late final AuthSession _session;
+  late final bool _ownsSession;
+
+  @override
+  void initState() {
+    super.initState();
+    _ownsSession = widget.authSession == null;
+    _session = widget.authSession ?? AuthSession.production();
+    _session.addListener(_handleSessionChanged);
+    _session.initialize();
+  }
+
+  void _handleSessionChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  @override
+  void dispose() {
+    _session.removeListener(_handleSessionChanged);
+    if (_ownsSession) {
+      _session.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    switch (_session.status) {
+      case AuthStatus.initializing:
+        return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      case AuthStatus.unauthenticated:
+        return LoginScreen(authSession: _session);
+      case AuthStatus.authenticated:
+        return MainRootController(authSession: _session);
+    }
   }
 }
 
 /// Root State Controller managing Active Role and Selected Navigation View
 class MainRootController extends StatefulWidget {
-  const MainRootController({super.key});
+  const MainRootController({super.key, required this.authSession});
+
+  final AuthSession authSession;
 
   @override
   State<MainRootController> createState() => _MainRootControllerState();
 }
 
 class _MainRootControllerState extends State<MainRootController> {
-  String _activeRole =
-      'admin'; // 'admin' | 'doctor' | 'receptionist' | 'patient'
-  String _activeView =
-      'dashboard'; // 'dashboard' | 'patient_profile' | 'doctor_profile' | 'landing'
+  late String _activeRole; // 'admin' | 'doctor' | 'receptionist' | 'patient'
+  late String _activeView; // active view: dashboard, profile, or landing
+
+  @override
+  void initState() {
+    super.initState();
+    // The shell uses lowercase role names; the backend sends uppercase wire names.
+    _activeRole = widget.authSession.role?.wireName.toLowerCase() ?? 'admin';
+    _activeView = 'dashboard';
+  }
+
+  Future<void> _logout() async {
+    try {
+      await widget.authSession.logout();
+    } on AuthException {
+      // The session is already cleared locally; AuthGate returns to the login screen.
+    }
+  }
 
   void _onRoleChanged(String newRole) {
     setState(() {
@@ -86,6 +159,7 @@ class _MainRootControllerState extends State<MainRootController> {
       onRoleChanged: _onRoleChanged,
       onViewChanged: _onViewChanged,
       onBookClick: _openBookingModal,
+      onLogout: _logout,
       child: Stack(
         children: [
           const FloatingPetals(),
