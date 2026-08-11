@@ -1,7 +1,6 @@
 package com.example.backend.dtos;
 
 import com.example.backend.entities.AppointmentSession.TreatmentName;
-import jakarta.validation.constraints.FutureOrPresent;
 import jakarta.validation.constraints.NotNull;
 
 import java.time.Instant;
@@ -11,6 +10,8 @@ import java.util.UUID;
 public record AddSessionRequest(
         @NotNull UUID practitionerUserId,
         @NotNull TreatmentName treatmentName,
-        @NotNull @FutureOrPresent Instant startTime
+        // Not @FutureOrPresent: a slot that elapsed mid-booking is a lost slot, not bad input,
+        // so AppointmentSessionService answers 409 for it.
+        @NotNull Instant startTime
 ) {
 }
