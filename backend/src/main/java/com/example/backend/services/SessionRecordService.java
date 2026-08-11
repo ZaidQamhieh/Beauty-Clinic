@@ -83,10 +83,13 @@ public class SessionRecordService {
         return SessionRecordResponse.of(correction, prescribedIds);
     }
 
-    private List<UUID> prescribe(SessionRecord record, List<UUID> productIds) {
-        if (productIds == null || productIds.isEmpty()) {
+    private List<UUID> prescribe(SessionRecord record, List<UUID> requestedIds) {
+        if (requestedIds == null || requestedIds.isEmpty()) {
             return List.of();
         }
+
+        // Deduped first: findAllById returns rows, so a repeat would read as a missing product.
+        List<UUID> productIds = requestedIds.stream().distinct().toList();
 
         List<Product> found = products.findAllById(productIds);
         if (found.size() != productIds.size()) {

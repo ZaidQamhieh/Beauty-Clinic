@@ -4,6 +4,7 @@ import com.example.backend.entities.AppointmentSession.TreatmentName;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -19,7 +20,8 @@ public record FreeSlotQuery(
         // Null skips the patient's own clashes; naming them keeps unbookable times off the list.
         UUID patientUserId,
         // Earlier picks in the same visit. They hold their doctor and the patient alike.
-        List<@Valid HeldSlot> held,
+        // Capped like sessions: each pick widens the gap walk.
+        @Size(max = 10) List<@Valid HeldSlot> held,
         // While rescheduling: the visit being replaced, whose times are offered, not held.
         UUID replacesAppointmentId
 ) {

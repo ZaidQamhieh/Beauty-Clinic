@@ -6,6 +6,7 @@ import com.example.backend.entities.PatientProfile.Medication;
 import com.example.backend.entities.PatientProfile.SkinType;
 import com.example.backend.entities.PatientProfile.SmokingStatus;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 import java.util.List;
 
@@ -16,8 +17,9 @@ public record EditClinicalProfileRequest(
         @NotNull SkinType skinType,
         // Nullable column, so an absent value legitimately means unknown.
         SmokingStatus smokingStatus,
-        @NotNull List<Allergy> allergies,
-        @NotNull List<Medication> medications,
-        @NotNull List<ChronicCondition> chronicConditions
+        // Capped above the enum's size: deduped later, but deserialized in full first.
+        @NotNull @Size(max = 20) List<Allergy> allergies,
+        @NotNull @Size(max = 20) List<Medication> medications,
+        @NotNull @Size(max = 20) List<ChronicCondition> chronicConditions
 ) {
 }
