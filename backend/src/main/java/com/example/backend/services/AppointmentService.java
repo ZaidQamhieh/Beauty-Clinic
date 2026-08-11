@@ -57,6 +57,7 @@ public class AppointmentService {
     private final CurrentUser currentUser;
     private final ClinicProperties clinic;
     private final ActivityLogService activityLogs;
+    private final CancellationPolicy cancellation;
 
     @Transactional
     public AppointmentResponse book(BookAppointmentRequest request) {
@@ -138,33 +139,13 @@ public class AppointmentService {
         return withSessions(appointment);
     }
 
-    // Drops the visit and its remaining treatments. Logs here, so no route can skip saying so.
+    // Drops the visit and every treatment still to come. Finished work is left as it stands.
     private void cancelVisit(Appointment appointment) {
         assertBooked(appointment);
-        sessionService.assertChangeable(appointment.getScheduledAt());
-
-        List<AppointmentSession> ofVisit = sessions.findByAppointmentId(appointment.getId());
-
-        // Work already carried out cannot be undone; a no-show can, since nothing was done.
-        if (ofVisit.stream().anyMatch(s -> s.getStatus() == SessionStatus.COMPLETED)) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "This visit has treatments already carried out; cancel the remaining ones instead");
-        }
+        cancellation.assertCancellable(appointment.getScheduledAt());
 
         appointment.cancel();
-
-        ofVisit.stream()
-                .filter(s -> s.getStatus() == SessionStatus.PLANNED)
-                .forEach(s -> {
-                    s.setStatus(SessionStatus.CANCELLED);
-                    // Per treatment too, so both cancel routes read the same in the log.
-                    activityLogs.recordSession(
-                            currentUser.id().orElse(null),
-                            appointment.getPatient().getUserId(),
-                            ActivityAction.SESSION_CANCELLED,
-                            s.getId());
-                });
+        sessionService.cancelEveryPlannedIn(appointment);
 
         record(ActivityAction.APPOINTMENT_CANCELLED, appointment);
     }
@@ -272,9 +253,14 @@ public class AppointmentService {
     }
 
     // The visit being replaced releases its times, so it cannot block its own replacement.
+    // Only what is still to come: work already carried out keeps its slot whatever happens next.
     private boolean stillHolds(AppointmentSession session, FreeSlotQuery query) {
-        return query.replacesAppointmentId() == null
-                || !query.replacesAppointmentId().equals(session.getAppointment().getId());
+        if (query.replacesAppointmentId() == null
+                || !query.replacesAppointmentId().equals(session.getAppointment().getId())) {
+            return true;
+        }
+
+        return session.getStatus() != SessionStatus.PLANNED;
     }
 
     // What the patient holds blocks every doctor. No turnover: that gap is per practitioner.

@@ -46,6 +46,7 @@ public class AppointmentSessionService {
     private final ClinicProperties clinic;
     private final ActivityLogService activityLogs;
     private final CurrentUser currentUser;
+    private final CancellationPolicy cancellation;
 
     @Transactional
     public AppointmentSessionResponse add(UUID appointmentId, AddSessionRequest request) {
@@ -70,6 +71,8 @@ public class AppointmentSessionService {
                     HttpStatus.CONFLICT, "That treatment is not on the day of this visit");
         }
 
+        assertKeepsCancellationWindow(appointment, request.startTime());
+
         return AppointmentSessionResponse.of(schedule(appointment, request));
     }
 
@@ -79,28 +82,18 @@ public class AppointmentSessionService {
         return schedule(appointment, request, clinic.tariffFor(request.treatmentName()));
     }
 
-    // A patient may change their visit until its day begins; the desk works the day itself.
-    public void assertChangeable(Instant startTime) {
-        Instant now = Instant.now();
-
-        if (currentUser.isClinicStaff()) {
-            if (!startTime.isAfter(now)) {
-                throw new ResponseStatusException(
-                        HttpStatus.CONFLICT, "That appointment has already started");
-            }
+    // An earlier treatment pulls the visit's start back, and the cutoff with it. A window the
+    // patient still holds may not be closed behind their back.
+    private void assertKeepsCancellationWindow(Appointment appointment, Instant addedStart) {
+        if (!addedStart.isBefore(appointment.getScheduledAt())) {
             return;
         }
 
-        // Clinic midnight, not the caller's: the appointment's day is a wall-clock day.
-        Instant dayBegins = startTime.atZone(clinic.zone())
-                .toLocalDate()
-                .atStartOfDay(clinic.zone())
-                .toInstant();
-
-        if (!now.isBefore(dayBegins)) {
+        if (cancellation.patientWindowOpen(appointment.getScheduledAt())
+                && !cancellation.patientWindowOpen(addedStart)) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
-                    "Changes close at midnight before the day of the appointment");
+                    "That treatment would start the visit inside the patient's cancellation window");
         }
     }
 
@@ -117,6 +110,7 @@ public class AppointmentSessionService {
 
         assertQualified(practitioner, treatment);
         assertBookableWindow(startTime);
+        cancellation.assertLeavesRoomToCancel(startTime);
         assertWithinWorkingHours(practitioner.getUserId(), startTime, endTime);
         assertFree(practitioner.getUserId(), startTime, endTime);
         assertPatientFree(appointment, startTime, endTime);
@@ -204,18 +198,39 @@ public class AppointmentSessionService {
     @Transactional
     public AppointmentSessionResponse cancel(UUID appointmentId, UUID sessionId) {
         // Before the session row: cancelling decides the visit's state.
-        appointments.findWithLockById(appointmentId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No such appointment"));
+        Appointment appointment = lockVisit(appointmentId);
+
+        cancellation.assertCancellable(appointment.getScheduledAt());
 
         AppointmentSession session = require(appointmentId, sessionId);
-        assertChangeable(session.getStartTime());
 
         return transition(session, SessionStatus.CANCELLED);
     }
 
-    // No upper cutoff, only the lower one.
+    // The one place a treatment becomes CANCELLED for a whole visit; the time goes with the status.
+    @Transactional
+    public void cancelEveryPlannedIn(Appointment appointment) {
+        sessions.findByAppointmentId(appointment.getId()).stream()
+                .filter(s -> s.getStatus() == SessionStatus.PLANNED)
+                .forEach(this::markCancelled);
+    }
+
+    private void markCancelled(AppointmentSession session) {
+        session.setStatus(SessionStatus.CANCELLED);
+
+        // Per treatment too, so both cancel routes read the same in the log.
+        activityLogs.recordSession(
+                currentUser.id().orElse(null),
+                session.getAppointment().getPatient().getUserId(),
+                ActivityAction.SESSION_CANCELLED,
+                session.getId());
+    }
+
+    // No upper cutoff, only the lower one. Visit first, as every path that decides its state.
     @Transactional
     public AppointmentSessionResponse markAttended(UUID appointmentId, UUID sessionId) {
+        lockVisit(appointmentId);
+
         AppointmentSession session = require(appointmentId, sessionId);
         assertStarted(session);
 
@@ -224,10 +239,18 @@ public class AppointmentSessionService {
 
     @Transactional
     public AppointmentSessionResponse markNoShow(UUID appointmentId, UUID sessionId) {
+        lockVisit(appointmentId);
+
         AppointmentSession session = require(appointmentId, sessionId);
         assertStarted(session);
 
         return transition(session, SessionStatus.NO_SHOW);
+    }
+
+    // Always taken before the session row, so two writers of one visit queue rather than collide.
+    private Appointment lockVisit(UUID appointmentId) {
+        return appointments.findWithLockById(appointmentId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No such appointment"));
     }
 
     // Marked early, COMPLETED blocks cancelling and NO_SHOW locks the slot.
@@ -249,11 +272,14 @@ public class AppointmentSessionService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Session is not planned");
         }
 
-        session.setStatus(to);
-
         if (to == SessionStatus.CANCELLED) {
+            markCancelled(session);
             closeOrResyncAfterCancel(session.getAppointment());
+
+            return AppointmentSessionResponse.of(session);
         }
+
+        session.setStatus(to);
 
         activityLogs.recordSession(
                 currentUser.id().orElse(null),
