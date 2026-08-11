@@ -1,6 +1,6 @@
-import 'package:beauty_clinic/auth/role.dart';
-import 'package:beauty_clinic/auth/token_pair.dart';
-import 'package:beauty_clinic/auth/token_store.dart';
+import 'package:beauty_clinic_app/auth/token_pair.dart';
+import 'package:beauty_clinic_app/auth/token_store.dart';
+import 'package:beauty_clinic_app/auth/role.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 
