@@ -14,6 +14,7 @@ class AppShell extends StatefulWidget {
   final ValueChanged<String> onRoleChanged;
   final ValueChanged<String> onViewChanged;
   final VoidCallback onBookClick;
+  final VoidCallback? onLogout;
 
   const AppShell({
     super.key,
@@ -23,6 +24,7 @@ class AppShell extends StatefulWidget {
     required this.onRoleChanged,
     required this.onViewChanged,
     required this.onBookClick,
+    this.onLogout,
   });
 
   @override
@@ -43,6 +45,7 @@ class _AppShellState extends State<AppShell> {
         activeRole: widget.activeRole,
         onRoleChanged: widget.onRoleChanged,
         onBookClick: widget.onBookClick,
+        onLogout: widget.onLogout,
         isMobile: isMobile,
       ),
       drawer: isMobile ? _buildDrawer(context) : null,

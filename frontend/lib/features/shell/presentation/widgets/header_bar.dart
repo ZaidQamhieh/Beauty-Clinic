@@ -9,6 +9,7 @@ class HeaderBar extends StatelessWidget implements PreferredSizeWidget {
   final ValueChanged<String> onRoleChanged;
   final VoidCallback? onBookClick;
   final VoidCallback? onNotificationClick;
+  final VoidCallback? onLogout;
   final bool isMobile;
 
   const HeaderBar({
@@ -17,6 +18,7 @@ class HeaderBar extends StatelessWidget implements PreferredSizeWidget {
     required this.onRoleChanged,
     this.onBookClick,
     this.onNotificationClick,
+    this.onLogout,
     this.isMobile = false,
   });
 
@@ -170,6 +172,23 @@ class HeaderBar extends StatelessWidget implements PreferredSizeWidget {
               ),
 
               const SizedBox(width: 10),
+
+              // Log out of the backend session
+              if (onLogout != null)
+                IconButton(
+                  tooltip: 'Log out',
+                  onPressed: onLogout,
+                  constraints: const BoxConstraints(
+                    minWidth: 36,
+                    minHeight: 36,
+                  ),
+                  padding: EdgeInsets.zero,
+                  icon: const Icon(
+                    Icons.logout_outlined,
+                    color: AppColors.textSub,
+                    size: 20,
+                  ),
+                ),
 
               // User Profile Avatar Widget
               _buildUserAvatar(),
