@@ -59,10 +59,7 @@ class _AppShellState extends State<AppShell> {
 
           // Main View Body
           Expanded(
-            child: Container(
-              color: AppColors.bg,
-              child: widget.child,
-            ),
+            child: Container(color: AppColors.bg, child: widget.child),
           ),
         ],
       ),
@@ -79,8 +76,13 @@ class _AppShellState extends State<AppShell> {
     );
   }
 
-  Widget _buildSidebarContent({required bool isCollapsed, bool isDrawer = false}) {
-    final List<Map<String, dynamic>> menuItems = _getMenuItemsForRole(widget.activeRole);
+  Widget _buildSidebarContent({
+    required bool isCollapsed,
+    bool isDrawer = false,
+  }) {
+    final List<Map<String, dynamic>> menuItems = _getMenuItemsForRole(
+      widget.activeRole,
+    );
 
     return Column(
       children: [
@@ -98,13 +100,15 @@ class _AppShellState extends State<AppShell> {
                     children: [
                       Text(
                         'YASMINE',
-                        style: AppTypography.displayTitle(color: AppColors.white)
-                            .copyWith(fontSize: 16, letterSpacing: 1.1),
+                        style: AppTypography.displayTitle(
+                          color: AppColors.white,
+                        ).copyWith(fontSize: 16, letterSpacing: 1.1),
                       ),
                       Text(
                         _getRoleTitle(widget.activeRole),
-                        style: AppTypography.labelSmall(color: AppColors.roseLight)
-                            .copyWith(fontSize: 10),
+                        style: AppTypography.labelSmall(
+                          color: AppColors.roseLight,
+                        ).copyWith(fontSize: 10),
                       ),
                     ],
                   ),
@@ -112,7 +116,10 @@ class _AppShellState extends State<AppShell> {
               ],
               if (!isDrawer && !isCollapsed)
                 IconButton(
-                  icon: const Icon(Icons.chevron_left, color: AppColors.textSideMuted),
+                  icon: const Icon(
+                    Icons.chevron_left,
+                    color: AppColors.textSideMuted,
+                  ),
                   onPressed: () {
                     setState(() {
                       _isSidebarCollapsed = !_isSidebarCollapsed;
@@ -140,8 +147,12 @@ class _AppShellState extends State<AppShell> {
                 return Tooltip(
                   message: item['label'] as String,
                   child: IconButton(
-                    icon: Icon(item['icon'] as IconData,
-                        color: isActive ? AppColors.roseLight : AppColors.textSideMuted),
+                    icon: Icon(
+                      item['icon'] as IconData,
+                      color: isActive
+                          ? AppColors.roseLight
+                          : AppColors.textSideMuted,
+                    ),
                     onPressed: () => widget.onViewChanged(item['id'] as String),
                   ),
                 );
@@ -174,7 +185,11 @@ class _AppShellState extends State<AppShell> {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.auto_awesome, color: AppColors.gold, size: 20),
+                  const Icon(
+                    Icons.auto_awesome,
+                    color: AppColors.gold,
+                    size: 20,
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(
@@ -182,11 +197,15 @@ class _AppShellState extends State<AppShell> {
                       children: [
                         Text(
                           'Yasmine Derma',
-                          style: AppTypography.labelMedium(color: AppColors.white),
+                          style: AppTypography.labelMedium(
+                            color: AppColors.white,
+                          ),
                         ),
                         Text(
                           'System v2.4 Active',
-                          style: AppTypography.labelSmall(color: AppColors.textSide),
+                          style: AppTypography.labelSmall(
+                            color: AppColors.textSide,
+                          ),
                         ),
                       ],
                     ),
@@ -201,7 +220,9 @@ class _AppShellState extends State<AppShell> {
   }
 
   Widget _buildMobileBottomNav() {
-    final List<Map<String, dynamic>> menuItems = _getMenuItemsForRole(widget.activeRole);
+    final List<Map<String, dynamic>> menuItems = _getMenuItemsForRole(
+      widget.activeRole,
+    );
     final int selectedIndex = menuItems
         .indexWhere((item) => item['id'] == widget.activeView)
         .clamp(0, menuItems.length - 1);
@@ -213,7 +234,9 @@ class _AppShellState extends State<AppShell> {
       unselectedItemColor: AppColors.textMuted,
       type: BottomNavigationBarType.fixed,
       selectedLabelStyle: AppTypography.labelSmall(color: AppColors.rose),
-      unselectedLabelStyle: AppTypography.labelSmall(color: AppColors.textMuted),
+      unselectedLabelStyle: AppTypography.labelSmall(
+        color: AppColors.textMuted,
+      ),
       onTap: (index) {
         widget.onViewChanged(menuItems[index]['id'] as String);
       },
@@ -230,37 +253,125 @@ class _AppShellState extends State<AppShell> {
     switch (role) {
       case 'doctor':
         return [
-          {'id': 'dashboard', 'label': 'Today\'s Schedule', 'icon': Icons.calendar_today_outlined, 'badge': '8'},
-          {'id': 'patients', 'label': 'My Patients', 'icon': Icons.people_outline, 'badge': '24'},
-          {'id': 'doctor_profile', 'label': 'Doctor Profile', 'icon': Icons.badge_outlined},
-          {'id': 'consultations', 'label': 'Consultations', 'icon': Icons.video_call_outlined},
-          {'id': 'landing', 'label': 'Clinic Portal', 'icon': Icons.storefront_outlined},
+          {
+            'id': 'dashboard',
+            'label': 'Today\'s Schedule',
+            'icon': Icons.calendar_today_outlined,
+            'badge': '8',
+          },
+          {
+            'id': 'patients',
+            'label': 'My Patients',
+            'icon': Icons.people_outline,
+            'badge': '24',
+          },
+          {
+            'id': 'doctor_profile',
+            'label': 'Doctor Profile',
+            'icon': Icons.badge_outlined,
+          },
+          {
+            'id': 'consultations',
+            'label': 'Consultations',
+            'icon': Icons.video_call_outlined,
+          },
+          {
+            'id': 'landing',
+            'label': 'Clinic Portal',
+            'icon': Icons.storefront_outlined,
+          },
         ];
       case 'patient':
         return [
-          {'id': 'patient_profile', 'label': 'My Medical Profile', 'icon': Icons.person_outline},
-          {'id': 'dashboard', 'label': 'Treatments & Visits', 'icon': Icons.spa_outlined},
-          {'id': 'book', 'label': 'Book Appointment', 'icon': Icons.calendar_month_outlined},
-          {'id': 'landing', 'label': 'Clinic Homepage', 'icon': Icons.home_outlined},
+          {
+            'id': 'patient_profile',
+            'label': 'My Medical Profile',
+            'icon': Icons.person_outline,
+          },
+          {
+            'id': 'dashboard',
+            'label': 'Treatments & Visits',
+            'icon': Icons.spa_outlined,
+          },
+          {
+            'id': 'book',
+            'label': 'Book Appointment',
+            'icon': Icons.calendar_month_outlined,
+          },
+          {
+            'id': 'landing',
+            'label': 'Clinic Homepage',
+            'icon': Icons.home_outlined,
+          },
         ];
       case 'receptionist':
         return [
-          {'id': 'dashboard', 'label': 'Front Desk Desk', 'icon': Icons.meeting_room_outlined, 'badge': '12'},
-          {'id': 'appointments', 'label': 'All Appointments', 'icon': Icons.event_note_outlined},
-          {'id': 'patients', 'label': 'Patient Directory', 'icon': Icons.folder_shared_outlined},
-          {'id': 'doctors', 'label': 'Doctor Rosters', 'icon': Icons.medical_information_outlined},
-          {'id': 'landing', 'label': 'Main Website', 'icon': Icons.web_outlined},
+          {
+            'id': 'dashboard',
+            'label': 'Front Desk Desk',
+            'icon': Icons.meeting_room_outlined,
+            'badge': '12',
+          },
+          {
+            'id': 'appointments',
+            'label': 'All Appointments',
+            'icon': Icons.event_note_outlined,
+          },
+          {
+            'id': 'patients',
+            'label': 'Patient Directory',
+            'icon': Icons.folder_shared_outlined,
+          },
+          {
+            'id': 'doctors',
+            'label': 'Doctor Rosters',
+            'icon': Icons.medical_information_outlined,
+          },
+          {
+            'id': 'landing',
+            'label': 'Main Website',
+            'icon': Icons.web_outlined,
+          },
         ];
       case 'admin':
       default:
         return [
-          {'id': 'dashboard', 'label': 'Overview Dashboard', 'icon': Icons.grid_view_rounded},
-          {'id': 'appointments', 'label': 'Appointments', 'icon': Icons.calendar_today_outlined, 'badge': '14'},
-          {'id': 'patients', 'label': 'Patients Directory', 'icon': Icons.people_alt_outlined},
-          {'id': 'doctors', 'label': 'Doctors & Specialists', 'icon': Icons.health_and_safety_outlined},
-          {'id': 'patient_profile', 'label': 'Patient Details', 'icon': Icons.assignment_ind_outlined},
-          {'id': 'doctor_profile', 'label': 'Doctor Profile View', 'icon': Icons.badge_outlined},
-          {'id': 'landing', 'label': 'Clinic Landing Page', 'icon': Icons.space_dashboard_outlined},
+          {
+            'id': 'dashboard',
+            'label': 'Overview Dashboard',
+            'icon': Icons.grid_view_rounded,
+          },
+          {
+            'id': 'appointments',
+            'label': 'Appointments',
+            'icon': Icons.calendar_today_outlined,
+            'badge': '14',
+          },
+          {
+            'id': 'patients',
+            'label': 'Patients Directory',
+            'icon': Icons.people_alt_outlined,
+          },
+          {
+            'id': 'doctors',
+            'label': 'Doctors & Specialists',
+            'icon': Icons.health_and_safety_outlined,
+          },
+          {
+            'id': 'patient_profile',
+            'label': 'Patient Details',
+            'icon': Icons.assignment_ind_outlined,
+          },
+          {
+            'id': 'doctor_profile',
+            'label': 'Doctor Profile View',
+            'icon': Icons.badge_outlined,
+          },
+          {
+            'id': 'landing',
+            'label': 'Clinic Landing Page',
+            'icon': Icons.space_dashboard_outlined,
+          },
         ];
     }
   }

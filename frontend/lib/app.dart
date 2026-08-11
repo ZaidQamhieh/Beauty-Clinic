@@ -33,8 +33,10 @@ class MainRootController extends StatefulWidget {
 }
 
 class _MainRootControllerState extends State<MainRootController> {
-  String _activeRole = 'admin'; // 'admin' | 'doctor' | 'receptionist' | 'patient'
-  String _activeView = 'dashboard'; // 'dashboard' | 'patient_profile' | 'doctor_profile' | 'landing'
+  String _activeRole =
+      'admin'; // 'admin' | 'doctor' | 'receptionist' | 'patient'
+  String _activeView =
+      'dashboard'; // 'dashboard' | 'patient_profile' | 'doctor_profile' | 'landing'
 
   void _onRoleChanged(String newRole) {
     setState(() {
@@ -167,9 +169,18 @@ class _MainRootControllerState extends State<MainRootController> {
                     backgroundColor: AppColors.bgRose,
                     child: Icon(Icons.face, color: AppColors.rose),
                   ),
-                  title: Text('HydraFacial Glow Treatment', style: AppTypography.labelLarge()),
-                  subtitle: Text('45 min • £120', style: AppTypography.bodySmall()),
-                  trailing: const Icon(Icons.chevron_right, color: AppColors.textMuted),
+                  title: Text(
+                    'HydraFacial Glow Treatment',
+                    style: AppTypography.labelLarge(),
+                  ),
+                  subtitle: Text(
+                    '45 min • £120',
+                    style: AppTypography.bodySmall(),
+                  ),
+                  trailing: const Icon(
+                    Icons.chevron_right,
+                    color: AppColors.textMuted,
+                  ),
                   onTap: () => Navigator.pop(context),
                 ),
                 const Divider(),
@@ -178,9 +189,18 @@ class _MainRootControllerState extends State<MainRootController> {
                     backgroundColor: AppColors.bgLavender,
                     child: Icon(Icons.auto_awesome, color: AppColors.lav),
                   ),
-                  title: Text('Laser Skin Resurfacing', style: AppTypography.labelLarge()),
-                  subtitle: Text('60 min • £250', style: AppTypography.bodySmall()),
-                  trailing: const Icon(Icons.chevron_right, color: AppColors.textMuted),
+                  title: Text(
+                    'Laser Skin Resurfacing',
+                    style: AppTypography.labelLarge(),
+                  ),
+                  subtitle: Text(
+                    '60 min • £250',
+                    style: AppTypography.bodySmall(),
+                  ),
+                  trailing: const Icon(
+                    Icons.chevron_right,
+                    color: AppColors.textMuted,
+                  ),
                   onTap: () => Navigator.pop(context),
                 ),
                 const Divider(),
@@ -189,9 +209,18 @@ class _MainRootControllerState extends State<MainRootController> {
                     backgroundColor: AppColors.bgSage,
                     child: Icon(Icons.spa, color: AppColors.sage),
                   ),
-                  title: Text('Botox & Dermal Fillers Consultation', style: AppTypography.labelLarge()),
-                  subtitle: Text('30 min • £80', style: AppTypography.bodySmall()),
-                  trailing: const Icon(Icons.chevron_right, color: AppColors.textMuted),
+                  title: Text(
+                    'Botox & Dermal Fillers Consultation',
+                    style: AppTypography.labelLarge(),
+                  ),
+                  subtitle: Text(
+                    '30 min • £80',
+                    style: AppTypography.bodySmall(),
+                  ),
+                  trailing: const Icon(
+                    Icons.chevron_right,
+                    color: AppColors.textMuted,
+                  ),
                   onTap: () => Navigator.pop(context),
                 ),
               ],

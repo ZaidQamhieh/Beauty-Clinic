@@ -17,7 +17,8 @@ void main() {
     final session = testSession(adapter, store, now);
     addTearDown(session.dispose);
 
-    await tester.pumpWidget(const BeautyClinicApp());    await tester.pumpAndSettle();
+    await tester.pumpWidget(const BeautyClinicApp());
+    await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const Key('emailField')),
       'owner@example.com',
@@ -43,7 +44,8 @@ void main() {
     );
     addTearDown(session.dispose);
 
-    await tester.pumpWidget(const BeautyClinicApp());    await tester.pumpAndSettle();
+    await tester.pumpWidget(const BeautyClinicApp());
+    await tester.pumpAndSettle();
 
     expect(find.text('Sign in'), findsOneWidget);
     expect(find.textContaining('access revoked'), findsNothing);

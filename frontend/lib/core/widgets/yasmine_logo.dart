@@ -7,11 +7,7 @@ class YasmineLogo extends StatelessWidget {
   final double size;
   final bool isDarkBackground;
 
-  const YasmineLogo({
-    super.key,
-    this.size = 40,
-    this.isDarkBackground = false,
-  });
+  const YasmineLogo({super.key, this.size = 40, this.isDarkBackground = false});
 
   @override
   Widget build(BuildContext meContext) {

@@ -40,11 +40,15 @@ class StatCard extends StatelessWidget {
         ],
       ),
       child: Column(
-        crossAxisAlignment: isCentered ? CrossAxisAlignment.center : CrossAxisAlignment.start,
+        crossAxisAlignment: isCentered
+            ? CrossAxisAlignment.center
+            : CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Row(
-            mainAxisAlignment: isCentered ? MainAxisAlignment.center : MainAxisAlignment.spaceBetween,
+            mainAxisAlignment: isCentered
+                ? MainAxisAlignment.center
+                : MainAxisAlignment.spaceBetween,
             children: [
               Container(
                 padding: const EdgeInsets.all(8),
@@ -56,9 +60,14 @@ class StatCard extends StatelessWidget {
               ),
               if (trend != null && !isCentered)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
-                    color: trend!.startsWith('+') ? const Color(0xFFDCFCE7) : const Color(0xFFFEE2E2),
+                    color: trend!.startsWith('+')
+                        ? const Color(0xFFDCFCE7)
+                        : const Color(0xFFFEE2E2),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
@@ -66,7 +75,9 @@ class StatCard extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
-                      color: trend!.startsWith('+') ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
+                      color: trend!.startsWith('+')
+                          ? const Color(0xFF16A34A)
+                          : const Color(0xFFDC2626),
                     ),
                   ),
                 ),
@@ -75,7 +86,12 @@ class StatCard extends StatelessWidget {
           const SizedBox(height: 8),
           Text(value, style: AppTypography.displayStat(color: AppColors.text)),
           Text(label, style: AppTypography.labelSmall(color: AppColors.text)),
-          Text(sub, style: AppTypography.labelSmall(color: color).copyWith(fontSize: 10)),
+          Text(
+            sub,
+            style: AppTypography.labelSmall(
+              color: color,
+            ).copyWith(fontSize: 10),
+          ),
         ],
       ),
     );

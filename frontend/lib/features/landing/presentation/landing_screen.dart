@@ -60,8 +60,9 @@ class LandingScreen extends StatelessWidget {
           const SizedBox(height: 20),
           Text(
             'YASMINE DERMA CLINIC',
-            style: AppTypography.labelSmall(color: AppColors.rose)
-                .copyWith(letterSpacing: 2.5, fontWeight: FontWeight.bold),
+            style: AppTypography.labelSmall(
+              color: AppColors.rose,
+            ).copyWith(letterSpacing: 2.5, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),
           Text(
@@ -83,10 +84,15 @@ class LandingScreen extends StatelessWidget {
             onPressed: onBookClick,
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
             ),
             icon: const Icon(Icons.calendar_month_outlined, size: 20),
-            label: Text('Book Your Consultation', style: AppTypography.labelLarge(color: AppColors.white)),
+            label: Text(
+              'Book Your Consultation',
+              style: AppTypography.labelLarge(color: AppColors.white),
+            ),
           ),
         ],
       ),
@@ -97,7 +103,8 @@ class LandingScreen extends StatelessWidget {
     final services = [
       {
         'title': 'HydraFacial Glow',
-        'desc': 'Deep cleansing, gentle exfoliation, and intense hydration serum infusion.',
+        'desc':
+            'Deep cleansing, gentle exfoliation, and intense hydration serum infusion.',
         'price': '£120',
         'time': '45 min',
         'icon': Icons.spa_outlined,
@@ -105,7 +112,8 @@ class LandingScreen extends StatelessWidget {
       },
       {
         'title': 'Laser Skin Resurfacing',
-        'desc': 'Target pigmentation, fine lines, and acne scars with precision laser.',
+        'desc':
+            'Target pigmentation, fine lines, and acne scars with precision laser.',
         'price': '£250',
         'time': '60 min',
         'icon': Icons.auto_awesome,
@@ -113,7 +121,8 @@ class LandingScreen extends StatelessWidget {
       },
       {
         'title': 'Botox & Dermal Fillers',
-        'desc': 'Natural facial contouring and wrinkle smoothing consultations.',
+        'desc':
+            'Natural facial contouring and wrinkle smoothing consultations.',
         'price': '£180',
         'time': '30 min',
         'icon': Icons.face_retouching_natural,
@@ -121,7 +130,8 @@ class LandingScreen extends StatelessWidget {
       },
       {
         'title': 'Medical Chemical Peel',
-        'desc': 'Cellular renewal and texture refining for dull or congested skin.',
+        'desc':
+            'Cellular renewal and texture refining for dull or congested skin.',
         'price': '£140',
         'time': '40 min',
         'icon': Icons.clean_hands_outlined,
@@ -133,22 +143,32 @@ class LandingScreen extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
         children: [
-          Text('Clinical Treatments & Services', style: AppTypography.displayTitle()),
+          Text(
+            'Clinical Treatments & Services',
+            style: AppTypography.displayTitle(),
+          ),
           const SizedBox(height: 8),
-          Text('Curated by board-certified aesthetic dermatologists', style: AppTypography.bodySmall()),
+          Text(
+            'Curated by board-certified aesthetic dermatologists',
+            style: AppTypography.bodySmall(),
+          ),
           const SizedBox(height: 28),
-          LayoutBuilder(builder: (context, constraints) {
-            final int count = constraints.maxWidth > 800 ? 4 : (constraints.maxWidth > 500 ? 2 : 1);
-            return GridView.count(
-              crossAxisCount: count,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisSpacing: 16,
-              mainAxisSpacing: 16,
-              childAspectRatio: constraints.maxWidth > 800 ? 1.0 : 1.3,
-              children: services.map((s) => _buildServiceCard(s)).toList(),
-            );
-          }),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final int count = constraints.maxWidth > 800
+                  ? 4
+                  : (constraints.maxWidth > 500 ? 2 : 1);
+              return GridView.count(
+                crossAxisCount: count,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+                childAspectRatio: constraints.maxWidth > 800 ? 1.0 : 1.3,
+                children: services.map((s) => _buildServiceCard(s)).toList(),
+              );
+            },
+          ),
         ],
       ),
     );
@@ -177,13 +197,22 @@ class LandingScreen extends StatelessWidget {
           const SizedBox(height: 16),
           Text(s['title'] as String, style: AppTypography.labelLarge()),
           const SizedBox(height: 6),
-          Text(s['desc'] as String, style: AppTypography.bodySmall(color: AppColors.textSub)),
+          Text(
+            s['desc'] as String,
+            style: AppTypography.bodySmall(color: AppColors.textSub),
+          ),
           const Spacer(),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(s['price'] as String, style: AppTypography.displayTitle().copyWith(fontSize: 18)),
-              Text(s['time'] as String, style: AppTypography.labelSmall(color: AppColors.textMuted)),
+              Text(
+                s['price'] as String,
+                style: AppTypography.displayTitle().copyWith(fontSize: 18),
+              ),
+              Text(
+                s['time'] as String,
+                style: AppTypography.labelSmall(color: AppColors.textMuted),
+              ),
             ],
           ),
         ],
@@ -193,9 +222,21 @@ class LandingScreen extends StatelessWidget {
 
   Widget _buildDoctorsSection(BuildContext context) {
     final doctors = [
-      {'name': 'Dr. Hana Nasser', 'role': 'Senior Dermatologist', 'exp': '12 Yrs Exp'},
-      {'name': 'Dr. Reem Khalil', 'role': 'Aesthetic Specialist', 'exp': '9 Yrs Exp'},
-      {'name': 'Dr. Sana Al-Farsi', 'role': 'Laser Specialist', 'exp': '11 Yrs Exp'},
+      {
+        'name': 'Dr. Hana Nasser',
+        'role': 'Senior Dermatologist',
+        'exp': '12 Yrs Exp',
+      },
+      {
+        'name': 'Dr. Reem Khalil',
+        'role': 'Aesthetic Specialist',
+        'exp': '9 Yrs Exp',
+      },
+      {
+        'name': 'Dr. Sana Al-Farsi',
+        'role': 'Laser Specialist',
+        'exp': '11 Yrs Exp',
+      },
     ];
 
     return Padding(
@@ -204,7 +245,10 @@ class LandingScreen extends StatelessWidget {
         children: [
           Text('Meet Our Specialists', style: AppTypography.displayTitle()),
           const SizedBox(height: 8),
-          Text('Expert care tailored to your unique skin profile', style: AppTypography.bodySmall()),
+          Text(
+            'Expert care tailored to your unique skin profile',
+            style: AppTypography.bodySmall(),
+          ),
           const SizedBox(height: 24),
           Row(
             children: doctors.map((d) {
@@ -223,14 +267,30 @@ class LandingScreen extends StatelessWidget {
                         radius: 32,
                         backgroundColor: AppColors.bgRose,
                         child: Text(
-                          d['name']!.split(' ').take(2).map((w) => w[0]).join(''),
-                          style: const TextStyle(fontSize: 18, color: AppColors.rose, fontWeight: FontWeight.bold),
+                          d['name']!
+                              .split(' ')
+                              .take(2)
+                              .map((w) => w[0])
+                              .join(''),
+                          style: const TextStyle(
+                            fontSize: 18,
+                            color: AppColors.rose,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 12),
                       Text(d['name']!, style: AppTypography.labelLarge()),
-                      Text(d['role']!, style: AppTypography.bodySmall(color: AppColors.rose)),
-                      Text(d['exp']!, style: AppTypography.labelSmall(color: AppColors.textMuted)),
+                      Text(
+                        d['role']!,
+                        style: AppTypography.bodySmall(color: AppColors.rose),
+                      ),
+                      Text(
+                        d['exp']!,
+                        style: AppTypography.labelSmall(
+                          color: AppColors.textMuted,
+                        ),
+                      ),
                       const SizedBox(height: 12),
                       OutlinedButton(
                         onPressed: () => onViewDoctor(d['name']!),
@@ -260,12 +320,18 @@ class LandingScreen extends StatelessWidget {
             constraints: const BoxConstraints(maxWidth: 600),
             child: Text(
               '"The skin transformation I experienced at Yasmine Derma Clinic was beyond my expectations. Dr. Hana and the team truly care about long-term skin health."',
-              style: AppTypography.displaySubtitle().copyWith(fontSize: 18, fontStyle: FontStyle.italic),
+              style: AppTypography.displaySubtitle().copyWith(
+                fontSize: 18,
+                fontStyle: FontStyle.italic,
+              ),
               textAlign: TextAlign.center,
             ),
           ),
           const SizedBox(height: 12),
-          Text('— Nour Al-Khalil (Patient)', style: AppTypography.labelSmall(color: AppColors.lavDark)),
+          Text(
+            '— Nour Al-Khalil (Patient)',
+            style: AppTypography.labelSmall(color: AppColors.lavDark),
+          ),
         ],
       ),
     );
@@ -280,11 +346,20 @@ class LandingScreen extends StatelessWidget {
         children: [
           const YasmineLogo(size: 40, isDarkBackground: true),
           const SizedBox(height: 12),
-          Text('YASMINE BEAUTY & DERMA CLINIC', style: AppTypography.labelMedium(color: AppColors.white)),
+          Text(
+            'YASMINE BEAUTY & DERMA CLINIC',
+            style: AppTypography.labelMedium(color: AppColors.white),
+          ),
           const SizedBox(height: 8),
-          Text('Ramallah · West Bank | Hours: Mon – Sat 09:00 – 19:00', style: AppTypography.bodySmall(color: AppColors.textSide)),
+          Text(
+            'Ramallah · West Bank | Hours: Mon – Sat 09:00 – 19:00',
+            style: AppTypography.bodySmall(color: AppColors.textSide),
+          ),
           const SizedBox(height: 16),
-          Text('© 2026 Yasmine Derma Clinic. All rights reserved.', style: AppTypography.labelSmall(color: AppColors.textSideMuted)),
+          Text(
+            '© 2026 Yasmine Derma Clinic. All rights reserved.',
+            style: AppTypography.labelSmall(color: AppColors.textSideMuted),
+          ),
         ],
       ),
     );

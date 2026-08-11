@@ -11,16 +11,38 @@ class StatusPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final Map<String, _StatusStyle> styles = {
-      'Confirmed': const _StatusStyle(bg: AppColors.bgSage, text: AppColors.sage),
-      'Pending': const _StatusStyle(bg: AppColors.goldPale, text: AppColors.gold),
-      'In Room': const _StatusStyle(bg: Color(0xFFDBEAFE), text: Color(0xFF2563EB)),
-      'Cancelled': const _StatusStyle(bg: Color(0xFFFEE2E2), text: Color(0xFFDC2626)),
-      'Suggested': const _StatusStyle(bg: AppColors.bgRose, text: AppColors.rose),
-      'Completed': const _StatusStyle(bg: AppColors.bgLavender, text: AppColors.lav),
-      'Waiting': const _StatusStyle(bg: AppColors.goldPale, text: AppColors.gold),
+      'Confirmed': const _StatusStyle(
+        bg: AppColors.bgSage,
+        text: AppColors.sage,
+      ),
+      'Pending': const _StatusStyle(
+        bg: AppColors.goldPale,
+        text: AppColors.gold,
+      ),
+      'In Room': const _StatusStyle(
+        bg: Color(0xFFDBEAFE),
+        text: Color(0xFF2563EB),
+      ),
+      'Cancelled': const _StatusStyle(
+        bg: Color(0xFFFEE2E2),
+        text: Color(0xFFDC2626),
+      ),
+      'Suggested': const _StatusStyle(
+        bg: AppColors.bgRose,
+        text: AppColors.rose,
+      ),
+      'Completed': const _StatusStyle(
+        bg: AppColors.bgLavender,
+        text: AppColors.lav,
+      ),
+      'Waiting': const _StatusStyle(
+        bg: AppColors.goldPale,
+        text: AppColors.gold,
+      ),
     };
 
-    final _StatusStyle style = styles[status] ??
+    final _StatusStyle style =
+        styles[status] ??
         const _StatusStyle(bg: AppColors.bgAlt, text: AppColors.textMuted);
 
     return Container(
@@ -31,9 +53,9 @@ class StatusPill extends StatelessWidget {
       ),
       child: Text(
         status,
-        style: AppTypography.labelSmall(color: style.text).copyWith(
-          fontWeight: FontWeight.w600,
-        ),
+        style: AppTypography.labelSmall(
+          color: style.text,
+        ).copyWith(fontWeight: FontWeight.w600),
       ),
     );
   }

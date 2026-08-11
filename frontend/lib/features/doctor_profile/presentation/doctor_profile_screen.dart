@@ -8,11 +8,7 @@ class DoctorProfileScreen extends StatefulWidget {
   final VoidCallback? onBack;
   final ValueChanged<String>? onPatientClick;
 
-  const DoctorProfileScreen({
-    super.key,
-    this.onBack,
-    this.onPatientClick,
-  });
+  const DoctorProfileScreen({super.key, this.onBack, this.onPatientClick});
 
   @override
   State<DoctorProfileScreen> createState() => _DoctorProfileScreenState();
@@ -136,8 +132,16 @@ class _DoctorProfileScreenState extends State<DoctorProfileScreen>
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Dr. Hana Nasser', style: AppTypography.displayTitle()),
-                        Text('Senior Aesthetic Dermatologist · MB BCh, MD', style: AppTypography.bodyMedium(color: AppColors.rose)),
+                        Text(
+                          'Dr. Hana Nasser',
+                          style: AppTypography.displayTitle(),
+                        ),
+                        Text(
+                          'Senior Aesthetic Dermatologist · MB BCh, MD',
+                          style: AppTypography.bodyMedium(
+                            color: AppColors.rose,
+                          ),
+                        ),
                       ],
                     ),
                     const StatusPill(status: 'Available'),
@@ -160,9 +164,18 @@ class _DoctorProfileScreenState extends State<DoctorProfileScreen>
                     const Icon(Icons.star, color: AppColors.gold, size: 18),
                     const SizedBox(width: 4),
                     Text('4.9', style: AppTypography.labelLarge()),
-                    Text(' (142 reviews)', style: AppTypography.bodySmall(color: AppColors.textMuted)),
+                    Text(
+                      ' (142 reviews)',
+                      style: AppTypography.bodySmall(
+                        color: AppColors.textMuted,
+                      ),
+                    ),
                     const SizedBox(width: 24),
-                    const Icon(Icons.history_toggle_off, color: AppColors.lav, size: 18),
+                    const Icon(
+                      Icons.history_toggle_off,
+                      color: AppColors.lav,
+                      size: 18,
+                    ),
                     const SizedBox(width: 4),
                     Text('12+ Yrs Exp', style: AppTypography.labelLarge()),
                   ],
@@ -182,7 +195,10 @@ class _DoctorProfileScreenState extends State<DoctorProfileScreen>
         color: AppColors.bgRose,
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Text(label, style: AppTypography.labelSmall(color: AppColors.roseDark)),
+      child: Text(
+        label,
+        style: AppTypography.labelSmall(color: AppColors.roseDark),
+      ),
     );
   }
 
@@ -191,11 +207,29 @@ class _DoctorProfileScreenState extends State<DoctorProfileScreen>
       children: [
         Row(
           children: const [
-            Expanded(child: _InfoTile(title: 'Patients YTD', value: '386', icon: Icons.group)),
+            Expanded(
+              child: _InfoTile(
+                title: 'Patients YTD',
+                value: '386',
+                icon: Icons.group,
+              ),
+            ),
             SizedBox(width: 16),
-            Expanded(child: _InfoTile(title: 'Avg Rating', value: '4.9 ⭐', icon: Icons.star_outline)),
+            Expanded(
+              child: _InfoTile(
+                title: 'Avg Rating',
+                value: '4.9 ⭐',
+                icon: Icons.star_outline,
+              ),
+            ),
             SizedBox(width: 16),
-            Expanded(child: _InfoTile(title: 'Consultations', value: '1,420', icon: Icons.video_call)),
+            Expanded(
+              child: _InfoTile(
+                title: 'Consultations',
+                value: '1,420',
+                icon: Icons.video_call,
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 24),
@@ -210,7 +244,14 @@ class _DoctorProfileScreenState extends State<DoctorProfileScreen>
   }
 
   Widget _buildScheduleTab() {
-    final slots = ['09:15 AM', '10:00 AM', '10:45 AM', '01:30 PM', '02:15 PM', '03:00 PM'];
+    final slots = [
+      '09:15 AM',
+      '10:00 AM',
+      '10:45 AM',
+      '01:30 PM',
+      '02:15 PM',
+      '03:00 PM',
+    ];
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -222,7 +263,10 @@ class _DoctorProfileScreenState extends State<DoctorProfileScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Available Time Slots — Thursday 7 Aug', style: AppTypography.labelLarge()),
+          Text(
+            'Available Time Slots — Thursday 7 Aug',
+            style: AppTypography.labelLarge(),
+          ),
           const SizedBox(height: 16),
           Wrap(
             spacing: 12,
@@ -250,7 +294,11 @@ class _DoctorProfileScreenState extends State<DoctorProfileScreen>
           ElevatedButton(
             onPressed: () {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Slot $_selectedTimeSlot reserved with Dr. Hana Nasser')),
+                SnackBar(
+                  content: Text(
+                    'Slot $_selectedTimeSlot reserved with Dr. Hana Nasser',
+                  ),
+                ),
               );
             },
             child: Text('Book Selected Slot ($_selectedTimeSlot)'),
@@ -264,15 +312,24 @@ class _DoctorProfileScreenState extends State<DoctorProfileScreen>
     return ListView(
       children: [
         ListTile(
-          leading: const CircleAvatar(backgroundColor: AppColors.bgRose, child: Text('NK', style: TextStyle(color: AppColors.rose))),
+          leading: const CircleAvatar(
+            backgroundColor: AppColors.bgRose,
+            child: Text('NK', style: TextStyle(color: AppColors.rose)),
+          ),
           title: Text('Nour Al-Khalil', style: AppTypography.labelLarge()),
-          subtitle: Text('Laser Resurfacing · Session 3/5', style: AppTypography.bodySmall()),
+          subtitle: Text(
+            'Laser Resurfacing · Session 3/5',
+            style: AppTypography.bodySmall(),
+          ),
           trailing: const StatusPill(status: 'In Room'),
           onTap: () => widget.onPatientClick?.call('Nour Al-Khalil'),
         ),
         const Divider(),
         ListTile(
-          leading: const CircleAvatar(backgroundColor: AppColors.bgLavender, child: Text('LM', style: TextStyle(color: AppColors.lav))),
+          leading: const CircleAvatar(
+            backgroundColor: AppColors.bgLavender,
+            child: Text('LM', style: TextStyle(color: AppColors.lav)),
+          ),
           title: Text('Layla Mansour', style: AppTypography.labelLarge()),
           subtitle: Text('HydroGlow Facial', style: AppTypography.bodySmall()),
           trailing: const StatusPill(status: 'Waiting'),
@@ -289,13 +346,15 @@ class _DoctorProfileScreenState extends State<DoctorProfileScreen>
           name: 'Sarah M.',
           rating: 5,
           date: '2 Aug 2026',
-          comment: 'Dr. Hana is incredible! My skin feels radiant after the laser session. Highly recommend!',
+          comment:
+              'Dr. Hana is incredible! My skin feels radiant after the laser session. Highly recommend!',
         ),
         _ReviewItem(
           name: 'Yasmine K.',
           rating: 5,
           date: '28 Jul 2026',
-          comment: 'Very professional clinic and gentle treatment. The results are visible immediately.',
+          comment:
+              'Very professional clinic and gentle treatment. The results are visible immediately.',
         ),
       ],
     );
@@ -307,7 +366,11 @@ class _InfoTile extends StatelessWidget {
   final String value;
   final IconData icon;
 
-  const _InfoTile({required this.title, required this.value, required this.icon});
+  const _InfoTile({
+    required this.title,
+    required this.value,
+    required this.icon,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -363,15 +426,22 @@ class _ReviewItem extends StatelessWidget {
               Row(
                 children: List.generate(
                   rating,
-                  (index) => const Icon(Icons.star, color: AppColors.gold, size: 14),
+                  (index) =>
+                      const Icon(Icons.star, color: AppColors.gold, size: 14),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 4),
-          Text(date, style: AppTypography.bodySmall(color: AppColors.textMuted)),
+          Text(
+            date,
+            style: AppTypography.bodySmall(color: AppColors.textMuted),
+          ),
           const SizedBox(height: 8),
-          Text(comment, style: AppTypography.bodyMedium(color: AppColors.textSub)),
+          Text(
+            comment,
+            style: AppTypography.bodyMedium(color: AppColors.textSub),
+          ),
         ],
       ),
     );

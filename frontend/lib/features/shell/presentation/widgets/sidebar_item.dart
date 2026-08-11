@@ -25,8 +25,9 @@ class SidebarItem extends StatelessWidget {
         ? AppColors.rose.withValues(alpha: 0.18)
         : Colors.transparent;
 
-    final Color contentColor =
-        isActive ? AppColors.roseLight : AppColors.textSide;
+    final Color contentColor = isActive
+        ? AppColors.roseLight
+        : AppColors.textSide;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
@@ -44,42 +45,44 @@ class SidebarItem extends StatelessWidget {
               color: backgroundColor,
               borderRadius: BorderRadius.circular(12),
               border: isActive
-                  ? Border.all(color: AppColors.rose.withValues(alpha: 0.3), width: 1)
+                  ? Border.all(
+                      color: AppColors.rose.withValues(alpha: 0.3),
+                      width: 1,
+                    )
                   : null,
             ),
             child: Row(
               children: [
-                Icon(
-                  icon,
-                  size: 20,
-                  color: contentColor,
-                ),
+                Icon(icon, size: 20, color: contentColor),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Text(
                     label,
-                    style: AppTypography.labelMedium(color: contentColor).copyWith(
-                      fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-                    ),
+                    style: AppTypography.labelMedium(color: contentColor)
+                        .copyWith(
+                          fontWeight: isActive
+                              ? FontWeight.w600
+                              : FontWeight.w400,
+                        ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 if (badge != null)
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.rose.withValues(alpha: 0.25),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
                       badge!,
-                      style: AppTypography.labelSmall(color: AppColors.roseLight)
-                          .copyWith(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 11,
-                      ),
+                      style: AppTypography.labelSmall(
+                        color: AppColors.roseLight,
+                      ).copyWith(fontWeight: FontWeight.w600, fontSize: 11),
                     ),
                   ),
               ],

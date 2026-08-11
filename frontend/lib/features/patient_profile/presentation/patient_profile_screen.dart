@@ -124,23 +124,40 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
                   children: [
                     Text('Nour Al-Khalil', style: AppTypography.displayTitle()),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.goldPale,
                         borderRadius: BorderRadius.circular(16),
                       ),
-                      child: Text('⭐ 840 Loyalty Pts', style: AppTypography.labelSmall(color: AppColors.gold)),
+                      child: Text(
+                        '⭐ 840 Loyalty Pts',
+                        style: AppTypography.labelSmall(color: AppColors.gold),
+                      ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 4),
-                Text('33 Yrs (14 Mar 1993) · Fitzpatrick Type III · Female', style: AppTypography.bodySmall(color: AppColors.textSub)),
+                Text(
+                  '33 Yrs (14 Mar 1993) · Fitzpatrick Type III · Female',
+                  style: AppTypography.bodySmall(color: AppColors.textSub),
+                ),
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    _buildTag('Skin: Sensitive / Combination', AppColors.rose, AppColors.bgRose),
+                    _buildTag(
+                      'Skin: Sensitive / Combination',
+                      AppColors.rose,
+                      AppColors.bgRose,
+                    ),
                     const SizedBox(width: 8),
-                    _buildTag('12 Total Sessions', AppColors.sage, AppColors.bgSage),
+                    _buildTag(
+                      '12 Total Sessions',
+                      AppColors.sage,
+                      AppColors.bgSage,
+                    ),
                   ],
                 ),
               ],
@@ -161,12 +178,18 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
       ),
       child: Row(
         children: [
-          const Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626), size: 20),
+          const Icon(
+            Icons.warning_amber_rounded,
+            color: Color(0xFFDC2626),
+            size: 20,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               'Allergy Alert: Sensitive to Retinoids & Salicylic Acid above 2%. Use mild soothing formulas.',
-              style: AppTypography.bodySmall(color: const Color(0xFF991B1B)).copyWith(fontWeight: FontWeight.w600),
+              style: AppTypography.bodySmall(
+                color: const Color(0xFF991B1B),
+              ).copyWith(fontWeight: FontWeight.w600),
             ),
           ),
         ],
@@ -177,7 +200,10 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
   Widget _buildOverviewTab() {
     return ListView(
       children: [
-        _buildInfoRow('Primary Concern', 'Hyperpigmentation & Post-acne Redness'),
+        _buildInfoRow(
+          'Primary Concern',
+          'Hyperpigmentation & Post-acne Redness',
+        ),
         _buildInfoRow('Assigned Specialist', 'Dr. Hana Nasser'),
         _buildInfoRow('Email', 'nour@yasmine.clinic'),
         _buildInfoRow('Phone', '+970 59 123 4567'),
@@ -190,9 +216,24 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
     return ListView(
       padding: const EdgeInsets.only(top: 10),
       children: const [
-        _MetricBar(label: 'Moisture & Hydration Level', progress: 0.78, value: '78% (Optimal)', color: AppColors.sage),
-        _MetricBar(label: 'Barrier Sensitivity Index', progress: 0.42, value: '42% (Moderate)', color: AppColors.gold),
-        _MetricBar(label: 'Collagen Density & Elasticity', progress: 0.85, value: '85% (Excellent)', color: AppColors.rose),
+        _MetricBar(
+          label: 'Moisture & Hydration Level',
+          progress: 0.78,
+          value: '78% (Optimal)',
+          color: AppColors.sage,
+        ),
+        _MetricBar(
+          label: 'Barrier Sensitivity Index',
+          progress: 0.42,
+          value: '42% (Moderate)',
+          color: AppColors.gold,
+        ),
+        _MetricBar(
+          label: 'Collagen Density & Elasticity',
+          progress: 0.85,
+          value: '85% (Excellent)',
+          color: AppColors.rose,
+        ),
       ],
     );
   }
@@ -200,9 +241,24 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
   Widget _buildHistoryTab() {
     return ListView(
       children: const [
-        _HistoryItem(date: '7 Aug 2026', tx: 'Laser Resurfacing', doctor: 'Dr. Hana Nasser', status: 'Scheduled'),
-        _HistoryItem(date: '12 Jul 2026', tx: 'HydroGlow Facial', doctor: 'Dr. Reem Khalil', status: 'Completed'),
-        _HistoryItem(date: '20 Jun 2026', tx: 'Chemical Peel 15%', doctor: 'Dr. Hana Nasser', status: 'Completed'),
+        _HistoryItem(
+          date: '7 Aug 2026',
+          tx: 'Laser Resurfacing',
+          doctor: 'Dr. Hana Nasser',
+          status: 'Scheduled',
+        ),
+        _HistoryItem(
+          date: '12 Jul 2026',
+          tx: 'HydroGlow Facial',
+          doctor: 'Dr. Reem Khalil',
+          status: 'Completed',
+        ),
+        _HistoryItem(
+          date: '20 Jun 2026',
+          tx: 'Chemical Peel 15%',
+          doctor: 'Dr. Hana Nasser',
+          status: 'Completed',
+        ),
       ],
     );
   }
@@ -228,7 +284,10 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
   Widget _buildTag(String label, Color color, Color bg) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: Text(label, style: AppTypography.labelSmall(color: color)),
     );
   }
@@ -236,11 +295,16 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
   Widget _buildInfoRow(String label, String value) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12),
-      decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.hairline))),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: AppColors.hairline)),
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: AppTypography.bodySmall(color: AppColors.textMuted)),
+          Text(
+            label,
+            style: AppTypography.bodySmall(color: AppColors.textMuted),
+          ),
           Text(value, style: AppTypography.labelMedium()),
         ],
       ),
@@ -327,7 +391,10 @@ class _HistoryItem extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(tx, style: AppTypography.labelLarge()),
-              Text('$date · $doctor', style: AppTypography.bodySmall(color: AppColors.textMuted)),
+              Text(
+                '$date · $doctor',
+                style: AppTypography.bodySmall(color: AppColors.textMuted),
+              ),
             ],
           ),
           Text(status, style: AppTypography.labelSmall(color: AppColors.sage)),

@@ -76,9 +76,7 @@ class _FloatingPetalsState extends State<FloatingPetals>
         child: SizedBox(
           width: size,
           height: size,
-          child: CustomPaint(
-            painter: _PetalPainter(),
-          ),
+          child: CustomPaint(painter: _PetalPainter()),
         ),
       ),
     );

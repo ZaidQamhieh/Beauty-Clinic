@@ -29,9 +29,7 @@ class HeaderBar extends StatelessWidget implements PreferredSizeWidget {
       height: preferredSize.height,
       decoration: const BoxDecoration(
         color: AppColors.bgCard,
-        border: Border(
-          bottom: BorderSide(color: AppColors.border, width: 1),
-        ),
+        border: Border(bottom: BorderSide(color: AppColors.border, width: 1)),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: LayoutBuilder(
@@ -63,13 +61,15 @@ class HeaderBar extends StatelessWidget implements PreferredSizeWidget {
                       children: [
                         Text(
                           'YASMINE',
-                          style: AppTypography.displayTitle(color: AppColors.text)
-                              .copyWith(fontSize: 17, letterSpacing: 1.1),
+                          style: AppTypography.displayTitle(
+                            color: AppColors.text,
+                          ).copyWith(fontSize: 17, letterSpacing: 1.1),
                         ),
                         Text(
                           'BEAUTY & DERMA',
-                          style: AppTypography.labelSmall(color: AppColors.rose)
-                              .copyWith(fontSize: 8.5, letterSpacing: 0.6),
+                          style: AppTypography.labelSmall(
+                            color: AppColors.rose,
+                          ).copyWith(fontSize: 8.5, letterSpacing: 0.6),
                         ),
                       ],
                     ),
@@ -98,8 +98,14 @@ class HeaderBar extends StatelessWidget implements PreferredSizeWidget {
                       style: AppTypography.bodySmall(color: AppColors.text),
                       decoration: InputDecoration(
                         hintText: 'Search...',
-                        hintStyle: AppTypography.bodySmall(color: AppColors.textMuted),
-                        prefixIcon: const Icon(Icons.search, size: 16, color: AppColors.textMuted),
+                        hintStyle: AppTypography.bodySmall(
+                          color: AppColors.textMuted,
+                        ),
+                        prefixIcon: const Icon(
+                          Icons.search,
+                          size: 16,
+                          color: AppColors.textMuted,
+                        ),
                         contentPadding: const EdgeInsets.symmetric(vertical: 6),
                         border: InputBorder.none,
                         enabledBorder: InputBorder.none,
@@ -115,10 +121,16 @@ class HeaderBar extends StatelessWidget implements PreferredSizeWidget {
               Stack(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.notifications_none_outlined,
-                        color: AppColors.textSub, size: 20),
+                    icon: const Icon(
+                      Icons.notifications_none_outlined,
+                      color: AppColors.textSub,
+                      size: 20,
+                    ),
                     onPressed: onNotificationClick,
-                    constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                    constraints: const BoxConstraints(
+                      minWidth: 36,
+                      minHeight: 36,
+                    ),
                     padding: EdgeInsets.zero,
                   ),
                   Positioned(
@@ -170,9 +182,21 @@ class HeaderBar extends StatelessWidget implements PreferredSizeWidget {
 
   Widget _buildRoleSelector(BuildContext context, {bool compact = false}) {
     final roles = [
-      {'id': 'admin', 'name': 'Admin', 'icon': Icons.admin_panel_settings_outlined},
-      {'id': 'doctor', 'name': 'Dr. Sarah', 'icon': Icons.medical_services_outlined},
-      {'id': 'receptionist', 'name': 'Front Desk', 'icon': Icons.support_agent_outlined},
+      {
+        'id': 'admin',
+        'name': 'Admin',
+        'icon': Icons.admin_panel_settings_outlined,
+      },
+      {
+        'id': 'doctor',
+        'name': 'Dr. Sarah',
+        'icon': Icons.medical_services_outlined,
+      },
+      {
+        'id': 'receptionist',
+        'name': 'Front Desk',
+        'icon': Icons.support_agent_outlined,
+      },
       {'id': 'patient', 'name': 'Patient View', 'icon': Icons.person_outline},
     ];
 
@@ -187,8 +211,11 @@ class HeaderBar extends StatelessWidget implements PreferredSizeWidget {
         child: DropdownButton<String>(
           value: activeRole,
           isDense: true,
-          icon: const Icon(Icons.keyboard_arrow_down_rounded,
-              color: AppColors.rose, size: 16),
+          icon: const Icon(
+            Icons.keyboard_arrow_down_rounded,
+            color: AppColors.rose,
+            size: 16,
+          ),
           dropdownColor: AppColors.bgCard,
           borderRadius: BorderRadius.circular(16),
           items: roles.map((role) {
@@ -197,14 +224,18 @@ class HeaderBar extends StatelessWidget implements PreferredSizeWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(role['icon'] as IconData,
-                      size: 15, color: AppColors.rose),
+                  Icon(
+                    role['icon'] as IconData,
+                    size: 15,
+                    color: AppColors.rose,
+                  ),
                   if (!compact) ...[
                     const SizedBox(width: 6),
                     Text(
                       role['name'] as String,
-                      style: AppTypography.labelSmall(color: AppColors.roseDark)
-                          .copyWith(fontWeight: FontWeight.w600),
+                      style: AppTypography.labelSmall(
+                        color: AppColors.roseDark,
+                      ).copyWith(fontWeight: FontWeight.w600),
                     ),
                   ],
                 ],
