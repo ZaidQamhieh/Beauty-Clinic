@@ -25,8 +25,6 @@ public class LoginLockoutService {
             Duration.ofDays(7)
     );
 
-    private static final Duration MAX_LOCKOUT = Duration.ofDays(365);
-
     private final UserAccountRepository users;
 
     @Transactional(readOnly = true)
@@ -52,11 +50,13 @@ public class LoginLockoutService {
         });
     }
 
+    // Strikes clear too, or the ladder only ever climbs.
     @Transactional
     public void recordSuccess(String identifier) {
         users.findByEmailIgnoreCase(identifier).ifPresent(account -> {
             account.setFailedLoginCount(0);
             account.setLockedUntil(null);
+            account.setLockoutStrikes(0);
             users.save(account);
         });
     }
@@ -73,25 +73,8 @@ public class LoginLockoutService {
         );
     }
 
+    // Clamped: an attacker holds the last rung, never passes it.
     private Duration durationForStrike(int strike) {
-        if (strike < LOCKOUT_LADDER.size()) {
-            return LOCKOUT_LADDER.get(strike);
-        }
-
-        int lastIndex = LOCKOUT_LADDER.size() - 1;
-        int extraDoublings = strike - lastIndex;
-
-        Duration escalated = LOCKOUT_LADDER.get(lastIndex);
-        for (int i = 0; i < extraDoublings; i++) {
-            if (escalated.compareTo(MAX_LOCKOUT) >= 0) {
-                return MAX_LOCKOUT;
-            }
-            escalated = escalated.multipliedBy(2);
-        }
-
-        if (escalated.compareTo(MAX_LOCKOUT) > 0) {
-            return MAX_LOCKOUT;
-        }
-        return escalated;
+        return LOCKOUT_LADDER.get(Math.min(strike, LOCKOUT_LADDER.size() - 1));
     }
 }

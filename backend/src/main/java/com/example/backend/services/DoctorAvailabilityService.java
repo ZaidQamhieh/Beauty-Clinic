@@ -7,6 +7,7 @@ import com.example.backend.entities.DoctorAvailability.AvailabilityKind;
 import com.example.backend.entities.DoctorProfile;
 import com.example.backend.repositories.DoctorAvailabilityRepository;
 import com.example.backend.repositories.DoctorProfileRepository;
+import com.example.backend.security.CurrentUser;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -24,12 +25,21 @@ public class DoctorAvailabilityService {
 
     private final DoctorAvailabilityRepository availabilities;
     private final DoctorProfileRepository doctors;
+    private final CurrentUser currentUser;
 
     @Transactional(readOnly = true)
     public List<DoctorAvailabilityResponse> list(UUID doctorUserId) {
+        boolean staff = currentUser.isClinicStaff();
+
         return availabilities.findByDoctorUserId(doctorUserId).stream()
+                .filter(availability -> staff || !isClosure(availability))
                 .map(DoctorAvailabilityResponse::of)
                 .toList();
+    }
+
+    // A dated closure is a sick day or a holiday. The desk may see it; the public may not.
+    private static boolean isClosure(DoctorAvailability availability) {
+        return availability.getKind() == AvailabilityKind.OVERRIDE && !availability.isAvailable();
     }
 
     @Transactional

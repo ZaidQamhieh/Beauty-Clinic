@@ -21,8 +21,6 @@ import java.util.Map;
 public record ClinicProperties(
         @NotBlank String timezone,
         @Valid Map<TreatmentName, Tariff> tariff,
-        // Shortest notice a patient may book on. Staff book walk-ins with none.
-        Integer minLeadTimeMinutes,
         // How far ahead the calendar is open at all.
         Integer maxHorizonDays,
         // Slots are offered on this grid, so a 45-minute treatment is never offered at 09:47.
@@ -31,7 +29,6 @@ public record ClinicProperties(
         Integer turnoverMinutes
 ) {
 
-    public static final int DEFAULT_MIN_LEAD_TIME_MINUTES = 60;
     public static final int DEFAULT_MAX_HORIZON_DAYS = 180;
     public static final int DEFAULT_SLOT_GRANULARITY_MINUTES = 15;
     public static final int DEFAULT_TURNOVER_MINUTES = 10;
@@ -40,10 +37,6 @@ public record ClinicProperties(
         // Fail at startup on an unknown zone, not on the first booking.
         if (timezone != null && !timezone.isBlank()) {
             ZoneId.of(timezone);
-        }
-
-        if (minLeadTimeMinutes == null) {
-            minLeadTimeMinutes = DEFAULT_MIN_LEAD_TIME_MINUTES;
         }
 
         if (maxHorizonDays == null) {
@@ -78,10 +71,6 @@ public record ClinicProperties(
 
     public ZoneId zone() {
         return ZoneId.of(timezone);
-    }
-
-    public Duration minLeadTime() {
-        return Duration.ofMinutes(minLeadTimeMinutes);
     }
 
     public Duration horizon() {

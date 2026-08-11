@@ -38,7 +38,8 @@ public record TimeRange(LocalTime start, LocalTime end) {
 
     // Every cut applies to everything left, so a cut through the middle splits a span in two.
     public static List<TimeRange> subtract(List<TimeRange> from, List<TimeRange> cuts) {
-        List<TimeRange> remaining = from;
+        // Copied: with no cuts this returned the caller's list, which callers then mutate.
+        List<TimeRange> remaining = new ArrayList<>(from);
 
         for (TimeRange cut : cuts) {
             List<TimeRange> next = new ArrayList<>();

@@ -16,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -31,10 +32,17 @@ public class PatientProfileService {
 
     private final PatientProfileRepository patients;
     private final UserAccountRepository users;
+    private final PasswordEncoder passwordEncoder;
     private final CurrentUser currentUser;
 
     @Transactional
     public PatientDetailResponse register(PatientDetailsRequest request) {
+        // Taken at the desk, like the paper form. Without it, not bookable.
+        if (request.clinical() == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "The patient's health form is required");
+        }
+
         if (users.findByEmailIgnoreCase(request.email()).isPresent()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already registered");
         }
@@ -44,17 +52,25 @@ public class PatientProfileService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Phone number already registered");
         }
 
-        // No password: the account is INVITED until the patient claims it.
         UserAccount account = new UserAccount(
                 request.email(), null, request.firstName(), request.lastName(), Role.PATIENT
         );
         account.setDateOfBirth(request.dateOfBirth());
         account.setPhone(request.phone());
         account.setGender(request.gender());
-        account.setStatus(AccountStatus.INVITED);
+
+        // A password means a live account; without one it is a walk-in record.
+        if (request.password() == null) {
+            account.setStatus(AccountStatus.INVITED);
+        } else {
+            account.activateWith(passwordEncoder.encode(request.password()));
+        }
+
         users.save(account);
 
-        PatientProfile profile = patients.save(new PatientProfile(account));
+        PatientProfile profile = new PatientProfile(account);
+        applyClinical(profile, request.clinical());
+        patients.save(profile);
 
         return PatientDetailResponse.of(profile);
     }
@@ -97,7 +113,17 @@ public class PatientProfileService {
     // Target from token, so patient cannot aim at someone else.
     public PatientDetailResponse updateOwnProfile(EditOwnProfileRequest request) {
         PatientProfile profile = requireOwn();
-        profile.getUser().setPhone(request.phone());
+        UserAccount account = profile.getUser();
+
+        // Vague on purpose: the unique index would otherwise answer "is this number registered".
+        if (request.phone() != null
+                && !request.phone().equals(account.getPhone())
+                && users.existsByPhone(request.phone())) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "Could not save those details");
+        }
+
+        account.setPhone(request.phone());
         return PatientDetailResponse.of(profile);
     }
 
@@ -115,13 +141,18 @@ public class PatientProfileService {
     @Transactional
     public PatientRecordResponse updateClinicalProfile(UUID userId, EditClinicalProfileRequest request) {
         PatientProfile profile = require(userId);
+        applyClinical(profile, request);
+        return PatientRecordResponse.of(profile);
+    }
+
+    // Shared with register: one way to write the form.
+    private static void applyClinical(PatientProfile profile, EditClinicalProfileRequest request) {
         profile.setPregnantBreastfeeding(request.pregnantBreastfeeding());
         profile.setSkinType(request.skinType());
         profile.setSmokingStatus(request.smokingStatus());
         profile.setAllergies(distinct(request.allergies()));
         profile.setMedications(distinct(request.medications()));
         profile.setChronicConditions(distinct(request.chronicConditions()));
-        return PatientRecordResponse.of(profile);
     }
 
     // The column CHECK only tests containment, so ['NUTS','NUTS'] passes. Copies, and never null.

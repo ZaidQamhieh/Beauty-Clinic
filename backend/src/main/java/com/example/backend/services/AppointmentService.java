@@ -65,7 +65,10 @@ public class AppointmentService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Patients may only book for themselves");
         }
 
-        // Locked first: the list the patient saw may be stale, so these reads decide.
+        // Appointment before patient, or the two orders deadlock.
+        Appointment replaced = lockReplaced(request.replacesAppointmentId(), request.patientUserId());
+
+        // Locked next: the list the patient saw may be stale.
         PatientProfile patient = patients.lockForBooking(request.patientUserId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No such patient"));
 
@@ -76,7 +79,7 @@ public class AppointmentService {
         }
 
         // Reschedule is this call naming the visit it replaces, so both move or neither does.
-        Appointment replaced = releaseReplaced(request.replacesAppointmentId(), patient);
+        releaseReplaced(replaced);
 
         // Earliest first, so each treatment is checked against the ones already placed.
         List<AddSessionRequest> requested = request.sessions().stream()
@@ -102,28 +105,34 @@ public class AppointmentService {
         return AppointmentResponse.of(appointment, booked);
     }
 
-    // Frees the replaced visit. Flushed, or its slots are still held when the new rows insert.
-    private Appointment releaseReplaced(UUID replacedId, PatientProfile patient) {
+    // Locked first. Not found, not forbidden: ownership must not leak.
+    private Appointment lockReplaced(UUID replacedId, UUID patientUserId) {
         if (replacedId == null) {
             return null;
         }
 
-        Appointment replaced = require(replacedId);
+        Appointment replaced = requireLocked(replacedId);
 
-        // Not found, not forbidden: whose visit it is must not leak through the error.
-        if (!replaced.getPatient().getUserId().equals(patient.getUserId())) {
+        if (!replaced.getPatient().getUserId().equals(patientUserId)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No such appointment");
         }
-
-        cancelVisit(replaced);
-        appointments.flush();
 
         return replaced;
     }
 
+    // Flushed, or the old slots still block the new rows.
+    private void releaseReplaced(Appointment replaced) {
+        if (replaced == null) {
+            return;
+        }
+
+        cancelVisit(replaced);
+        appointments.flush();
+    }
+
     @Transactional
     public AppointmentResponse cancel(UUID id) {
-        Appointment appointment = require(id);
+        Appointment appointment = requireLocked(id);
         cancelVisit(appointment);
 
         return withSessions(appointment);
@@ -216,13 +225,13 @@ public class AppointmentService {
         Map<UUID, List<Instant[]>> doctorBusy = doctorBusyOn(qualified, query, dayStart, dayEnd);
         List<Instant[]> patientBusy = patientBusyOn(query, dayStart, dayEnd);
 
-        Instant earliest = earliestBookable();
-        Instant latest = Instant.now().plus(clinic.horizon());
+        Instant now = Instant.now();
+        Instant latest = now.plus(clinic.horizon());
 
         return qualified.stream()
                 .flatMap(doctor -> slotsFor(
                         doctor, date, duration, busyFor(doctor, query, doctorBusy, patientBusy)).stream())
-                .filter(slot -> !slot.startTime().isBefore(earliest) && !slot.startTime().isAfter(latest))
+                .filter(slot -> !slot.startTime().isBefore(now) && !slot.startTime().isAfter(latest))
                 .sorted(Comparator.comparing(FreeSlotResponse::startTime)
                         .thenComparing(FreeSlotResponse::practitionerName))
                 .toList();
@@ -314,15 +323,6 @@ public class AppointmentService {
     private Instant[] withTurnover(Instant startTime, Instant endTime) {
         Duration turnover = clinic.turnover();
         return new Instant[]{startTime.minus(turnover), endTime.plus(turnover)};
-    }
-
-    // The list must match assertBookableWindow, or it offers times the booking then refuses.
-    private Instant earliestBookable() {
-        Instant now = Instant.now();
-        if (currentUser.isClinicStaff()) {
-            return now;
-        }
-        return now.plus(clinic.minLeadTime());
     }
 
     // One visit is one trip, so its treatments share a day and one cancellation cutoff.
@@ -523,6 +523,12 @@ public class AppointmentService {
 
     private Appointment require(UUID id) {
         return appointments.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No such appointment"));
+    }
+
+    // For paths that change the visit; read-only ones use require().
+    private Appointment requireLocked(UUID id) {
+        return appointments.findWithLockById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No such appointment"));
     }
 

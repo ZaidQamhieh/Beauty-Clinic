@@ -104,8 +104,8 @@ public class AuthService {
 
         } catch (AuthenticationException failure) {
 
-                if (!(failure instanceof LockedException)) {
-                lockouts.recordFailure(identifier);
+                if (countsAsGuess(failure)) {
+                        lockouts.recordFailure(identifier);
                 }
 
                 activityLogs.recordFailedLogin(
@@ -142,6 +142,12 @@ public class AuthService {
                 accessToken.expiresInSeconds(),
                 principal.getRole().name()
       );
+    }
+
+    // Locked, unclaimed and disabled are not password guesses.
+    private boolean countsAsGuess(AuthenticationException failure) {
+        return !(failure instanceof LockedException)
+                && !(failure instanceof DisabledException);
     }
 
     @Transactional

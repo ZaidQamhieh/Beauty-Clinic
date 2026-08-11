@@ -21,6 +21,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 // resets on restart and counts per instance.
 class AuthRateLimitFilter extends OncePerRequestFilter {
 
+    // Not logout: a 429 there strands a live session.
     private static final Set<String> GUARDED = Set.of(
             "/api/auth/register",
             "/api/auth/login",
@@ -49,7 +50,8 @@ class AuthRateLimitFilter extends OncePerRequestFilter {
             HttpServletRequest request, HttpServletResponse response, FilterChain chain
     ) throws ServletException, IOException {
 
-        if (withinLimit(request.getRemoteAddr())) {
+        // Per endpoint too, so refresh cannot starve login.
+        if (withinLimit(request.getRequestURI() + "|" + request.getRemoteAddr())) {
             chain.doFilter(request, response);
             return;
         }
@@ -61,11 +63,11 @@ class AuthRateLimitFilter extends OncePerRequestFilter {
                 "detail":"Too many attempts from this address; try again shortly"}""");
     }
 
-    private boolean withinLimit(String address) {
+    private boolean withinLimit(String bucket) {
         Instant now = Instant.now();
         pruneIfLarge(now);
 
-        Window current = windows.compute(address, (key, existing) -> {
+        Window current = windows.compute(bucket, (key, existing) -> {
             if (existing == null || hasExpired(existing, now)) {
                 return Window.startedAt(now);
             }

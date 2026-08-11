@@ -49,7 +49,8 @@ public class AppointmentSessionService {
 
     @Transactional
     public AppointmentSessionResponse add(UUID appointmentId, AddSessionRequest request) {
-        Appointment appointment = appointments.findById(appointmentId)
+        // Appointment, then patient, then session.
+        Appointment appointment = appointments.findWithLockById(appointmentId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No such appointment"));
 
         if (appointment.getStatus() != AppointmentStatus.BOOKED) {
@@ -202,21 +203,39 @@ public class AppointmentSessionService {
     // Dropping one treatment out of a visit. Bound by the same cutoff as dropping the visit.
     @Transactional
     public AppointmentSessionResponse cancel(UUID appointmentId, UUID sessionId) {
+        // Before the session row: cancelling decides the visit's state.
+        appointments.findWithLockById(appointmentId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No such appointment"));
+
         AppointmentSession session = require(appointmentId, sessionId);
         assertChangeable(session.getStartTime());
 
         return transition(session, SessionStatus.CANCELLED);
     }
 
-    // Attendance is recorded after the fact, so no cutoff applies to either of these.
+    // No upper cutoff, only the lower one.
     @Transactional
     public AppointmentSessionResponse markAttended(UUID appointmentId, UUID sessionId) {
-        return transition(require(appointmentId, sessionId), SessionStatus.COMPLETED);
+        AppointmentSession session = require(appointmentId, sessionId);
+        assertStarted(session);
+
+        return transition(session, SessionStatus.COMPLETED);
     }
 
     @Transactional
     public AppointmentSessionResponse markNoShow(UUID appointmentId, UUID sessionId) {
-        return transition(require(appointmentId, sessionId), SessionStatus.NO_SHOW);
+        AppointmentSession session = require(appointmentId, sessionId);
+        assertStarted(session);
+
+        return transition(session, SessionStatus.NO_SHOW);
+    }
+
+    // Marked early, COMPLETED blocks cancelling and NO_SHOW locks the slot.
+    private void assertStarted(AppointmentSession session) {
+        if (session.getStartTime().isAfter(Instant.now())) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "That treatment has not started yet");
+        }
     }
 
     // Scoped to the path's appointment, and locked: every caller changes this row's status.
@@ -267,24 +286,17 @@ public class AppointmentSessionService {
                         + "; it needs one of " + treatment.category().qualifying());
     }
 
-    // The calendar opens for a season, not forever, and needs notice. Staff take walk-ins.
+    // Open for a season, not forever. No notice period.
     private void assertBookableWindow(Instant startTime) {
-        Instant now = Instant.now();
+        // The slot was offered, then went. That is a lost slot, not a malformed request.
+        if (startTime.isBefore(Instant.now())) {
+            throw new SlotTakenException("That time has already passed");
+        }
 
-        if (startTime.isAfter(now.plus(clinic.horizon()))) {
+        if (startTime.isAfter(Instant.now().plus(clinic.horizon()))) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
                     "Bookings open only " + clinic.maxHorizonDays() + " days ahead");
-        }
-
-        if (currentUser.isClinicStaff()) {
-            return;
-        }
-
-        if (startTime.isBefore(now.plus(clinic.minLeadTime()))) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Bookings need " + clinic.minLeadTimeMinutes() + " minutes' notice");
         }
     }
 
@@ -307,13 +319,8 @@ public class AppointmentSessionService {
         }
     }
 
-    // Working hours are clinic wall clock, so resolve in clinic zone.
+    // Clinic wall clock. Binds every caller alike.
     private void assertWithinWorkingHours(UUID practitionerUserId, Instant startTime, Instant endTime) {
-        // The pattern is what the public is offered, not a rule binding the clinic itself.
-        if (currentUser.isClinicStaff()) {
-            return;
-        }
-
         ZonedDateTime start = startTime.atZone(clinic.zone());
         ZonedDateTime end = endTime.atZone(clinic.zone());
 

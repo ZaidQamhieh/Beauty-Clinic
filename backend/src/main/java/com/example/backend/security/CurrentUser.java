@@ -49,7 +49,7 @@ public class CurrentUser {
                 && authentication.getAuthorities().contains(role.authority());
     }
 
-    // Anyone who works here. Several booking rules bind the public but not the desk.
+    // Anyone who works here. Booking grants nothing.
     public boolean isClinicStaff() {
         return hasRole(Role.DOCTOR) || hasRole(Role.RECEPTIONIST) || hasRole(Role.ADMIN);
     }

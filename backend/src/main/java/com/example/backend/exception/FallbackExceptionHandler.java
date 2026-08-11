@@ -7,12 +7,19 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.server.ResponseStatusException;
 
 // Keeps unexpected failures on problem+json, not the container's /error. Ordered last.
 @RestControllerAdvice
 @Order(Ordered.LOWEST_PRECEDENCE)
 @Slf4j
 class FallbackExceptionHandler {
+
+    // Without this, turning off problemdetails would make every 404 and 409 a 500 here.
+    @ExceptionHandler(ResponseStatusException.class)
+    ProblemDetail onStatusException(ResponseStatusException ex) {
+        return ex.getBody();
+    }
 
     @ExceptionHandler(Exception.class)
     ProblemDetail onUnexpected(Exception ex) {

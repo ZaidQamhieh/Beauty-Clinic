@@ -28,12 +28,15 @@ public interface AppointmentSessionRepository extends JpaRepository<AppointmentS
     Optional<AppointmentSession> findWithLockByIdAndAppointmentId(UUID id, UUID appointmentId);
 
     // Lets a doctor reach patients they treat. Cancelled does not count, or access never ends.
+    // A visit the practitioner booked themselves grants nothing: that is self-issued access.
     @Query("""
             select case when count(s) > 0 then true else false end
             from AppointmentSession s
             where s.practitioner.userId = :doctorUserId
               and s.appointment.patient.userId = :patientUserId
               and s.status <> :cancelled
+              and (s.appointment.createdBy is null
+                   or s.appointment.createdBy.id <> :doctorUserId)
             """)
     boolean existsLiveSessionForPractitionerAndPatient(
             @Param("doctorUserId") UUID doctorUserId,
