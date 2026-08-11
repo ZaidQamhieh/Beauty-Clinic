@@ -12,6 +12,7 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -26,17 +27,24 @@ import java.util.List;
 @Configuration
 @EnableMethodSecurity
 // Activates and validates values under app.cors.
-@EnableConfigurationProperties(CorsProperties.class)
+@EnableConfigurationProperties({CorsProperties.class, RateLimitProperties.class})
 class SecurityConfig {
 
     @Bean
-    SecurityFilterChain filterChain(HttpSecurity http, CorsConfigurationSource corsConfigurationSource) throws Exception {
+    SecurityFilterChain filterChain(
+            HttpSecurity http,
+            CorsConfigurationSource corsConfigurationSource,
+            RateLimitProperties rateLimits
+    ) throws Exception {
         return http
         // This REST API uses Bearer headers, not login cookies.
         .csrf(csrf -> csrf.disable())
 
         // CorsFilter runs ahead of authorization, so a valid preflight never reaches it.
         .cors(cors -> cors.configurationSource(corsConfigurationSource))
+
+        // Ahead of authentication; not a bean, or it would also run in the servlet chain.
+        .addFilterBefore(new AuthRateLimitFilter(rateLimits), UsernamePasswordAuthenticationFilter.class)
 
         // Every request must carry its own access token.
         .sessionManagement(session -> session

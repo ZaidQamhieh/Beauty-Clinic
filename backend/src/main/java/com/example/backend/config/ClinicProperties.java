@@ -21,8 +21,6 @@ import java.util.Map;
 public record ClinicProperties(
         @NotBlank String timezone,
         @Valid Map<TreatmentName, Tariff> tariff,
-        // Longest session anyone may book; past it, only a doctor or an admin may.
-        Integer standardSessionMaxMinutes,
         // Shortest notice a patient may book on. Staff book walk-ins with none.
         Integer minLeadTimeMinutes,
         // How far ahead the calendar is open at all.
@@ -33,7 +31,6 @@ public record ClinicProperties(
         Integer turnoverMinutes
 ) {
 
-    public static final int DEFAULT_STANDARD_SESSION_MAX_MINUTES = 90;
     public static final int DEFAULT_MIN_LEAD_TIME_MINUTES = 60;
     public static final int DEFAULT_MAX_HORIZON_DAYS = 180;
     public static final int DEFAULT_SLOT_GRANULARITY_MINUTES = 15;
@@ -43,10 +40,6 @@ public record ClinicProperties(
         // Fail at startup on an unknown zone, not on the first booking.
         if (timezone != null && !timezone.isBlank()) {
             ZoneId.of(timezone);
-        }
-
-        if (standardSessionMaxMinutes == null) {
-            standardSessionMaxMinutes = DEFAULT_STANDARD_SESSION_MAX_MINUTES;
         }
 
         if (minLeadTimeMinutes == null) {

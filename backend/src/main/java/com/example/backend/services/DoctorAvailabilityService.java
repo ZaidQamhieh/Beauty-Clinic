@@ -59,16 +59,27 @@ public class DoctorAvailabilityService {
         availabilities.delete(availability);
     }
 
-    // Open rows added up, unavailable ones cut out, so extra hours extend rather than replace.
+    // The weekly pattern settles first, then the day's overrides go on top and win.
     @Transactional(readOnly = true)
     public List<TimeRange> openWindowsOn(UUID doctorUserId, LocalDate date) {
         List<DoctorAvailability> effective = availabilities.findEffectiveOn(
                 doctorUserId, date, date.getDayOfWeek(), AvailabilityKind.OVERRIDE);
 
-        List<TimeRange> open = spansOf(effective, true);
-        List<TimeRange> closed = spansOf(effective, false);
+        List<DoctorAvailability> recurring = ofKind(effective, AvailabilityKind.RECURRING);
+        List<DoctorAvailability> overrides = ofKind(effective, AvailabilityKind.OVERRIDE);
 
-        return TimeRange.subtract(TimeRange.union(open), closed);
+        List<TimeRange> open = TimeRange.subtract(
+                TimeRange.union(spansOf(recurring, true)), spansOf(recurring, false));
+
+        // Closures first, so an override that opens time is not cut by one that closes it.
+        open = TimeRange.subtract(open, spansOf(overrides, false));
+        open.addAll(spansOf(overrides, true));
+
+        return TimeRange.union(open);
+    }
+
+    private List<DoctorAvailability> ofKind(List<DoctorAvailability> rows, AvailabilityKind kind) {
+        return rows.stream().filter(a -> a.getKind() == kind).toList();
     }
 
     // Do these wall-clock times fit inside one open window?

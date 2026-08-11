@@ -7,7 +7,7 @@ import com.example.backend.services.AppointmentSessionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -16,7 +16,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -26,11 +25,7 @@ public class AppointmentSessionController {
 
     private final AppointmentSessionService sessions;
 
-    @GetMapping
-    @ClinicStaffOnly
-    public List<AppointmentSessionResponse> list(@PathVariable UUID appointmentId) {
-        return sessions.list(appointmentId);
-    }
+    // No list here: the appointment response already carries its treatments, guarded once.
 
     // A later treatment in the same visit, possibly a different practitioner.
     @PostMapping
@@ -43,8 +38,9 @@ public class AppointmentSessionController {
         return sessions.add(appointmentId, request);
     }
 
+    // Dropping one treatment is the patient's call too, up to the service's cutoff.
     @PutMapping("/{sessionId}/cancel")
-    @ClinicStaffOnly
+    @PreAuthorize("hasAnyRole('DOCTOR', 'RECEPTIONIST', 'ADMIN') or @access.ownsAppointment(#appointmentId)")
     public AppointmentSessionResponse cancel(
             @PathVariable UUID appointmentId,
             @PathVariable UUID sessionId

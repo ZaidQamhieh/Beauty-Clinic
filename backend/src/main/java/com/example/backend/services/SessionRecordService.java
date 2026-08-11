@@ -4,6 +4,7 @@ import com.example.backend.dtos.AmendSessionRecordRequest;
 import com.example.backend.dtos.CreateSessionRecordRequest;
 import com.example.backend.dtos.SessionRecordResponse;
 import com.example.backend.entities.AppointmentSession;
+import com.example.backend.entities.AppointmentSession.SessionStatus;
 import com.example.backend.entities.DoctorProfile;
 import com.example.backend.entities.PrescriptionProduct;
 import com.example.backend.entities.Product;
@@ -109,6 +110,13 @@ public class SessionRecordService {
 
         if (!session.getAppointment().getPatient().getUserId().equals(patientUserId)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No such session for this patient");
+        }
+
+        // A note is permanent once written, so it may only describe work actually done.
+        if (session.getStatus() != SessionStatus.COMPLETED) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "A clinical record can only be written for a treatment marked as carried out");
         }
 
         return session;

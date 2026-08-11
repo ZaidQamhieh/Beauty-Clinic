@@ -11,5 +11,9 @@ public enum ActivityAction {
     APPOINTMENT_RESCHEDULED,
     APPOINTMENT_CANCELLED,
     SESSION_SCHEDULED,
-    SESSION_STATUS_CHANGED
+    // Kept for rows already written; new work names the status it moved to.
+    SESSION_STATUS_CHANGED,
+    SESSION_CANCELLED,
+    SESSION_COMPLETED,
+    SESSION_NO_SHOW
 }

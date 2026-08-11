@@ -42,13 +42,13 @@ public class AuthService {
 
     @Transactional
     public TokenResponse register(RegisterRequest request) {
-        if (users.findByEmailIgnoreCase(request.email()).isPresent()) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already registered");
-        }
+        // One answer for both, so the endpoint never confirms a phone number outright.
+        boolean taken = users.findByEmailIgnoreCase(request.email()).isPresent()
+                || (request.phone() != null && users.existsByPhone(request.phone()));
 
-        // Phone carries its own unique index, so it needs its own answer, not a bare conflict.
-        if (request.phone() != null && users.existsByPhone(request.phone())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Phone number already registered");
+        if (taken) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "An account with those details already exists");
         }
 
         // Role is fixed here, never read from the body: self-registration cannot mint staff.

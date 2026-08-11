@@ -42,4 +42,10 @@ public record CreateDoctorAvailabilityRequest(
     private boolean isEffectiveRangeOrdered() {
         return effectiveFrom == null || effectiveTo == null || !effectiveTo.isBefore(effectiveFrom);
     }
+
+    // An override is a dated one-off; open-ended, one sick day hides the doctor for good.
+    @AssertTrue(message = "effectiveTo is required for OVERRIDE")
+    private boolean isOverrideBounded() {
+        return kind != AvailabilityKind.OVERRIDE || effectiveTo != null;
+    }
 }
