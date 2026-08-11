@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:beauty_clinic/auth/auth_session.dart';
+import 'package:beauty_clinic_app/auth/auth_session.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 

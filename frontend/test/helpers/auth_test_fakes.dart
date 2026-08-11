@@ -3,9 +3,9 @@ import 'dart:collection';
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:beauty_clinic/auth/auth_session.dart';
-import 'package:beauty_clinic/auth/token_pair.dart';
-import 'package:beauty_clinic/auth/token_store.dart';
+import 'package:beauty_clinic_app/auth/auth_session.dart';
+import 'package:beauty_clinic_app/auth/token_pair.dart';
+import 'package:beauty_clinic_app/auth/token_store.dart';
 import 'package:dio/dio.dart';
 
 AuthSession testSession(
