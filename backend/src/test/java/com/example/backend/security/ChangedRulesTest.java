@@ -6,6 +6,7 @@ import com.example.backend.dtos.DoctorAvailabilityResponse;
 import com.example.backend.dtos.EditClinicalProfileRequest;
 import com.example.backend.dtos.FreeSlotQuery;
 import com.example.backend.dtos.PatientDetailsRequest;
+import com.example.backend.entities.Appointment;
 import com.example.backend.entities.AppointmentSession;
 import com.example.backend.entities.AppointmentSession.SessionStatus;
 import com.example.backend.entities.AppointmentSession.TreatmentName;
@@ -25,6 +26,7 @@ import com.example.backend.repositories.PatientProfileRepository;
 import com.example.backend.repositories.UserAccountRepository;
 import com.example.backend.services.ActivityLogService;
 import com.example.backend.services.AppointmentSessionService;
+import com.example.backend.services.CancellationPolicy;
 import com.example.backend.services.DoctorAvailabilityService;
 import com.example.backend.services.LoginLockoutService;
 import com.example.backend.services.PatientProfileService;
@@ -67,20 +69,27 @@ class ChangedRulesTest {
 
     // ─── F-05: attendance cannot be recorded before the treatment starts ──────
 
+    private AppointmentRepository appointments;
+
     private AppointmentSessionService sessionServiceWith(AppointmentSession session) {
         AppointmentSessionRepository sessions = mock(AppointmentSessionRepository.class);
         when(sessions.findWithLockByIdAndAppointmentId(any(), any()))
                 .thenReturn(Optional.of(session));
 
+        appointments = mock(AppointmentRepository.class);
+        when(appointments.findWithLockById(any()))
+                .thenReturn(Optional.of(mock(Appointment.class, RETURNS_DEEP_STUBS)));
+
         return new AppointmentSessionService(
                 sessions,
-                mock(AppointmentRepository.class),
+                appointments,
                 mock(DoctorProfileRepository.class),
                 mock(PatientProfileRepository.class),
                 mock(DoctorAvailabilityService.class),
                 clinicProperties(),
                 mock(ActivityLogService.class),
-                mock(CurrentUser.class)
+                mock(CurrentUser.class),
+                mock(CancellationPolicy.class)
         );
     }
 
@@ -121,6 +130,27 @@ class ChangedRulesTest {
                 .doesNotThrowAnyException();
 
         verify(session).setStatus(SessionStatus.COMPLETED);
+    }
+
+    // Attendance decides the visit's state too, so it queues behind a cancellation of it.
+    @Test
+    void markingAttendedTakesTheVisitLockFirst() {
+        AppointmentSession session = plannedSessionStartingAt(Instant.now().minus(Duration.ofMinutes(30)));
+        UUID appointmentId = UUID.randomUUID();
+
+        sessionServiceWith(session).markAttended(appointmentId, UUID.randomUUID());
+
+        verify(appointments).findWithLockById(appointmentId);
+    }
+
+    @Test
+    void markingNoShowTakesTheVisitLockFirst() {
+        AppointmentSession session = plannedSessionStartingAt(Instant.now().minus(Duration.ofMinutes(30)));
+        UUID appointmentId = UUID.randomUUID();
+
+        sessionServiceWith(session).markNoShow(appointmentId, UUID.randomUUID());
+
+        verify(appointments).findWithLockById(appointmentId);
     }
 
     // The boundary is deterministic: markable from the start instant onward, not before.
@@ -436,7 +466,7 @@ class ChangedRulesTest {
             tariff.put(treatment, new Tariff(new BigDecimal("100.00"), 30));
         }
 
-        return new ClinicProperties("UTC", tariff, 180, 15, 10);
+        return new ClinicProperties("UTC", tariff, 180, 15, 10, 60);
     }
 
     // Keeps the unused-import check honest: PatientProfile is referenced by the service under test.

@@ -26,12 +26,15 @@ public record ClinicProperties(
         // Slots are offered on this grid, so a 45-minute treatment is never offered at 09:47.
         Integer slotGranularityMinutes,
         // Room turnover held either side of every booking, on top of its own length.
-        Integer turnoverMinutes
+        Integer turnoverMinutes,
+        // How late a patient may still cancel, counted back from the visit's start.
+        Integer cancellationCutoffMinutes
 ) {
 
     public static final int DEFAULT_MAX_HORIZON_DAYS = 180;
     public static final int DEFAULT_SLOT_GRANULARITY_MINUTES = 15;
     public static final int DEFAULT_TURNOVER_MINUTES = 10;
+    public static final int DEFAULT_CANCELLATION_CUTOFF_MINUTES = 60;
 
     public ClinicProperties {
         // Fail at startup on an unknown zone, not on the first booking.
@@ -51,9 +54,18 @@ public record ClinicProperties(
             turnoverMinutes = DEFAULT_TURNOVER_MINUTES;
         }
 
+        if (cancellationCutoffMinutes == null) {
+            cancellationCutoffMinutes = DEFAULT_CANCELLATION_CUTOFF_MINUTES;
+        }
+
         // A zero grid would loop forever walking a window; the rest may legitimately be zero.
         if (slotGranularityMinutes < 1) {
             throw new IllegalStateException("slot-granularity-minutes must be at least 1");
+        }
+
+        // A negative cutoff would let a patient cancel after the visit began.
+        if (cancellationCutoffMinutes < 0) {
+            throw new IllegalStateException("cancellation-cutoff-minutes must not be negative");
         }
 
         if (tariff == null) {
@@ -83,6 +95,10 @@ public record ClinicProperties(
 
     public Duration turnover() {
         return Duration.ofMinutes(turnoverMinutes);
+    }
+
+    public Duration cancellationCutoff() {
+        return Duration.ofMinutes(cancellationCutoffMinutes);
     }
 
     // Total by construction: the constructor refuses to start without every treatment.
