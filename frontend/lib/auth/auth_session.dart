@@ -18,6 +18,10 @@ class InvalidCredentialsException extends AuthException {
   const InvalidCredentialsException();
 }
 
+class AccountAlreadyExistsException extends AuthException {
+  const AccountAlreadyExistsException();
+}
+
 class SessionExpiredException extends AuthException {
   const SessionExpiredException();
 }
@@ -109,6 +113,36 @@ class AuthSession extends ChangeNotifier {
     } on DioException catch (error) {
       if (error.response?.statusCode == 401) {
         throw const InvalidCredentialsException();
+      }
+      throw const AuthException();
+    } on FormatException {
+      throw const AuthException();
+    }
+  }
+
+  /// Creates a patient account. The server deliberately ignores roles here so
+  /// a public registration can never create an admin, staff, or doctor user.
+  Future<void> register({
+    required String firstName,
+    required String lastName,
+    required String email,
+    required String password,
+  }) async {
+    try {
+      final response = await _authDio.post<dynamic>(
+        '/api/auth/register',
+        data: {
+          'firstName': firstName.trim(),
+          'lastName': lastName.trim(),
+          'email': email.trim(),
+          'password': password,
+        },
+      );
+      final tokens = _tokensFromResponse(response.data);
+      await _replaceTokens(tokens);
+    } on DioException catch (error) {
+      if (error.response?.statusCode == 409) {
+        throw const AccountAlreadyExistsException();
       }
       throw const AuthException();
     } on FormatException {
