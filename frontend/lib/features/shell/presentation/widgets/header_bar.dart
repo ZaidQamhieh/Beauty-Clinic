@@ -3,10 +3,9 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/widgets/yasmine_logo.dart';
 
-/// Top Header Navigation Bar with Role Switcher, Search, and User Menu
+/// Top Header Navigation Bar for the signed-in account's role.
 class HeaderBar extends StatelessWidget implements PreferredSizeWidget {
   final String activeRole;
-  final ValueChanged<String> onRoleChanged;
   final VoidCallback? onBookClick;
   final VoidCallback? onNotificationClick;
   final VoidCallback? onLogout;
@@ -15,7 +14,6 @@ class HeaderBar extends StatelessWidget implements PreferredSizeWidget {
   const HeaderBar({
     super.key,
     required this.activeRole,
-    required this.onRoleChanged,
     this.onBookClick,
     this.onNotificationClick,
     this.onLogout,
@@ -80,8 +78,9 @@ class HeaderBar extends StatelessWidget implements PreferredSizeWidget {
 
               const SizedBox(width: 12),
 
-              // Role Switcher Dropdown
-              _buildRoleSelector(context, compact: compactText),
+              // The role is read-only. A user must sign in to their own account
+              // to reach a different portal.
+              _buildRoleBadge(compact: compactText),
 
               const Spacer(),
 
@@ -199,26 +198,13 @@ class HeaderBar extends StatelessWidget implements PreferredSizeWidget {
     );
   }
 
-  Widget _buildRoleSelector(BuildContext context, {bool compact = false}) {
-    final roles = [
-      {
-        'id': 'admin',
-        'name': 'Admin',
-        'icon': Icons.admin_panel_settings_outlined,
-      },
-      {
-        'id': 'doctor',
-        'name': 'Dr. Sarah',
-        'icon': Icons.medical_services_outlined,
-      },
-      {
-        'id': 'receptionist',
-        'name': 'Front Desk',
-        'icon': Icons.support_agent_outlined,
-      },
-      {'id': 'patient', 'name': 'Patient View', 'icon': Icons.person_outline},
-    ];
-
+  Widget _buildRoleBadge({bool compact = false}) {
+    final (String label, IconData icon) = switch (activeRole) {
+      'admin' => ('Admin', Icons.admin_panel_settings_outlined),
+      'doctor' => ('Doctor portal', Icons.medical_services_outlined),
+      'receptionist' => ('Staff portal', Icons.support_agent_outlined),
+      _ => ('Patient portal', Icons.person_outline),
+    };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
@@ -226,45 +212,20 @@ class HeaderBar extends StatelessWidget implements PreferredSizeWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.borderRose),
       ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: activeRole,
-          isDense: true,
-          icon: const Icon(
-            Icons.keyboard_arrow_down_rounded,
-            color: AppColors.rose,
-            size: 16,
-          ),
-          dropdownColor: AppColors.bgCard,
-          borderRadius: BorderRadius.circular(16),
-          items: roles.map((role) {
-            return DropdownMenuItem<String>(
-              value: role['id'] as String,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    role['icon'] as IconData,
-                    size: 15,
-                    color: AppColors.rose,
-                  ),
-                  if (!compact) ...[
-                    const SizedBox(width: 6),
-                    Text(
-                      role['name'] as String,
-                      style: AppTypography.labelSmall(
-                        color: AppColors.roseDark,
-                      ).copyWith(fontWeight: FontWeight.w600),
-                    ),
-                  ],
-                ],
-              ),
-            );
-          }).toList(),
-          onChanged: (val) {
-            if (val != null) onRoleChanged(val);
-          },
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 15, color: AppColors.rose),
+          if (!compact) ...[
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: AppTypography.labelSmall(
+                color: AppColors.roseDark,
+              ).copyWith(fontWeight: FontWeight.w600),
+            ),
+          ],
+        ],
       ),
     );
   }

@@ -10,6 +10,8 @@ void main() {
     id: 'product-id',
     brand: 'CERAVE',
     productType: 'MOISTURIZER',
+    category: 'Skin care',
+    stockQuantity: 12,
     ingredients: ['HYALURONIC_ACID', 'CERAMIDES'],
   );
 
@@ -30,6 +32,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Cerave Moisturizer'), findsOneWidget);
+    expect(find.text('Skin care • 12 in stock'), findsOneWidget);
     expect(find.text('Hyaluronic Acid'), findsOneWidget);
     expect(find.text('Ceramides'), findsOneWidget);
   });

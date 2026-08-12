@@ -6,12 +6,11 @@ import 'widgets/header_bar.dart';
 import 'widgets/sidebar_item.dart';
 
 /// Main App Shell Component for Yasmine Beauty Clinic
-/// Manages top-level layout, drawer/sidebar, role switching, and view routing
+/// Manages top-level layout, drawer/sidebar, and role-specific view routing.
 class AppShell extends StatefulWidget {
   final Widget child;
   final String activeRole;
   final String activeView;
-  final ValueChanged<String> onRoleChanged;
   final ValueChanged<String> onViewChanged;
   final VoidCallback onBookClick;
   final VoidCallback? onLogout;
@@ -21,7 +20,6 @@ class AppShell extends StatefulWidget {
     required this.child,
     required this.activeRole,
     required this.activeView,
-    required this.onRoleChanged,
     required this.onViewChanged,
     required this.onBookClick,
     this.onLogout,
@@ -43,7 +41,6 @@ class _AppShellState extends State<AppShell> {
       backgroundColor: AppColors.bg,
       appBar: HeaderBar(
         activeRole: widget.activeRole,
-        onRoleChanged: widget.onRoleChanged,
         onBookClick: widget.onBookClick,
         onLogout: widget.onLogout,
         isMobile: isMobile,
@@ -343,6 +340,11 @@ class _AppShellState extends State<AppShell> {
             'id': 'dashboard',
             'label': 'Overview Dashboard',
             'icon': Icons.grid_view_rounded,
+          },
+          {
+            'id': 'products',
+            'label': 'Products',
+            'icon': Icons.inventory_2_outlined,
           },
           {
             'id': 'appointments',
