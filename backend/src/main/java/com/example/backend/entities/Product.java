@@ -41,15 +41,17 @@ public class Product {
     @Column(name = "product_type", nullable = false, length = 40)
     private ProductType productType;
 
+    @NotNull
+    @Column(nullable = false, length = 60)
+    private String category;
+
+    @Column(name = "stock_quantity", nullable = false)
+    private int stockQuantity;
+
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.ARRAY)
     @Column(nullable = false, columnDefinition = "text[]")
     private List<Ingredient> ingredients = new ArrayList<>();
-
-    public Product(ProductBrand brand, ProductType productType) {
-        this.brand = brand;
-        this.productType = productType;
-    }
 
     public enum ProductBrand {
         CERAVE,
