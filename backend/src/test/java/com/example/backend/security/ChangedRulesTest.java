@@ -42,6 +42,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -89,7 +90,8 @@ class ChangedRulesTest {
                 clinicProperties(),
                 mock(ActivityLogService.class),
                 mock(CurrentUser.class),
-                mock(CancellationPolicy.class)
+                mock(CancellationPolicy.class),
+                Clock.systemUTC()
         );
     }
 

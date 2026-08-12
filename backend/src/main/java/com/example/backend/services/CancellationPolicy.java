@@ -45,18 +45,29 @@ public class CancellationPolicy {
 
     // A patient may not book what they would have no right to cancel. The desk still may.
     public void assertLeavesRoomToCancel(Instant startTime) {
-        if (currentUser.isClinicStaff()) {
+        if (leavesRoomToCancel(startTime)) {
             return;
         }
 
         Duration cutoff = clinic.cancellationCutoff();
+        throw new ResponseStatusException(
+                HttpStatus.CONFLICT,
+                "Patients book at least " + cutoff.toMinutes()
+                        + " minutes ahead, so the booking can still be cancelled");
+    }
 
-        if (startTime.isBefore(clock.instant().plus(cutoff))) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Patients book at least " + cutoff.toMinutes()
-                            + " minutes ahead, so the booking can still be cancelled");
+    // Same rule as a boolean, for slot search.
+    public boolean leavesRoomToCancel(Instant startTime) {
+        return leavesRoomToCancel(startTime, clock.instant());
+    }
+
+    // Against a caller's captured instant, not a fresh read.
+    public boolean leavesRoomToCancel(Instant startTime, Instant now) {
+        if (currentUser.isClinicStaff()) {
+            return true;
         }
+
+        return !startTime.isBefore(now.plus(clinic.cancellationCutoff()));
     }
 
     // Asked about the patient whatever the caller's role, so staff can see the window they hold.

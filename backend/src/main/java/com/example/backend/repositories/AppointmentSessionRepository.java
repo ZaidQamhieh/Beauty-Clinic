@@ -1,8 +1,8 @@
 package com.example.backend.repositories;
 
 import com.example.backend.entities.AppointmentSession;
-import com.example.backend.entities.AppointmentSession.SessionStatus;
 import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -18,6 +18,8 @@ public interface AppointmentSessionRepository extends JpaRepository<AppointmentS
 
     List<AppointmentSession> findByAppointmentId(UUID appointmentId);
 
+    // The response reads the practitioner's name, so fetch it with the row.
+    @EntityGraph(attributePaths = {"practitioner", "practitioner.user"})
     List<AppointmentSession> findByAppointmentIdIn(Collection<UUID> appointmentIds);
 
     // Matched in SQL: the parent is a @SoftDelete to-one and would read as null.
@@ -30,24 +32,18 @@ public interface AppointmentSessionRepository extends JpaRepository<AppointmentS
     // Lets a doctor reach patients they treat. Cancelled does not count, or access never ends.
     // A visit the practitioner booked themselves grants nothing: that is self-issued access.
     @Query("""
-            select case when count(s) > 0 then true else false end
+            select count(s) > 0
             from AppointmentSession s
             where s.practitioner.userId = :doctorUserId
               and s.appointment.patient.userId = :patientUserId
-              and s.status <> :cancelled
+              and s.status <> CANCELLED
               and (s.appointment.createdBy is null
                    or s.appointment.createdBy.id <> :doctorUserId)
             """)
-    boolean existsLiveSessionForPractitionerAndPatient(
+    boolean existsByPractitionerAndPatient(
             @Param("doctorUserId") UUID doctorUserId,
-            @Param("patientUserId") UUID patientUserId,
-            @Param("cancelled") SessionStatus cancelled
+            @Param("patientUserId") UUID patientUserId
     );
-
-    default boolean existsByPractitionerAndPatient(UUID doctorUserId, UUID patientUserId) {
-        return existsLiveSessionForPractitionerAndPatient(
-                doctorUserId, patientUserId, SessionStatus.CANCELLED);
-    }
 
     // Overlap, not start time: a session running past midnight still holds the room next day.
     @Query("""
@@ -63,6 +59,7 @@ public interface AppointmentSessionRepository extends JpaRepository<AppointmentS
     );
 
     // Every candidate doctor's day in one read, so a slot search is not one query per doctor.
+    @EntityGraph(attributePaths = {"appointment", "practitioner"})
     @Query("""
             select s from AppointmentSession s
             where s.practitioner.userId in :doctorUserIds
@@ -76,6 +73,7 @@ public interface AppointmentSessionRepository extends JpaRepository<AppointmentS
     );
 
     // The patient is one body: what they already hold blocks every doctor, not just one.
+    @EntityGraph(attributePaths = {"appointment", "practitioner"})
     @Query("""
             select s from AppointmentSession s
             where s.appointment.patient.userId = :patientUserId
@@ -89,54 +87,39 @@ public interface AppointmentSessionRepository extends JpaRepository<AppointmentS
     );
 
     @Query("""
-            select case when count(s) > 0 then true else false end
+            select count(s) > 0
             from AppointmentSession s
             where s.practitioner.userId = :doctorUserId
             """)
     boolean existsByPractitioner(@Param("doctorUserId") UUID doctorUserId);
 
+    // Mirrors session_no_practitioner_overlap: every status but CANCELLED holds the slot.
     @Query("""
-            select case when count(s) > 0 then true else false end
+            select count(s) > 0
             from AppointmentSession s
             where s.practitioner.userId = :doctorUserId
-              and s.status <> :cancelled
+              and s.status <> CANCELLED
               and s.startTime < :endTime
               and s.endTime > :startTime
             """)
-    boolean existsOverlappingSessionExcluding(
+    boolean existsOverlappingActiveSession(
             @Param("doctorUserId") UUID doctorUserId,
-            @Param("cancelled") SessionStatus cancelled,
             @Param("startTime") Instant startTime,
             @Param("endTime") Instant endTime
     );
-
-    // Mirrors session_no_practitioner_overlap: every status but CANCELLED holds the slot.
-    default boolean existsOverlappingActiveSession(UUID doctorUserId, Instant startTime, Instant endTime) {
-        return existsOverlappingSessionExcluding(
-                doctorUserId, SessionStatus.CANCELLED, startTime, endTime
-        );
-    }
 
     // Across every visit: session_no_patient_overlap is keyed on appointment_id, so it sees one.
     @Query("""
-            select case when count(s) > 0 then true else false end
+            select count(s) > 0
             from AppointmentSession s
             where s.appointment.patient.userId = :patientUserId
-              and s.status <> :cancelled
+              and s.status <> CANCELLED
               and s.startTime < :endTime
               and s.endTime > :startTime
             """)
-    boolean existsOverlappingForPatientExcluding(
+    boolean existsOverlappingActiveSessionForPatient(
             @Param("patientUserId") UUID patientUserId,
-            @Param("cancelled") SessionStatus cancelled,
             @Param("startTime") Instant startTime,
             @Param("endTime") Instant endTime
     );
-
-    default boolean existsOverlappingActiveSessionForPatient(
-            UUID patientUserId, Instant startTime, Instant endTime) {
-        return existsOverlappingForPatientExcluding(
-                patientUserId, SessionStatus.CANCELLED, startTime, endTime
-        );
-    }
 }

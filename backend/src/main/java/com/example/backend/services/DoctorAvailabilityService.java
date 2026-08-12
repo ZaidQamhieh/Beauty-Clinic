@@ -73,7 +73,7 @@ public class DoctorAvailabilityService {
     @Transactional(readOnly = true)
     public List<TimeRange> openWindowsOn(UUID doctorUserId, LocalDate date) {
         List<DoctorAvailability> effective = availabilities.findEffectiveOn(
-                doctorUserId, date, date.getDayOfWeek(), AvailabilityKind.OVERRIDE);
+                doctorUserId, date, date.getDayOfWeek());
 
         List<DoctorAvailability> recurring = ofKind(effective, AvailabilityKind.RECURRING);
         List<DoctorAvailability> overrides = ofKind(effective, AvailabilityKind.OVERRIDE);

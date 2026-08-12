@@ -1,7 +1,6 @@
 package com.example.backend.repositories;
 
 import com.example.backend.entities.DoctorAvailability;
-import com.example.backend.entities.DoctorAvailability.AvailabilityKind;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -21,11 +20,10 @@ public interface DoctorAvailabilityRepository extends JpaRepository<DoctorAvaila
             where a.doctor.userId = :doctorUserId
               and a.effectiveFrom <= :date
               and (a.effectiveTo is null or a.effectiveTo >= :date)
-              and (a.kind = :overrideKind or a.dayOfWeek = :dayOfWeek)
+              and (a.kind = OVERRIDE or a.dayOfWeek = :dayOfWeek)
             """)
     List<DoctorAvailability> findEffectiveOn(
             @Param("doctorUserId") UUID doctorUserId,
             @Param("date") LocalDate date,
-            @Param("dayOfWeek") DayOfWeek dayOfWeek,
-            @Param("overrideKind") AvailabilityKind overrideKind);
+            @Param("dayOfWeek") DayOfWeek dayOfWeek);
 }

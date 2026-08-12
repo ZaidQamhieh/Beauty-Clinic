@@ -30,6 +30,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -58,6 +59,7 @@ public class AppointmentService {
     private final ClinicProperties clinic;
     private final ActivityLogService activityLogs;
     private final CancellationPolicy cancellation;
+    private final Clock clock;
 
     @Transactional
     public AppointmentResponse book(BookAppointmentRequest request) {
@@ -162,6 +164,30 @@ public class AppointmentService {
     }
 
     @Transactional(readOnly = true)
+    public Page<AppointmentResponse> readOwnUpcoming(Pageable pageable) {
+        return readUpcomingFor(currentUser.requireId(), pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<AppointmentResponse> readOwnHistory(Pageable pageable) {
+        return readHistoryFor(currentUser.requireId(), pageable);
+    }
+
+    // Booked, not yet started, soonest first.
+    @Transactional(readOnly = true)
+    public Page<AppointmentResponse> readUpcomingFor(UUID patientUserId, Pageable pageable) {
+        return withSessions(appointments.findUpcomingForPatient(
+                patientUserId, clock.instant(), pageable));
+    }
+
+    // Started or cancelled, most recent first.
+    @Transactional(readOnly = true)
+    public Page<AppointmentResponse> readHistoryFor(UUID patientUserId, Pageable pageable) {
+        return withSessions(appointments.findHistoryForPatient(
+                patientUserId, clock.instant(), pageable));
+    }
+
+    @Transactional(readOnly = true)
     public List<AppointmentResponse> readOwnSchedule(LocalDate date) {
         return scheduleFor(currentUser.requireId(), date);
     }
@@ -206,13 +232,15 @@ public class AppointmentService {
         Map<UUID, List<Instant[]>> doctorBusy = doctorBusyOn(qualified, query, dayStart, dayEnd);
         List<Instant[]> patientBusy = patientBusyOn(query, dayStart, dayEnd);
 
-        Instant now = Instant.now();
+        Instant now = clock.instant();
         Instant latest = now.plus(clinic.horizon());
 
         return qualified.stream()
                 .flatMap(doctor -> slotsFor(
                         doctor, date, duration, busyFor(doctor, query, doctorBusy, patientBusy)).stream())
                 .filter(slot -> !slot.startTime().isBefore(now) && !slot.startTime().isAfter(latest))
+                // Never advertise what book() would reject.
+                .filter(slot -> cancellation.leavesRoomToCancel(slot.startTime(), now))
                 .sorted(Comparator.comparing(FreeSlotResponse::startTime)
                         .thenComparing(FreeSlotResponse::practitionerName))
                 .toList();
