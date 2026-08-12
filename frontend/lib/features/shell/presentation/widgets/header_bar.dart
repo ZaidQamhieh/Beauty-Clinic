@@ -218,7 +218,12 @@ class HeaderBar extends StatelessWidget implements PreferredSizeWidget {
           Icon(icon, size: 15, color: AppColors.rose),
           if (!compact) ...[
             const SizedBox(width: 6),
-            Text(label, style: AppTypography.labelSmall(color: AppColors.roseDark).copyWith(fontWeight: FontWeight.w600)),
+            Text(
+              label,
+              style: AppTypography.labelSmall(
+                color: AppColors.roseDark,
+              ).copyWith(fontWeight: FontWeight.w600),
+            ),
           ],
         ],
       ),

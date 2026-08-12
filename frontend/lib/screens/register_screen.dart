@@ -56,11 +56,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
       );
     } on AccountAlreadyExistsException {
       if (mounted) {
-        setState(() => _errorMessage = 'An account already uses those details.');
+        setState(
+          () => _errorMessage = 'An account already uses those details.',
+        );
       }
     } on AuthException {
       if (mounted) {
-        setState(() => _errorMessage = 'Unable to create your account. Please try again.');
+        setState(
+          () => _errorMessage =
+              'Unable to create your account. Please try again.',
+        );
       }
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -91,63 +96,125 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Icon(Icons.spa_outlined, size: 40, color: colors.primary),
+                        Icon(
+                          Icons.spa_outlined,
+                          size: 40,
+                          color: colors.primary,
+                        ),
                         const SizedBox(height: 20),
-                        Text('Create your patient account', textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
+                        Text(
+                          'Create your patient account',
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.headlineSmall
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
                         const SizedBox(height: 8),
-                        Text('Doctor, staff, and admin accounts are created by the clinic.', textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: colors.onSurfaceVariant)),
+                        Text(
+                          'Doctor, staff, and admin accounts are created by the clinic.',
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(color: colors.onSurfaceVariant),
+                        ),
                         const SizedBox(height: 24),
-                        Row(children: [
-                          Expanded(child: _nameField(_firstNameController, 'First name')),
-                          const SizedBox(width: 12),
-                          Expanded(child: _nameField(_lastNameController, 'Last name')),
-                        ]),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _nameField(
+                                _firstNameController,
+                                'First name',
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _nameField(
+                                _lastNameController,
+                                'Last name',
+                              ),
+                            ),
+                          ],
+                        ),
                         const SizedBox(height: 16),
                         TextFormField(
-                          controller: _emailController, enabled: !_submitting,
+                          controller: _emailController,
+                          enabled: !_submitting,
                           keyboardType: TextInputType.emailAddress,
-                          decoration: const InputDecoration(labelText: 'Email', prefixIcon: Icon(Icons.mail_outline)),
+                          decoration: const InputDecoration(
+                            labelText: 'Email',
+                            prefixIcon: Icon(Icons.mail_outline),
+                          ),
                           validator: (value) {
                             final email = value?.trim() ?? '';
                             if (email.isEmpty) return 'Enter your email.';
-                            if (!email.contains('@')) return 'Enter a valid email.';
+                            if (!email.contains('@'))
+                              return 'Enter a valid email.';
                             return null;
                           },
                         ),
                         const SizedBox(height: 16),
                         TextFormField(
-                          controller: _passwordController, enabled: !_submitting,
+                          controller: _passwordController,
+                          enabled: !_submitting,
                           obscureText: _obscurePassword,
                           decoration: InputDecoration(
-                            labelText: 'Password', prefixIcon: const Icon(Icons.lock_outline),
+                            labelText: 'Password',
+                            prefixIcon: const Icon(Icons.lock_outline),
                             suffixIcon: IconButton(
-                              tooltip: _obscurePassword ? 'Show password' : 'Hide password',
-                              onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                              icon: Icon(_obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                              tooltip: _obscurePassword
+                                  ? 'Show password'
+                                  : 'Hide password',
+                              onPressed: () => setState(
+                                () => _obscurePassword = !_obscurePassword,
+                              ),
+                              icon: Icon(
+                                _obscurePassword
+                                    ? Icons.visibility_outlined
+                                    : Icons.visibility_off_outlined,
+                              ),
                             ),
                           ),
-                          validator: (value) => (value?.length ?? 0) < 8 ? 'Use at least 8 characters.' : null,
+                          validator: (value) => (value?.length ?? 0) < 8
+                              ? 'Use at least 8 characters.'
+                              : null,
                         ),
                         const SizedBox(height: 16),
                         TextFormField(
-                          controller: _confirmPasswordController, enabled: !_submitting,
+                          controller: _confirmPasswordController,
+                          enabled: !_submitting,
                           obscureText: _obscurePassword,
                           onFieldSubmitted: (_) => _submit(),
-                          decoration: const InputDecoration(labelText: 'Confirm password', prefixIcon: Icon(Icons.lock_outline)),
-                          validator: (value) => value != _passwordController.text ? 'Passwords do not match.' : null,
+                          decoration: const InputDecoration(
+                            labelText: 'Confirm password',
+                            prefixIcon: Icon(Icons.lock_outline),
+                          ),
+                          validator: (value) =>
+                              value != _passwordController.text
+                              ? 'Passwords do not match.'
+                              : null,
                         ),
                         if (_errorMessage != null) ...[
                           const SizedBox(height: 16),
-                          Text(_errorMessage!, textAlign: TextAlign.center, style: TextStyle(color: colors.error)),
+                          Text(
+                            _errorMessage!,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: colors.error),
+                          ),
                         ],
                         const SizedBox(height: 24),
                         FilledButton(
                           onPressed: _submitting ? null : _submit,
-                          child: _submitting ? const SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Create patient account'),
+                          child: _submitting
+                              ? const SizedBox.square(
+                                  dimension: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Text('Create patient account'),
                         ),
-                        TextButton(onPressed: _submitting ? null : widget.onSignIn, child: const Text('Already have an account? Sign in')),
+                        TextButton(
+                          onPressed: _submitting ? null : widget.onSignIn,
+                          child: const Text('Already have an account? Sign in'),
+                        ),
                       ],
                     ),
                   ),
@@ -160,10 +227,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  Widget _nameField(TextEditingController controller, String label) => TextFormField(
-    controller: controller, enabled: !_submitting,
-    textCapitalization: TextCapitalization.words,
-    decoration: InputDecoration(labelText: label),
-    validator: (value) => (value?.trim().isEmpty ?? true) ? 'Required.' : null,
-  );
+  Widget _nameField(TextEditingController controller, String label) =>
+      TextFormField(
+        controller: controller,
+        enabled: !_submitting,
+        textCapitalization: TextCapitalization.words,
+        decoration: InputDecoration(labelText: label),
+        validator: (value) =>
+            (value?.trim().isEmpty ?? true) ? 'Required.' : null,
+      );
 }

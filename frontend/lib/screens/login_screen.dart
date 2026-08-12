@@ -3,7 +3,11 @@ import 'package:flutter/material.dart';
 import '../auth/auth_session.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key, required this.authSession, required this.onRegister});
+  const LoginScreen({
+    super.key,
+    required this.authSession,
+    required this.onRegister,
+  });
 
   final AuthSession authSession;
   final VoidCallback onRegister;

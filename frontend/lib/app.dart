@@ -80,7 +80,7 @@ class _AuthGateState extends State<AuthGate> {
       case AuthStatus.initializing:
         return const Scaffold(body: Center(child: CircularProgressIndicator()));
       case AuthStatus.unauthenticated:
-return _showRegistration
+        return _showRegistration
             ? RegisterScreen(
                 authSession: _session,
                 onSignIn: () => setState(() => _showRegistration = false),
@@ -158,10 +158,30 @@ class _MainRootControllerState extends State<MainRootController> {
   }
 
   Set<String> get _allowedViews => switch (_activeRole) {
-    'doctor' => {'dashboard', 'patients', 'doctor_profile', 'consultations', 'landing'},
+    'doctor' => {
+      'dashboard',
+      'patients',
+      'doctor_profile',
+      'consultations',
+      'landing',
+    },
     'patient' => {'patient_profile', 'dashboard', 'book', 'landing'},
-    'receptionist' => {'dashboard', 'appointments', 'patients', 'doctors', 'landing'},
-    _ => {'dashboard', 'appointments', 'patients', 'doctors', 'patient_profile', 'doctor_profile', 'landing'},
+    'receptionist' => {
+      'dashboard',
+      'appointments',
+      'patients',
+      'doctors',
+      'landing',
+    },
+    _ => {
+      'dashboard',
+      'appointments',
+      'patients',
+      'doctors',
+      'patient_profile',
+      'doctor_profile',
+      'landing',
+    },
   };
 
   void _onViewPatient(String patientName) {
