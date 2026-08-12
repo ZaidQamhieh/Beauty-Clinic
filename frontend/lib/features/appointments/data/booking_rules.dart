@@ -14,8 +14,8 @@ class BookingRules {
     return BookingRules(
       timezone: json['timezone'] as String,
       maxHorizonDays: (json['maxHorizonDays'] as num).toInt(),
-      cancellationCutoffMinutes:
-          (json['cancellationCutoffMinutes'] as num).toInt(),
+      cancellationCutoffMinutes: (json['cancellationCutoffMinutes'] as num)
+          .toInt(),
     );
   }
 }

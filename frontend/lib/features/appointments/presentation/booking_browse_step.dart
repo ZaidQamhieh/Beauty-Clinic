@@ -167,8 +167,10 @@ class BookingBrowseStep extends StatelessWidget {
               child: DropdownButton<Treatment>(
                 isExpanded: true,
                 value: selectedTreatment,
-                icon: const Icon(Icons.keyboard_arrow_down,
-                    color: AppColors.textMuted),
+                icon: const Icon(
+                  Icons.keyboard_arrow_down,
+                  color: AppColors.textMuted,
+                ),
                 items: [
                   for (final treatment in treatments)
                     DropdownMenuItem(
@@ -200,11 +202,17 @@ class BookingBrowseStep extends StatelessWidget {
         children: [
           Expanded(
             child: _toggleButton(
-                'View by Doctor', viewByDoctor, () => onViewChanged(true)),
+              'View by Doctor',
+              viewByDoctor,
+              () => onViewChanged(true),
+            ),
           ),
           Expanded(
             child: _toggleButton(
-                'View by Time', !viewByDoctor, () => onViewChanged(false)),
+              'View by Time',
+              !viewByDoctor,
+              () => onViewChanged(false),
+            ),
           ),
         ],
       ),
@@ -232,7 +240,8 @@ class BookingBrowseStep extends StatelessWidget {
             child: Text(
               label,
               style: AppTypography.labelMedium(
-                  color: active ? AppColors.rose : AppColors.textMuted),
+                color: active ? AppColors.rose : AppColors.textMuted,
+              ),
             ),
           ),
         ),
@@ -245,7 +254,9 @@ class BookingBrowseStep extends StatelessWidget {
   Widget _rightPanel() {
     if (slotsLoading) {
       return const SizedBox(
-          height: 240, child: Center(child: CircularProgressIndicator()));
+        height: 240,
+        child: Center(child: CircularProgressIndicator()),
+      );
     }
     if (slotsError != null) {
       return SizedBox(
@@ -263,7 +274,8 @@ class BookingBrowseStep extends StatelessWidget {
         height: 240,
         child: BookingMessage(
           icon: Icons.event_busy_outlined,
-          text: 'No free times for ${selectedTreatment?.label ?? 'this treatment'} on '
+          text:
+              'No free times for ${selectedTreatment?.label ?? 'this treatment'} on '
               '${BookingFormat.calendarDay(selectedDay)}. Try another day or treatment.',
         ),
       );
@@ -291,14 +303,19 @@ class BookingBrowseStep extends StatelessWidget {
   Widget _byDoctor() {
     final byDoctor = _slotsByDoctor();
     final ids = byDoctor.keys.toList()
-      ..sort((a, b) =>
-          _freeHours(byDoctor[b]!).length.compareTo(_freeHours(byDoctor[a]!).length));
+      ..sort(
+        (a, b) => _freeHours(
+          byDoctor[b]!,
+        ).length.compareTo(_freeHours(byDoctor[a]!).length),
+      );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _panelHeader('Available Doctors — ${BookingFormat.calendarDay(selectedDay)}',
-            'Sorted by availability'),
+        _panelHeader(
+          'Available Doctors — ${BookingFormat.calendarDay(selectedDay)}',
+          'Sorted by availability',
+        ),
         for (final id in ids) _doctorCard(id, byDoctor[id]!),
       ],
     );
@@ -308,8 +325,9 @@ class BookingBrowseStep extends StatelessWidget {
     final doctor = doctorsById[doctorId];
     final tags = doctor?.categoryTags ?? const [];
     final freeHours = _freeHours(slots).length;
-    final earliest =
-        slots.map((s) => s.startTime).reduce((a, b) => a.isBefore(b) ? a : b);
+    final earliest = slots
+        .map((s) => s.startTime)
+        .reduce((a, b) => a.isBefore(b) ? a : b);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -327,16 +345,20 @@ class BookingBrowseStep extends StatelessWidget {
               CircleAvatar(
                 radius: 24,
                 backgroundColor: AppColors.bgRose,
-                child: Text(doctor?.initials ?? '?',
-                    style: AppTypography.labelLarge(color: AppColors.rose)),
+                child: Text(
+                  doctor?.initials ?? '?',
+                  style: AppTypography.labelLarge(color: AppColors.rose),
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(slots.first.practitionerName,
-                        style: AppTypography.labelLarge()),
+                    Text(
+                      slots.first.practitionerName,
+                      style: AppTypography.labelLarge(),
+                    ),
                     if (tags.isNotEmpty)
                       Text(tags.join(', '), style: AppTypography.bodySmall()),
                   ],
@@ -351,8 +373,10 @@ class BookingBrowseStep extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Earliest slot: ${BookingFormat.time12(earliest)}',
-                  style: AppTypography.bodySmall()),
+              Text(
+                'Earliest slot: ${BookingFormat.time12(earliest)}',
+                style: AppTypography.bodySmall(),
+              ),
               OutlinedButton(
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppColors.rose,
@@ -375,8 +399,10 @@ class BookingBrowseStep extends StatelessWidget {
         color: AppColors.bgSage,
         borderRadius: BorderRadius.circular(20),
       ),
-      child: Text('$hours hours free',
-          style: AppTypography.labelSmall(color: AppColors.sageDark)),
+      child: Text(
+        '$hours hours free',
+        style: AppTypography.labelSmall(color: AppColors.sageDark),
+      ),
     );
   }
 
@@ -419,7 +445,9 @@ class BookingBrowseStep extends StatelessWidget {
                   child: Container(
                     height: 8,
                     decoration: BoxDecoration(
-                      color: free.contains(hour) ? AppColors.rose : AppColors.bgAlt,
+                      color: free.contains(hour)
+                          ? AppColors.rose
+                          : AppColors.bgAlt,
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),
@@ -447,8 +475,10 @@ class BookingBrowseStep extends StatelessWidget {
             label: const Text('All doctors'),
           ),
         ),
-        _panelHeader('${doctor?.fullName ?? 'Doctor'} — pick a time',
-            BookingFormat.calendarDay(selectedDay)),
+        _panelHeader(
+          '${doctor?.fullName ?? 'Doctor'} — pick a time',
+          BookingFormat.calendarDay(selectedDay),
+        ),
         ..._periodPills(slots),
       ],
     );
@@ -459,34 +489,45 @@ class BookingBrowseStep extends StatelessWidget {
     final widgets = <Widget>[];
     _groupByPeriod(slots).forEach((label, list) {
       if (list.isEmpty) return;
-      widgets.add(Padding(
-        padding: const EdgeInsets.only(top: 12, bottom: 8),
-        child: Text(label, style: AppTypography.labelSmall()),
-      ));
-      widgets.add(Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: [
-          for (final slot in list)
-            Material(
-              color: AppColors.rosePale,
-              borderRadius: BorderRadius.circular(8),
-              child: InkWell(
-                onTap: () => onSlotChosen(slot),
+      widgets.add(
+        Padding(
+          padding: const EdgeInsets.only(top: 12, bottom: 8),
+          child: Text(label, style: AppTypography.labelSmall()),
+        ),
+      );
+      widgets.add(
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final slot in list)
+              Material(
+                color: AppColors.rosePale,
                 borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppColors.borderRose),
+                child: InkWell(
+                  onTap: () => onSlotChosen(slot),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppColors.borderRose),
+                    ),
+                    child: Text(
+                      BookingFormat.time12(slot.startTime),
+                      style: AppTypography.labelMedium(
+                        color: AppColors.roseDark,
+                      ),
+                    ),
                   ),
-                  child: Text(BookingFormat.time12(slot.startTime),
-                      style: AppTypography.labelMedium(color: AppColors.roseDark)),
                 ),
               ),
-            ),
-        ],
-      ));
+          ],
+        ),
+      );
     });
     return widgets;
   }
@@ -495,27 +536,35 @@ class BookingBrowseStep extends StatelessWidget {
 
   Widget _byTime(List<FreeSlot> slots) {
     final children = <Widget>[
-      _panelHeader('Available Slots — ${BookingFormat.calendarDay(selectedDay)}',
-          'Chronological timeline'),
+      _panelHeader(
+        'Available Slots — ${BookingFormat.calendarDay(selectedDay)}',
+        'Chronological timeline',
+      ),
     ];
     _groupByPeriod(slots).forEach((label, list) {
       if (list.isEmpty) return;
-      children.add(Padding(
-        padding: const EdgeInsets.only(top: 4, bottom: 8),
-        child: Text(label, style: AppTypography.labelSmall()),
-      ));
+      children.add(
+        Padding(
+          padding: const EdgeInsets.only(top: 4, bottom: 8),
+          child: Text(label, style: AppTypography.labelSmall()),
+        ),
+      );
       for (final slot in list) {
         children.add(_slotCard(slot));
       }
     });
 
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: children);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: children,
+    );
   }
 
   Widget _slotCard(FreeSlot slot) {
     final doctor = doctorsById[slot.practitionerUserId];
-    final specialty =
-        (doctor?.categoryTags.isNotEmpty ?? false) ? doctor!.categoryTags.first : '';
+    final specialty = (doctor?.categoryTags.isNotEmpty ?? false)
+        ? doctor!.categoryTags.first
+        : '';
     final duration = selectedTreatment?.durationMinutes;
 
     return Container(
@@ -534,8 +583,10 @@ class BookingBrowseStep extends StatelessWidget {
               color: AppColors.rosePale,
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Text(BookingFormat.time12(slot.startTime),
-                style: AppTypography.labelMedium(color: AppColors.roseDark)),
+            child: Text(
+              BookingFormat.time12(slot.startTime),
+              style: AppTypography.labelMedium(color: AppColors.roseDark),
+            ),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -586,9 +637,9 @@ class BookingBrowseStep extends StatelessWidget {
     for (final slot in slots) {
       final start = ClinicTime.at(slot.startTime);
       // Last minute worked, so exact ends exclude.
-      final lastMinute = ClinicTime.at(slot.endTime).subtract(
-        const Duration(minutes: 1),
-      );
+      final lastMinute = ClinicTime.at(
+        slot.endTime,
+      ).subtract(const Duration(minutes: 1));
       hours.add(start.hour);
       for (var hour = start.hour + 1; hour <= lastMinute.hour; hour++) {
         hours.add(hour);

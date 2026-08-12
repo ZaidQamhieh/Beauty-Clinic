@@ -56,39 +56,44 @@ void main() {
 
   group('Appointment', () {
     Map<String, dynamic> session(String status, int hour, double price) => {
-          'id': 'sess-$hour',
-          'appointmentId': 'appt-1',
-          'practitionerUserId': 'doc-1',
-          'practitionerName': 'Dr Reem',
-          'category': 'FACIAL',
-          'treatmentName': 'HYDRAFACIAL',
-          'priceCharged': price,
-          'durationMinutes': 60,
-          'status': status,
-          'startTime': '2026-08-11T${hour.toString().padLeft(2, '0')}:00:00Z',
-          'endTime': '2026-08-11T${hour.toString().padLeft(2, '0')}:30:00Z',
-        };
+      'id': 'sess-$hour',
+      'appointmentId': 'appt-1',
+      'practitionerUserId': 'doc-1',
+      'practitionerName': 'Dr Reem',
+      'category': 'FACIAL',
+      'treatmentName': 'HYDRAFACIAL',
+      'priceCharged': price,
+      'durationMinutes': 60,
+      'status': status,
+      'startTime': '2026-08-11T${hour.toString().padLeft(2, '0')}:00:00Z',
+      'endTime': '2026-08-11T${hour.toString().padLeft(2, '0')}:30:00Z',
+    };
 
-    test('exposes planned sessions in start order and totals every session', () {
-      final appointment = Appointment.fromJson({
-        'id': 'appt-1',
-        'patientUserId': 'pat-1',
-        'patientName': 'Pat Ient',
-        'scheduledAt': '2026-08-11T09:00:00Z',
-        'status': 'BOOKED',
-        'replacesAppointmentId': null,
-        'sessions': [
-          session('PLANNED', 14, 100),
-          session('CANCELLED', 10, 50),
-          session('PLANNED', 9, 200),
-        ],
-      });
+    test(
+      'exposes planned sessions in start order and totals every session',
+      () {
+        final appointment = Appointment.fromJson({
+          'id': 'appt-1',
+          'patientUserId': 'pat-1',
+          'patientName': 'Pat Ient',
+          'scheduledAt': '2026-08-11T09:00:00Z',
+          'status': 'BOOKED',
+          'replacesAppointmentId': null,
+          'sessions': [
+            session('PLANNED', 14, 100),
+            session('CANCELLED', 10, 50),
+            session('PLANNED', 9, 200),
+          ],
+        });
 
-      expect(appointment.isBooked, isTrue);
-      // Cancelled dropped; planned sorted 09:00 then 14:00.
-      expect(appointment.plannedSessions.map((s) => s.startTime.toUtc().hour),
-          [9, 14]);
-    });
+        expect(appointment.isBooked, isTrue);
+        // Cancelled dropped; planned sorted 09:00 then 14:00.
+        expect(
+          appointment.plannedSessions.map((s) => s.startTime.toUtc().hour),
+          [9, 14],
+        );
+      },
+    );
 
     test('reads a reschedule replacement link', () {
       final appointment = Appointment.fromJson({
@@ -117,7 +122,7 @@ void main() {
             'status': 'BOOKED',
             'replacesAppointmentId': null,
             'sessions': const [],
-          }
+          },
         ],
         'last': false,
       });

@@ -19,10 +19,10 @@ class HeldSlot {
   final DateTime endTime;
 
   Map<String, dynamic> toJson() => {
-        'practitionerUserId': practitionerUserId,
-        'startTime': startTime.toUtc().toIso8601String(),
-        'endTime': endTime.toUtc().toIso8601String(),
-      };
+    'practitionerUserId': practitionerUserId,
+    'startTime': startTime.toUtc().toIso8601String(),
+    'endTime': endTime.toUtc().toIso8601String(),
+  };
 }
 
 /// One treatment to book: doctor, treatment, start.
@@ -38,10 +38,10 @@ class SessionDraft {
   final DateTime startTime;
 
   Map<String, dynamic> toJson() => {
-        'practitionerUserId': practitionerUserId,
-        'treatmentName': treatmentName,
-        'startTime': startTime.toUtc().toIso8601String(),
-      };
+    'practitionerUserId': practitionerUserId,
+    'treatmentName': treatmentName,
+    'startTime': startTime.toUtc().toIso8601String(),
+  };
 }
 
 /// Talks to the appointment endpoints.
@@ -53,8 +53,9 @@ class AppointmentApi {
   /// The signed-in patient's own record.
   Future<BookingPatient> me() async {
     try {
-      final response =
-          await _client.get<Map<String, dynamic>>('/api/patients/me');
+      final response = await _client.get<Map<String, dynamic>>(
+        '/api/patients/me',
+      );
       return BookingPatient.fromJson(response.data!);
     } on DioException catch (error) {
       throw _mapError(error);
@@ -82,7 +83,9 @@ class AppointmentApi {
       );
       final data = response.data ?? const [];
       return data
-          .map((json) => FreeSlot.fromJson(Map<String, dynamic>.from(json as Map)))
+          .map(
+            (json) => FreeSlot.fromJson(Map<String, dynamic>.from(json as Map)),
+          )
           .toList();
     } on DioException catch (error) {
       throw _mapError(error);
@@ -154,10 +157,13 @@ class AppointmentApi {
 
     if (status == 409) {
       return BookingConflictException(
-          message ?? 'That time is no longer available.');
+        message ?? 'That time is no longer available.',
+      );
     }
     if (status == 400) {
-      return BookingValidationException(message ?? 'That booking is not valid.');
+      return BookingValidationException(
+        message ?? 'That booking is not valid.',
+      );
     }
     return error;
   }

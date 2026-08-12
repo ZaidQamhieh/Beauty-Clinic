@@ -47,7 +47,6 @@ class AppointmentSession {
       endTime: DateTime.parse(json['endTime'] as String),
     );
   }
-
 }
 
 /// A visit: who is treated, and when.
@@ -79,7 +78,6 @@ class Appointment {
     return planned;
   }
 
-
   factory Appointment.fromJson(Map<String, dynamic> json) {
     final rawSessions = (json['sessions'] as List?) ?? const [];
     return Appointment(
@@ -90,8 +88,11 @@ class Appointment {
       status: json['status'] as String,
       replacesAppointmentId: json['replacesAppointmentId'] as String?,
       sessions: rawSessions
-          .map((s) => AppointmentSession.fromJson(
-              Map<String, dynamic>.from(s as Map)))
+          .map(
+            (s) => AppointmentSession.fromJson(
+              Map<String, dynamic>.from(s as Map),
+            ),
+          )
           .toList(),
     );
   }
@@ -108,8 +109,7 @@ class AppointmentPage {
     final content = (json['content'] as List?) ?? const [];
     return AppointmentPage(
       items: content
-          .map((a) =>
-              Appointment.fromJson(Map<String, dynamic>.from(a as Map)))
+          .map((a) => Appointment.fromJson(Map<String, dynamic>.from(a as Map)))
           .toList(),
       isLast: json['last'] as bool? ?? true,
     );

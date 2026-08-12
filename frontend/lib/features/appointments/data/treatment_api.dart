@@ -14,7 +14,9 @@ class TreatmentApi {
     final response = await _client.get<List<dynamic>>('/api/treatments');
     final data = response.data ?? const [];
     return data
-        .map((json) => Treatment.fromJson(Map<String, dynamic>.from(json as Map)))
+        .map(
+          (json) => Treatment.fromJson(Map<String, dynamic>.from(json as Map)),
+        )
         .toList();
   }
 
@@ -23,8 +25,9 @@ class TreatmentApi {
     final cached = _cachedRules;
     if (cached != null) return cached;
 
-    final response =
-        await _client.get<Map<String, dynamic>>('/api/treatments/rules');
+    final response = await _client.get<Map<String, dynamic>>(
+      '/api/treatments/rules',
+    );
     return _cachedRules = BookingRules.fromJson(response.data!);
   }
 }

@@ -11,8 +11,10 @@ class DoctorApi {
     final response = await _client.get<List<dynamic>>('/api/doctors');
     final data = response.data ?? const [];
     return data
-        .map((json) =>
-            DoctorSummary.fromJson(Map<String, dynamic>.from(json as Map)))
+        .map(
+          (json) =>
+              DoctorSummary.fromJson(Map<String, dynamic>.from(json as Map)),
+        )
         .toList();
   }
 }

@@ -30,8 +30,10 @@ class BookingSuccessStep extends StatelessWidget {
           style: AppTypography.displaySubtitle(),
         ),
         const SizedBox(height: 4),
-        Text(BookingFormat.dayWithYear(appointment.scheduledAt),
-            style: AppTypography.bodyMedium()),
+        Text(
+          BookingFormat.dayWithYear(appointment.scheduledAt),
+          style: AppTypography.bodyMedium(),
+        ),
         const SizedBox(height: 16),
         Expanded(
           child: ListView(
@@ -41,7 +43,11 @@ class BookingSuccessStep extends StatelessWidget {
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Row(
                     children: [
-                      const Icon(Icons.spa_outlined, size: 18, color: AppColors.rose),
+                      const Icon(
+                        Icons.spa_outlined,
+                        size: 18,
+                        color: AppColors.rose,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -81,10 +87,17 @@ class BookingGateStep extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.assignment_late_outlined, size: 44, color: AppColors.gold),
+          const Icon(
+            Icons.assignment_late_outlined,
+            size: 44,
+            color: AppColors.gold,
+          ),
           const SizedBox(height: 12),
-          Text('Complete your health form first',
-              style: AppTypography.displaySubtitle(), textAlign: TextAlign.center),
+          Text(
+            'Complete your health form first',
+            style: AppTypography.displaySubtitle(),
+            textAlign: TextAlign.center,
+          ),
           const SizedBox(height: 8),
           Text(
             'The clinic needs your health form before your first treatment. '
@@ -125,7 +138,11 @@ class BookingMessage extends StatelessWidget {
         children: [
           Icon(icon, size: 40, color: AppColors.textMuted),
           const SizedBox(height: 12),
-          Text(text, textAlign: TextAlign.center, style: AppTypography.bodyMedium()),
+          Text(
+            text,
+            textAlign: TextAlign.center,
+            style: AppTypography.bodyMedium(),
+          ),
           if (onRetry != null) ...[
             const SizedBox(height: 12),
             OutlinedButton(onPressed: onRetry, child: const Text('Try again')),
@@ -151,8 +168,10 @@ class BookingErrorBanner extends StatelessWidget {
         color: const Color(0xFFFEE2E2),
         borderRadius: BorderRadius.circular(10),
       ),
-      child: Text(message,
-          style: AppTypography.bodySmall(color: const Color(0xFFDC2626))),
+      child: Text(
+        message,
+        style: AppTypography.bodySmall(color: const Color(0xFFDC2626)),
+      ),
     );
   }
 }

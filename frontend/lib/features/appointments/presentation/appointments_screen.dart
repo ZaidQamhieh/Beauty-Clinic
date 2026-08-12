@@ -75,7 +75,9 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
       if (!mounted) return;
       setState(() {
         ClinicTime.use(rules.timezone);
-        _cancellationCutoff = Duration(minutes: rules.cancellationCutoffMinutes);
+        _cancellationCutoff = Duration(
+          minutes: rules.cancellationCutoffMinutes,
+        );
       });
     } catch (_) {
       // The device zone already stands in.
@@ -352,7 +354,10 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
     required VoidCallback onLoadMore,
   }) {
     if (items.isEmpty) {
-      return BookingMessage(icon: Icons.event_available_outlined, text: emptyText);
+      return BookingMessage(
+        icon: Icons.event_available_outlined,
+        text: emptyText,
+      );
     }
     return ListView.separated(
       // One extra row carries the load-more button.
@@ -378,7 +383,6 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
       ),
     );
   }
-
 }
 
 class _UpcomingCard extends StatelessWidget {

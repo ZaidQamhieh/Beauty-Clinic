@@ -16,16 +16,16 @@ class BookingCartItem {
   final FreeSlot slot;
 
   HeldSlot get held => HeldSlot(
-        practitionerUserId: slot.practitionerUserId,
-        startTime: slot.startTime,
-        endTime: slot.endTime,
-      );
+    practitionerUserId: slot.practitionerUserId,
+    startTime: slot.startTime,
+    endTime: slot.endTime,
+  );
 
   SessionDraft get draft => SessionDraft(
-        practitionerUserId: slot.practitionerUserId,
-        treatmentName: treatment.name,
-        startTime: slot.startTime,
-      );
+    practitionerUserId: slot.practitionerUserId,
+    treatmentName: treatment.name,
+    startTime: slot.startTime,
+  );
 }
 
 /// The chosen treatments, total, and confirm.
@@ -65,15 +65,20 @@ class BookingReviewStep extends StatelessWidget {
               final item = items[index];
               return ListTile(
                 contentPadding: EdgeInsets.zero,
-                title: Text(item.treatment.label, style: AppTypography.labelLarge()),
+                title: Text(
+                  item.treatment.label,
+                  style: AppTypography.labelLarge(),
+                ),
                 subtitle: Text(
                   '${BookingFormat.day(item.slot.startTime)} · '
                   '${BookingFormat.time12(item.slot.startTime)} · ${item.slot.practitionerName}',
                   style: AppTypography.bodySmall(),
                 ),
                 trailing: IconButton(
-                  icon: const Icon(Icons.remove_circle_outline,
-                      color: AppColors.textMuted),
+                  icon: const Icon(
+                    Icons.remove_circle_outline,
+                    color: AppColors.textMuted,
+                  ),
                   onPressed: submitting ? null : () => onRemove(index),
                 ),
               );
@@ -115,7 +120,9 @@ class BookingReviewStep extends StatelessWidget {
                         width: 18,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : Text(isReschedule ? 'Confirm reschedule' : 'Confirm booking'),
+                    : Text(
+                        isReschedule ? 'Confirm reschedule' : 'Confirm booking',
+                      ),
               ),
             ),
           ],
