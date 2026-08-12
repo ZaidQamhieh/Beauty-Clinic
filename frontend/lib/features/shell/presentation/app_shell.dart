@@ -345,6 +345,11 @@ class _AppShellState extends State<AppShell> {
             'icon': Icons.grid_view_rounded,
           },
           {
+            'id': 'products',
+            'label': 'Products',
+            'icon': Icons.inventory_2_outlined,
+          },
+          {
             'id': 'appointments',
             'label': 'Appointments',
             'icon': Icons.calendar_today_outlined,

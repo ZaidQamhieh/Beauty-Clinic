@@ -1,7 +1,7 @@
 package com.example.backend.dtos;
 
-import com.example.backend.entities.Product.Ingredient;
 import com.example.backend.entities.Product;
+import com.example.backend.entities.Product.Ingredient;
 import com.example.backend.entities.Product.ProductBrand;
 import com.example.backend.entities.Product.ProductType;
 
@@ -12,6 +12,8 @@ public record ProductResponse(
         UUID id,
         ProductBrand brand,
         ProductType productType,
+        String category,
+        int stockQuantity,
         List<Ingredient> ingredients
 ) {
     public static ProductResponse of(Product product) {
@@ -19,6 +21,8 @@ public record ProductResponse(
                 product.getId(),
                 product.getBrand(),
                 product.getProductType(),
+                product.getCategory(),
+                product.getStockQuantity(),
                 product.getIngredients()
         );
     }

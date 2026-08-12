@@ -99,6 +99,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       '${product.brandLabel} ${product.typeLabel}',
                       style: AppTypography.displayTitle(),
                     ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '${product.category} • ${product.stockQuantity} in stock',
+                      style: AppTypography.bodyMedium(
+                        color: AppColors.textMuted,
+                      ),
+                    ),
                     const SizedBox(height: 24),
                     Text('Ingredients', style: AppTypography.labelLarge()),
                     const SizedBox(height: 12),
@@ -110,11 +117,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         runSpacing: 8,
                         children: product.ingredients
                             .map(
-                              (ingredient) => Chip(
-                                label: Text(
-                                  Product.labelIngredient(ingredient),
-                                ),
-                              ),
+                              (ingredient) =>
+                                  Chip(label: Text(Product.label(ingredient))),
                             )
                             .toList(),
                       ),
