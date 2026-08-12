@@ -19,12 +19,15 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
+import com.example.backend.repositories.AppointmentSessionRepository;
+
 @Service
 @RequiredArgsConstructor
 public class DoctorService {
 
     private final DoctorProfileRepository doctors;
     private final UserAccountRepository users;
+    private final AppointmentSessionRepository sessions;
 
     @Transactional
     public DoctorResponse register(UUID userId, DoctorProfileRequest request) {
@@ -75,6 +78,18 @@ public class DoctorService {
         }
         doctor.setYearsOfExperience(request.yearsOfExperience());
         return DoctorResponse.of(doctor);
+    }
+
+    @Transactional
+    public void delete(UUID userId) {
+        DoctorProfile doctor = require(userId);
+
+        // Prevent removing a doctor who has any session records.
+        if (sessions.existsByPractitioner(userId)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Doctor has appointment sessions and cannot be removed");
+        }
+
+        doctors.delete(doctor);
     }
 
     private DoctorProfile require(UUID userId) {
