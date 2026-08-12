@@ -145,8 +145,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           validator: (value) {
                             final email = value?.trim() ?? '';
                             if (email.isEmpty) return 'Enter your email.';
-                            if (!email.contains('@'))
+                            if (!email.contains('@')) {
                               return 'Enter a valid email.';
+                            }
                             return null;
                           },
                         ),
