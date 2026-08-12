@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:beauty_clinic_app/auth/auth_session.dart';
+import 'package:beauty_clinic_app/auth/role.dart';
 import 'package:beauty_clinic_app/core/theme/app_theme.dart';
 import 'package:beauty_clinic_app/core/theme/app_typography.dart';
 import 'package:beauty_clinic_app/core/theme/app_colors.dart';
@@ -9,6 +10,9 @@ import 'package:beauty_clinic_app/features/dashboard/presentation/dashboard_scre
 import 'package:beauty_clinic_app/features/doctor_profile/presentation/doctor_profile_screen.dart';
 import 'package:beauty_clinic_app/features/patient_profile/presentation/patient_profile_screen.dart';
 import 'package:beauty_clinic_app/features/landing/presentation/landing_screen.dart';
+import 'package:beauty_clinic_app/features/products/data/product_api.dart';
+import 'package:beauty_clinic_app/features/products/presentation/product_catalog_screen.dart';
+import 'package:beauty_clinic_app/network/api_client.dart';
 import 'package:beauty_clinic_app/screens/login_screen.dart';
 import 'package:beauty_clinic_app/screens/register_screen.dart';
 
@@ -76,7 +80,7 @@ class _AuthGateState extends State<AuthGate> {
       case AuthStatus.initializing:
         return const Scaffold(body: Center(child: CircularProgressIndicator()));
       case AuthStatus.unauthenticated:
-        return _showRegistration
+return _showRegistration
             ? RegisterScreen(
                 authSession: _session,
                 onSignIn: () => setState(() => _showRegistration = false),
@@ -102,8 +106,10 @@ class MainRootController extends StatefulWidget {
 }
 
 class _MainRootControllerState extends State<MainRootController> {
-  late String _activeRole; // Set exclusively from the authenticated account.
+  late String _activeRole; // 'admin' | 'doctor' | 'receptionist' | 'patient'
   late String _activeView; // active view: dashboard, profile, or landing
+  late final ApiClient _apiClient;
+  late final ProductApi _products;
 
   @override
   void initState() {
@@ -111,6 +117,22 @@ class _MainRootControllerState extends State<MainRootController> {
     // The shell uses lowercase role names; the backend sends uppercase wire names.
     _activeRole = widget.authSession.role?.wireName.toLowerCase() ?? 'admin';
     _activeView = 'dashboard';
+    _apiClient = ApiClient(widget.authSession);
+    _products = ProductApi(_apiClient);
+  }
+
+  @override
+  void dispose() {
+    _apiClient.close();
+    super.dispose();
+  }
+
+  Future<void> _logout() async {
+    try {
+      await widget.authSession.logout();
+    } on AuthException {
+      // The session is already cleared locally; AuthGate returns to the login screen.
+    }
   }
 
   @override
@@ -125,14 +147,6 @@ class _MainRootControllerState extends State<MainRootController> {
           : authenticatedRole == 'doctor'
           ? 'doctor_profile'
           : 'dashboard';
-    }
-  }
-
-  Future<void> _logout() async {
-    try {
-      await widget.authSession.logout();
-    } on AuthException {
-      // The session is already cleared locally; AuthGate returns to the login screen.
     }
   }
 
@@ -202,6 +216,12 @@ class _MainRootControllerState extends State<MainRootController> {
           activeRole: _activeRole,
           onViewPatient: _onViewPatient,
           onViewDoctor: _onViewDoctor,
+        );
+      case 'products':
+        return ProductCatalogScreen(
+          key: const ValueKey('products'),
+          api: _products,
+          canManage: widget.authSession.role == Role.admin,
         );
       case 'doctor_profile':
         return DoctorProfileScreen(

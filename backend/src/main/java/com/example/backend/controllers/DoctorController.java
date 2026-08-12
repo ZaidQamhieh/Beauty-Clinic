@@ -65,6 +65,13 @@ public class DoctorController {
         return doctors.updateProfile(userId, request);
     }
 
+    @DeleteMapping("/{userId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @AdminOnly
+    public void delete(@PathVariable UUID userId) {
+        doctors.delete(userId);
+    }
+
     @GetMapping("/{userId}/availability")
     @Authenticated
     public List<DoctorAvailabilityResponse> listAvailability(@PathVariable UUID userId) {
