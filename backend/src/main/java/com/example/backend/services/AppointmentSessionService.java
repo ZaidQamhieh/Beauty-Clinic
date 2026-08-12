@@ -24,6 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -47,6 +48,7 @@ public class AppointmentSessionService {
     private final ActivityLogService activityLogs;
     private final CurrentUser currentUser;
     private final CancellationPolicy cancellation;
+    private final Clock clock;
 
     @Transactional
     public AppointmentSessionResponse add(UUID appointmentId, AddSessionRequest request) {
@@ -255,7 +257,7 @@ public class AppointmentSessionService {
 
     // Marked early, COMPLETED blocks cancelling and NO_SHOW locks the slot.
     private void assertStarted(AppointmentSession session) {
-        if (session.getStartTime().isAfter(Instant.now())) {
+        if (session.getStartTime().isAfter(clock.instant())) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT, "That treatment has not started yet");
         }
@@ -315,11 +317,12 @@ public class AppointmentSessionService {
     // Open for a season, not forever. No notice period.
     private void assertBookableWindow(Instant startTime) {
         // The slot was offered, then went. That is a lost slot, not a malformed request.
-        if (startTime.isBefore(Instant.now())) {
+        Instant now = clock.instant();
+        if (startTime.isBefore(now)) {
             throw new SlotTakenException("That time has already passed");
         }
 
-        if (startTime.isAfter(Instant.now().plus(clinic.horizon()))) {
+        if (startTime.isAfter(now.plus(clinic.horizon()))) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
                     "Bookings open only " + clinic.maxHorizonDays() + " days ahead");

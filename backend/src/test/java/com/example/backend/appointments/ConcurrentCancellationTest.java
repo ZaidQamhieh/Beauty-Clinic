@@ -65,8 +65,8 @@ class ConcurrentCancellationTest extends AbstractIntegrationTest {
     private AppointmentSessionRepository sessions;
 
     @Test
-    void cancellingBothTreatmentsAtOnceCannotLeaveTheVisitBookedAndEmpty() throws Exception {
-        Fixture fixture = createVisitWithTwoTreatments();
+    void neverLeavesVisitBookedAndEmpty() throws Exception {
+        Fixture fixture = visitWithTwoTreatments();
 
         CyclicBarrier bothReady = new CyclicBarrier(2);
         ExecutorService pool = Executors.newFixedThreadPool(2);
@@ -104,7 +104,7 @@ class ConcurrentCancellationTest extends AbstractIntegrationTest {
     }
 
     // Rows are written directly: the booking rules are not what is under test here.
-    private Fixture createVisitWithTwoTreatments() {
+    private Fixture visitWithTwoTreatments() {
         return transactions.execute(status -> {
             String unique = UUID.randomUUID().toString().substring(0, 8);
 

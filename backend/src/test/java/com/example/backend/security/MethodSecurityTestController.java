@@ -3,7 +3,10 @@ package com.example.backend.security;
 import com.example.backend.security.access.AdminOnly;
 import com.example.backend.security.access.Authenticated;
 import com.example.backend.security.access.ClinicStaffOnly;
+import com.example.backend.security.access.DoctorOnly;
 import com.example.backend.security.access.PatientOnly;
+import com.example.backend.security.access.StaffOrAppointmentOwner;
+import com.example.backend.security.access.StaffOrSelf;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -61,6 +64,24 @@ class MethodSecurityTestController {
     @GetMapping("/test/meta/any")
     @Authenticated
     String anySignedIn() {
+        return "ok";
+    }
+
+    @GetMapping("/test/meta/doctor")
+    @DoctorOnly
+    String metaDoctorOnly() {
+        return "ok";
+    }
+
+    @GetMapping("/test/meta/self/{id}")
+    @StaffOrSelf
+    String staffOrSelf(@PathVariable UUID id) {
+        return "ok";
+    }
+
+    @GetMapping("/test/meta/appointment/{id}")
+    @StaffOrAppointmentOwner
+    String staffOrAppointmentOwner(@PathVariable UUID id) {
         return "ok";
     }
 }

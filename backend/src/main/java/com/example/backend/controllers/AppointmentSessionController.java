@@ -3,11 +3,11 @@ package com.example.backend.controllers;
 import com.example.backend.dtos.AddSessionRequest;
 import com.example.backend.dtos.AppointmentSessionResponse;
 import com.example.backend.security.access.ClinicStaffOnly;
+import com.example.backend.security.access.StaffOrAppointmentOwner;
 import com.example.backend.services.AppointmentSessionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -40,12 +40,12 @@ public class AppointmentSessionController {
 
     // Dropping one treatment is the patient's call too, up to the service's cutoff.
     @PutMapping("/{sessionId}/cancel")
-    @PreAuthorize("hasAnyRole('DOCTOR', 'RECEPTIONIST', 'ADMIN') or @access.ownsAppointment(#appointmentId)")
+    @StaffOrAppointmentOwner
     public AppointmentSessionResponse cancel(
-            @PathVariable UUID appointmentId,
+            @PathVariable("appointmentId") UUID id,
             @PathVariable UUID sessionId
     ) {
-        return sessions.cancel(appointmentId, sessionId);
+        return sessions.cancel(id, sessionId);
     }
 
     @PutMapping("/{sessionId}/attended")

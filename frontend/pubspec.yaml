@@ -33,6 +33,7 @@ dependencies:
 
   # ADD THIS LINE:
   lucide_icons: ^0.257.0
+  timezone: ^0.11.1
 
 dev_dependencies:
   flutter_test:

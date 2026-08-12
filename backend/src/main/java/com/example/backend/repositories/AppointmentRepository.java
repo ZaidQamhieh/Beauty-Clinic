@@ -4,6 +4,7 @@ import com.example.backend.entities.Appointment;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -30,16 +31,12 @@ public interface AppointmentRepository extends JpaRepository<Appointment, UUID> 
     Page<Appointment> findByPatientUserIdOrderByScheduledAtAsc(UUID patientUserId, Pageable pageable);
 
     // A rescheduled visit is superseded, so the replacement shows and the original does not.
-    @Query(value = """
+    @EntityGraph(attributePaths = {"patient", "patient.user"})
+    @Query("""
             select a from Appointment a
             where a.patient.userId = :patientUserId
               and not exists (select 1 from Appointment r where r.replaces = a)
-            order by a.scheduledAt asc
-            """,
-            countQuery = """
-            select count(a) from Appointment a
-            where a.patient.userId = :patientUserId
-              and not exists (select 1 from Appointment r where r.replaces = a)
+            order by a.scheduledAt asc, a.id asc
             """)
     Page<Appointment> findNotSupersededForPatient(
             @Param("patientUserId") UUID patientUserId, Pageable pageable);
@@ -51,4 +48,33 @@ public interface AppointmentRepository extends JpaRepository<Appointment, UUID> 
               and a.scheduledAt < :to
             """)
     List<Appointment> findBetween(@Param("from") Instant from, @Param("to") Instant to);
+
+    // Booked, not yet started, soonest first.
+    @EntityGraph(attributePaths = {"patient", "patient.user"})
+    @Query("""
+            select a from Appointment a
+            where a.patient.userId = :patientUserId
+              and a.status = BOOKED
+              and a.scheduledAt >= :now
+              and not exists (select 1 from Appointment r where r.replaces = a)
+            order by a.scheduledAt asc, a.id asc
+            """)
+    Page<Appointment> findUpcomingForPatient(
+            @Param("patientUserId") UUID patientUserId,
+            @Param("now") Instant now,
+            Pageable pageable);
+
+    // Begun or cancelled, most recent first.
+    @EntityGraph(attributePaths = {"patient", "patient.user"})
+    @Query("""
+            select a from Appointment a
+            where a.patient.userId = :patientUserId
+              and (a.status = CANCELLED or a.scheduledAt < :now)
+              and not exists (select 1 from Appointment r where r.replaces = a)
+            order by a.scheduledAt desc, a.id desc
+            """)
+    Page<Appointment> findHistoryForPatient(
+            @Param("patientUserId") UUID patientUserId,
+            @Param("now") Instant now,
+            Pageable pageable);
 }

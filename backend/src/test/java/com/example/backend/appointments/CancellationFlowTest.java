@@ -83,7 +83,7 @@ class CancellationFlowTest extends AbstractIntegrationTest {
     // ─── Whole visit ────────────────────────────────────────────────────────
 
     @Test
-    void cancellingTheVisitCancelsEveryRemainingTreatmentAndReleasesTheirTimes() {
+    void cancellingVisitReleasesRemainingTreatments() {
         Instant start = hoursFromNow(3);
         Fixture fixture = visit(start, planned(start), planned(start.plus(2, ChronoUnit.HOURS)));
         callerIs(fixture.patientUserId(), Role.PATIENT);
@@ -97,7 +97,7 @@ class CancellationFlowTest extends AbstractIntegrationTest {
 
     // A finished treatment no longer holds anything cancellable, and must not block the rest.
     @Test
-    void cancellingTheVisitLeavesFinishedWorkUntouched() {
+    void cancellingVisitKeepsFinishedWork() {
         Instant start = hoursFromNow(3);
         Fixture fixture = visit(
                 start,
@@ -120,7 +120,7 @@ class CancellationFlowTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void cancellingAVisitTwiceIsRefusedAndChangesNothing() {
+    void cannotCancelVisitTwice() {
         Instant start = hoursFromNow(3);
         Fixture fixture = visit(start, planned(start));
         callerIs(fixture.patientUserId(), Role.PATIENT);
@@ -138,7 +138,7 @@ class CancellationFlowTest extends AbstractIntegrationTest {
     // ─── One treatment ──────────────────────────────────────────────────────
 
     @Test
-    void cancellingOneTreatmentLeavesTheRestOfTheVisitStanding() {
+    void cancellingTreatmentKeepsRestOfVisit() {
         Instant start = hoursFromNow(3);
         Instant later = start.plus(2, ChronoUnit.HOURS);
         Fixture fixture = visit(start, planned(start), planned(later));
@@ -159,7 +159,7 @@ class CancellationFlowTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void cancellingTheLastRemainingTreatmentCancelsTheVisit() {
+    void cancellingLastTreatmentCancelsVisit() {
         Instant start = hoursFromNow(3);
         Fixture fixture = visit(start, planned(start));
         callerIs(fixture.patientUserId(), Role.PATIENT);
@@ -172,7 +172,7 @@ class CancellationFlowTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void cancellingATreatmentTwiceIsRefused() {
+    void cannotCancelTreatmentTwice() {
         Instant start = hoursFromNow(3);
         Fixture fixture = visit(start, planned(start), planned(start.plus(2, ChronoUnit.HOURS)));
         callerIs(fixture.patientUserId(), Role.PATIENT);
@@ -188,7 +188,7 @@ class CancellationFlowTest extends AbstractIntegrationTest {
     // ─── The cutoff ─────────────────────────────────────────────────────────
 
     @Test
-    void aPatientInsideTheCutoffChangesNothingAtAll() {
+    void refusalInsideCutoffChangesNothing() {
         Instant start = Instant.now().plus(30, ChronoUnit.MINUTES);
         Fixture fixture = visit(start, planned(start));
         callerIs(fixture.patientUserId(), Role.PATIENT);
@@ -206,7 +206,7 @@ class CancellationFlowTest extends AbstractIntegrationTest {
 
     // The cutoff is the visit's, not the treatment's: a late visit closes its later treatments too.
     @Test
-    void oneTreatmentFollowsTheVisitsCutoffRatherThanItsOwn() {
+    void treatmentFollowsVisitCutoff() {
         Instant start = Instant.now().plus(30, ChronoUnit.MINUTES);
         Instant later = start.plus(5, ChronoUnit.HOURS);
         Fixture fixture = visit(start, planned(start), planned(later));
@@ -221,7 +221,7 @@ class CancellationFlowTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void staffMayStillCancelInsideThePatientCutoff() {
+    void staffCanCancelInsidePatientCutoff() {
         Instant start = Instant.now().plus(30, ChronoUnit.MINUTES);
         Fixture fixture = visit(start, planned(start));
         callerIs(fixture.doctorUserId(), Role.RECEPTIONIST);
@@ -233,7 +233,7 @@ class CancellationFlowTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void staffMayNotCancelOnceTheVisitHasStarted() {
+    void staffCannotCancelStartedVisit() {
         Instant start = Instant.now().minus(5, ChronoUnit.MINUTES);
         Fixture fixture = visit(start, planned(start));
         callerIs(fixture.doctorUserId(), Role.RECEPTIONIST);
@@ -249,7 +249,7 @@ class CancellationFlowTest extends AbstractIntegrationTest {
     // ─── Logging ────────────────────────────────────────────────────────────
 
     @Test
-    void aCancelledVisitIsLoggedOncePerTreatmentAndOnceForTheVisit() {
+    void logsEachTreatmentAndVisit() {
         Instant start = hoursFromNow(3);
         Fixture fixture = visit(start, planned(start), planned(start.plus(2, ChronoUnit.HOURS)));
         callerIs(fixture.patientUserId(), Role.PATIENT);

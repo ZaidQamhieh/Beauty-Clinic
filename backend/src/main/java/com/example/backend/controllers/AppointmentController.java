@@ -5,10 +5,11 @@ import com.example.backend.dtos.BookAppointmentRequest;
 import com.example.backend.dtos.FreeSlotQuery;
 import com.example.backend.dtos.FreeSlotResponse;
 import com.example.backend.security.access.AppointmentCreator;
-import org.springframework.security.access.prepost.PreAuthorize;
 import com.example.backend.security.access.Authenticated;
 import com.example.backend.security.access.ClinicStaffOnly;
+import com.example.backend.security.access.DoctorOnly;
 import com.example.backend.security.access.PatientOnly;
+import com.example.backend.security.access.StaffOrAppointmentOwner;
 import com.example.backend.services.AppointmentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -59,8 +60,36 @@ public class AppointmentController {
         return appointments.readOwnAsPatient(pageable);
     }
 
+    // Split so clients need not sort themselves.
+    @GetMapping("/me/upcoming")
+    @PatientOnly
+    public Page<AppointmentResponse> readOwnUpcoming(Pageable pageable) {
+        return appointments.readOwnUpcoming(pageable);
+    }
+
+    @GetMapping("/me/history")
+    @PatientOnly
+    public Page<AppointmentResponse> readOwnHistory(Pageable pageable) {
+        return appointments.readOwnHistory(pageable);
+    }
+
+    // The same two views, for staff.
+    @GetMapping("/patients/{patientId}/upcoming")
+    @ClinicStaffOnly
+    public Page<AppointmentResponse> readUpcomingFor(
+            @PathVariable UUID patientId, Pageable pageable) {
+        return appointments.readUpcomingFor(patientId, pageable);
+    }
+
+    @GetMapping("/patients/{patientId}/history")
+    @ClinicStaffOnly
+    public Page<AppointmentResponse> readHistoryFor(
+            @PathVariable UUID patientId, Pageable pageable) {
+        return appointments.readHistoryFor(patientId, pageable);
+    }
+
     @GetMapping("/me/schedule")
-    @PreAuthorize("hasRole('DOCTOR')")
+    @DoctorOnly
     public List<AppointmentResponse> readOwnSchedule(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date
     ) {
@@ -75,14 +104,14 @@ public class AppointmentController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('DOCTOR', 'RECEPTIONIST', 'ADMIN') or @access.ownsAppointment(#id)")
+    @StaffOrAppointmentOwner
     public AppointmentResponse read(@PathVariable UUID id) {
         return appointments.read(id);
     }
 
     // No reschedule: a different time is a cancellation and a fresh booking.
     @PutMapping("/{id}/cancel")
-    @PreAuthorize("hasAnyRole('DOCTOR', 'RECEPTIONIST', 'ADMIN') or @access.ownsAppointment(#id)")
+    @StaffOrAppointmentOwner
     public AppointmentResponse cancel(@PathVariable UUID id) {
         return appointments.cancel(id);
     }

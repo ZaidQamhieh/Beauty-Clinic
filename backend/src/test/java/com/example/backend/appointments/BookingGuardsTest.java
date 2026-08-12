@@ -105,7 +105,7 @@ class BookingGuardsTest extends AbstractIntegrationTest {
     // ─── R1: a patient may not book inside their own cancellation window ────
 
     @Test
-    void aPatientMayNotBookLessThanTheCutoffAhead() {
+    void patientCannotBookInsideCutoff() {
         Fixture fixture = clinic();
         callerIs(fixture.patientUserId(), Role.PATIENT);
 
@@ -119,7 +119,7 @@ class BookingGuardsTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void aPatientMayBookWellBeyondTheCutoff() {
+    void patientCanBookBeyondCutoff() {
         Fixture fixture = clinic();
         callerIs(fixture.patientUserId(), Role.PATIENT);
 
@@ -132,7 +132,7 @@ class BookingGuardsTest extends AbstractIntegrationTest {
     // ─── R2: adding earlier work may not close a window the patient holds ───
 
     @Test
-    void addingATreatmentInsideTheCancellationWindowIsRefused() {
+    void rejectsTreatmentInsideWindow() {
         Fixture fixture = clinic();
         Instant visitStart = at(13, 30);
         UUID appointmentId = visitWith(fixture, planned(visitStart));
@@ -152,7 +152,7 @@ class BookingGuardsTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void addingAnEarlierTreatmentIsAllowedWhileTheWindowStaysOpen() {
+    void allowsEarlierTreatmentWhileWindowOpen() {
         Fixture fixture = clinic();
         Instant visitStart = at(13, 30);
         UUID appointmentId = visitWith(fixture, planned(visitStart));
@@ -171,7 +171,7 @@ class BookingGuardsTest extends AbstractIntegrationTest {
     // ─── T2: only work still to come is released while rescheduling ─────────
 
     @Test
-    void aReplacedVisitReleasesOnlyItsPlannedTreatments() {
+    void releasesOnlyPlannedTreatments() {
         Fixture fixture = clinic();
         UUID appointmentId = visitWith(
                 fixture,

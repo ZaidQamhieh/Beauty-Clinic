@@ -7,10 +7,10 @@ import com.example.backend.dtos.PatientDetailResponse;
 import com.example.backend.dtos.PatientRecordResponse;
 import com.example.backend.services.PatientProfileService;
 import com.example.backend.security.access.ClinicStaffOnly;
-import org.springframework.security.access.prepost.PreAuthorize;
 import com.example.backend.security.access.ClinicalReader;
 import com.example.backend.security.access.ClinicalWriter;
 import com.example.backend.security.access.PatientOnly;
+import com.example.backend.security.access.StaffOrSelf;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -52,7 +52,7 @@ public class PatientController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('DOCTOR', 'RECEPTIONIST', 'ADMIN') or @access.isSelf(#id)")
+    @StaffOrSelf
     public PatientDetailResponse read(@PathVariable UUID id) {
         return patients.read(id);
     }

@@ -2,14 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:beauty_clinic_app/auth/auth_session.dart';
 import 'package:beauty_clinic_app/auth/role.dart';
 import 'package:beauty_clinic_app/core/theme/app_theme.dart';
-import 'package:beauty_clinic_app/core/theme/app_typography.dart';
-import 'package:beauty_clinic_app/core/theme/app_colors.dart';
 import 'package:beauty_clinic_app/core/widgets/floating_petals.dart';
 import 'package:beauty_clinic_app/features/shell/presentation/app_shell.dart';
 import 'package:beauty_clinic_app/features/dashboard/presentation/dashboard_screen.dart';
 import 'package:beauty_clinic_app/features/doctor_profile/presentation/doctor_profile_screen.dart';
 import 'package:beauty_clinic_app/features/patient_profile/presentation/patient_profile_screen.dart';
 import 'package:beauty_clinic_app/features/landing/presentation/landing_screen.dart';
+import 'package:beauty_clinic_app/features/appointments/data/appointment.dart';
+import 'package:beauty_clinic_app/features/appointments/data/appointment_api.dart';
+import 'package:beauty_clinic_app/features/appointments/data/clinic_time.dart';
+import 'package:beauty_clinic_app/features/appointments/data/doctor_api.dart';
+import 'package:beauty_clinic_app/features/appointments/data/treatment_api.dart';
+import 'package:beauty_clinic_app/features/appointments/presentation/appointments_screen.dart';
+import 'package:beauty_clinic_app/features/appointments/presentation/booking_flow_sheet.dart';
 import 'package:beauty_clinic_app/features/products/data/product_api.dart';
 import 'package:beauty_clinic_app/features/products/presentation/product_catalog_screen.dart';
 import 'package:beauty_clinic_app/network/api_client.dart';
@@ -108,8 +113,17 @@ class MainRootController extends StatefulWidget {
 class _MainRootControllerState extends State<MainRootController> {
   late String _activeRole; // 'admin' | 'doctor' | 'receptionist' | 'patient'
   late String _activeView; // active view: dashboard, profile, or landing
+
   late final ApiClient _apiClient;
   late final ProductApi _products;
+  late final TreatmentApi _treatmentApi;
+  late final AppointmentApi _appointmentApi;
+  late final DoctorApi _doctorApi;
+
+  // Carries a just-booked visit to the list.
+  final ValueNotifier<Appointment?> _bookedSignal = ValueNotifier<Appointment?>(
+    null,
+  );
 
   @override
   void initState() {
@@ -117,13 +131,20 @@ class _MainRootControllerState extends State<MainRootController> {
     // The shell uses lowercase role names; the backend sends uppercase wire names.
     _activeRole = widget.authSession.role?.wireName.toLowerCase() ?? 'admin';
     _activeView = 'dashboard';
+
     _apiClient = ApiClient(widget.authSession);
     _products = ProductApi(_apiClient);
+    _treatmentApi = TreatmentApi(_apiClient);
+    _appointmentApi = AppointmentApi(_apiClient);
+    _doctorApi = DoctorApi(_apiClient);
   }
 
   @override
   void dispose() {
+    _bookedSignal.dispose();
     _apiClient.close();
+    // Covers every way the session can end.
+    ClinicTime.reset();
     super.dispose();
   }
 
@@ -151,6 +172,11 @@ class _MainRootControllerState extends State<MainRootController> {
   }
 
   void _onViewChanged(String newView) {
+    // "Book" opens the sheet, not a view.
+    if (newView == 'book') {
+      _openBookingModal();
+      return;
+    }
     if (!_allowedViews.contains(newView)) return;
     setState(() {
       _activeView = newView;
@@ -197,11 +223,15 @@ class _MainRootControllerState extends State<MainRootController> {
   }
 
   void _openBookingModal() {
-    showModalBottomSheet(
+    showDialog<bool>(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => _buildBookingDialog(context),
+      builder: (context) => BookingFlowSheet(
+        treatmentApi: _treatmentApi,
+        appointmentApi: _appointmentApi,
+        doctorApi: _doctorApi,
+        // Hand the new visit to the list.
+        onBooked: (appointment) => _bookedSignal.value = appointment,
+      ),
     );
   }
 
@@ -226,6 +256,18 @@ class _MainRootControllerState extends State<MainRootController> {
   }
 
   Widget _buildCurrentView() {
+    // Patients get their own list; staff keep dashboard.
+    if (_activeRole == 'patient' &&
+        (_activeView == 'dashboard' || _activeView == 'appointments')) {
+      return AppointmentsScreen(
+        key: const ValueKey('my_appointments'),
+        appointmentApi: _appointmentApi,
+        treatmentApi: _treatmentApi,
+        doctorApi: _doctorApi,
+        bookedSignal: _bookedSignal,
+      );
+    }
+
     switch (_activeView) {
       case 'dashboard':
       case 'appointments':
@@ -262,105 +304,5 @@ class _MainRootControllerState extends State<MainRootController> {
           onViewDoctor: _onViewDoctor,
         );
     }
-  }
-
-  Widget _buildBookingDialog(BuildContext context) {
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.75,
-      decoration: const BoxDecoration(
-        color: AppColors.bgCard,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Book an Appointment',
-                style: AppTypography.displayTitle(color: AppColors.text),
-              ),
-              IconButton(
-                icon: const Icon(Icons.close, color: AppColors.textMuted),
-                onPressed: () => Navigator.pop(context),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Select treatment and practitioner for your session.',
-            style: AppTypography.bodySmall(color: AppColors.textMuted),
-          ),
-          const SizedBox(height: 24),
-          Expanded(
-            child: ListView(
-              children: [
-                ListTile(
-                  leading: const CircleAvatar(
-                    backgroundColor: AppColors.bgRose,
-                    child: Icon(Icons.face, color: AppColors.rose),
-                  ),
-                  title: Text(
-                    'HydraFacial Glow Treatment',
-                    style: AppTypography.labelLarge(),
-                  ),
-                  subtitle: Text(
-                    '45 min • £120',
-                    style: AppTypography.bodySmall(),
-                  ),
-                  trailing: const Icon(
-                    Icons.chevron_right,
-                    color: AppColors.textMuted,
-                  ),
-                  onTap: () => Navigator.pop(context),
-                ),
-                const Divider(),
-                ListTile(
-                  leading: const CircleAvatar(
-                    backgroundColor: AppColors.bgLavender,
-                    child: Icon(Icons.auto_awesome, color: AppColors.lav),
-                  ),
-                  title: Text(
-                    'Laser Skin Resurfacing',
-                    style: AppTypography.labelLarge(),
-                  ),
-                  subtitle: Text(
-                    '60 min • £250',
-                    style: AppTypography.bodySmall(),
-                  ),
-                  trailing: const Icon(
-                    Icons.chevron_right,
-                    color: AppColors.textMuted,
-                  ),
-                  onTap: () => Navigator.pop(context),
-                ),
-                const Divider(),
-                ListTile(
-                  leading: const CircleAvatar(
-                    backgroundColor: AppColors.bgSage,
-                    child: Icon(Icons.spa, color: AppColors.sage),
-                  ),
-                  title: Text(
-                    'Botox & Dermal Fillers Consultation',
-                    style: AppTypography.labelLarge(),
-                  ),
-                  subtitle: Text(
-                    '30 min • £80',
-                    style: AppTypography.bodySmall(),
-                  ),
-                  trailing: const Icon(
-                    Icons.chevron_right,
-                    color: AppColors.textMuted,
-                  ),
-                  onTap: () => Navigator.pop(context),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }

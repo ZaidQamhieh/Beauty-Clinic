@@ -41,7 +41,7 @@ class CancellationCutoffTest {
     }
 
     @Test
-    void patientMayCancelWellBeforeTheCutoff() {
+    void patientCanCancelBeforeCutoff() {
         callerIs(Role.PATIENT);
 
         assertThatCode(() -> policyAt(VISIT_START.minus(CUTOFF).minusSeconds(60))
@@ -51,7 +51,7 @@ class CancellationCutoffTest {
 
     // The documented boundary: at exactly 60 minutes out the patient is still in time.
     @Test
-    void patientMayCancelAtExactlyTheCutoff() {
+    void patientCanCancelAtCutoff() {
         callerIs(Role.PATIENT);
 
         assertThatCode(() -> policyAt(VISIT_START.minus(CUTOFF)).assertCancellable(VISIT_START))
@@ -59,7 +59,7 @@ class CancellationCutoffTest {
     }
 
     @Test
-    void patientMayNotCancelOneSecondInsideTheCutoff() {
+    void patientCannotCancelInsideCutoff() {
         callerIs(Role.PATIENT);
 
         assertThatThrownBy(() -> policyAt(VISIT_START.minus(CUTOFF).plusSeconds(1))
@@ -68,7 +68,7 @@ class CancellationCutoffTest {
     }
 
     @Test
-    void patientMayNotCancelOnceTheVisitHasStarted() {
+    void patientCannotCancelStartedVisit() {
         callerIs(Role.PATIENT);
 
         assertThatThrownBy(() -> policyAt(VISIT_START).assertCancellable(VISIT_START))
@@ -76,7 +76,7 @@ class CancellationCutoffTest {
     }
 
     @Test
-    void staffMayCancelInsideThePatientCutoff() {
+    void staffCanCancelInsidePatientCutoff() {
         callerIs(Role.RECEPTIONIST);
 
         assertThatCode(() -> policyAt(VISIT_START.minusSeconds(60)).assertCancellable(VISIT_START))
@@ -84,7 +84,7 @@ class CancellationCutoffTest {
     }
 
     @Test
-    void staffMayNotCancelAtTheVisitStart() {
+    void staffCannotCancelAtVisitStart() {
         callerIs(Role.RECEPTIONIST);
 
         assertThatThrownBy(() -> policyAt(VISIT_START).assertCancellable(VISIT_START))
@@ -92,7 +92,7 @@ class CancellationCutoffTest {
     }
 
     @Test
-    void staffMayNotCancelAfterTheVisitStart() {
+    void staffCannotCancelAfterVisitStart() {
         callerIs(Role.DOCTOR);
 
         assertThatThrownBy(() -> policyAt(VISIT_START.plusSeconds(1)).assertCancellable(VISIT_START))
@@ -102,7 +102,7 @@ class CancellationCutoffTest {
     // ─── R1: a patient may not book what they could not then cancel ─────────
 
     @Test
-    void aPatientMayNotBookInsideTheCancellationWindow() {
+    void patientCannotBookInsideWindow() {
         callerIs(Role.PATIENT);
 
         assertThatThrownBy(() -> policyAt(VISIT_START.minus(CUTOFF).plusSeconds(1))
@@ -111,7 +111,7 @@ class CancellationCutoffTest {
     }
 
     @Test
-    void aPatientMayBookExactlyTheCutoffAhead() {
+    void patientCanBookAtCutoff() {
         callerIs(Role.PATIENT);
 
         assertThatCode(() -> policyAt(VISIT_START.minus(CUTOFF)).assertLeavesRoomToCancel(VISIT_START))
@@ -119,7 +119,7 @@ class CancellationCutoffTest {
     }
 
     @Test
-    void staffMayStillBookAtShortNotice() {
+    void staffCanBookAtShortNotice() {
         callerIs(Role.RECEPTIONIST);
 
         assertThatCode(() -> policyAt(VISIT_START.minusSeconds(60)).assertLeavesRoomToCancel(VISIT_START))
@@ -129,7 +129,7 @@ class CancellationCutoffTest {
     // ─── R2: the window read on the patient's behalf, whoever is asking ─────
 
     @Test
-    void thePatientsWindowIsOpenUpToAndIncludingTheCutoff() {
+    void windowIsOpenAtCutoff() {
         callerIs(Role.RECEPTIONIST);
 
         assertThat(policyAt(VISIT_START.minus(CUTOFF)).patientWindowOpen(VISIT_START)).isTrue();
