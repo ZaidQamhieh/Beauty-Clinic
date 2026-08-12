@@ -3,9 +3,10 @@ import 'package:flutter/material.dart';
 import '../auth/auth_session.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key, required this.authSession});
+  const LoginScreen({super.key, required this.authSession, required this.onRegister});
 
   final AuthSession authSession;
+  final VoidCallback onRegister;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -183,6 +184,11 @@ class _LoginScreenState extends State<LoginScreen> {
                                     ),
                                   )
                                 : const Text('Sign in'),
+                          ),
+                          TextButton(
+                            key: const Key('registerLink'),
+                            onPressed: _submitting ? null : widget.onRegister,
+                            child: const Text('New patient? Create an account'),
                           ),
                         ],
                       ),

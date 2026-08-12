@@ -10,6 +10,7 @@ import 'package:beauty_clinic_app/features/doctor_profile/presentation/doctor_pr
 import 'package:beauty_clinic_app/features/patient_profile/presentation/patient_profile_screen.dart';
 import 'package:beauty_clinic_app/features/landing/presentation/landing_screen.dart';
 import 'package:beauty_clinic_app/screens/login_screen.dart';
+import 'package:beauty_clinic_app/screens/register_screen.dart';
 
 /// Main Application Entry Widget for Yasmine Beauty Clinic
 class BeautyClinicApp extends StatelessWidget {
@@ -43,6 +44,7 @@ class AuthGate extends StatefulWidget {
 class _AuthGateState extends State<AuthGate> {
   late final AuthSession _session;
   late final bool _ownsSession;
+  bool _showRegistration = false;
 
   @override
   void initState() {
@@ -74,7 +76,15 @@ class _AuthGateState extends State<AuthGate> {
       case AuthStatus.initializing:
         return const Scaffold(body: Center(child: CircularProgressIndicator()));
       case AuthStatus.unauthenticated:
-        return LoginScreen(authSession: _session);
+        return _showRegistration
+            ? RegisterScreen(
+                authSession: _session,
+                onSignIn: () => setState(() => _showRegistration = false),
+              )
+            : LoginScreen(
+                authSession: _session,
+                onRegister: () => setState(() => _showRegistration = true),
+              );
       case AuthStatus.authenticated:
         return MainRootController(authSession: _session);
     }
@@ -92,7 +102,7 @@ class MainRootController extends StatefulWidget {
 }
 
 class _MainRootControllerState extends State<MainRootController> {
-  late String _activeRole; // 'admin' | 'doctor' | 'receptionist' | 'patient'
+  late String _activeRole; // Set exclusively from the authenticated account.
   late String _activeView; // active view: dashboard, profile, or landing
 
   @override
@@ -103,6 +113,21 @@ class _MainRootControllerState extends State<MainRootController> {
     _activeView = 'dashboard';
   }
 
+  @override
+  void didUpdateWidget(covariant MainRootController oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final authenticatedRole =
+        widget.authSession.role?.wireName.toLowerCase() ?? 'patient';
+    if (authenticatedRole != _activeRole) {
+      _activeRole = authenticatedRole;
+      _activeView = authenticatedRole == 'patient'
+          ? 'patient_profile'
+          : authenticatedRole == 'doctor'
+          ? 'doctor_profile'
+          : 'dashboard';
+    }
+  }
+
   Future<void> _logout() async {
     try {
       await widget.authSession.logout();
@@ -111,24 +136,19 @@ class _MainRootControllerState extends State<MainRootController> {
     }
   }
 
-  void _onRoleChanged(String newRole) {
-    setState(() {
-      _activeRole = newRole;
-      if (newRole == 'patient') {
-        _activeView = 'patient_profile';
-      } else if (newRole == 'doctor') {
-        _activeView = 'doctor_profile';
-      } else {
-        _activeView = 'dashboard';
-      }
-    });
-  }
-
   void _onViewChanged(String newView) {
+    if (!_allowedViews.contains(newView)) return;
     setState(() {
       _activeView = newView;
     });
   }
+
+  Set<String> get _allowedViews => switch (_activeRole) {
+    'doctor' => {'dashboard', 'patients', 'doctor_profile', 'consultations', 'landing'},
+    'patient' => {'patient_profile', 'dashboard', 'book', 'landing'},
+    'receptionist' => {'dashboard', 'appointments', 'patients', 'doctors', 'landing'},
+    _ => {'dashboard', 'appointments', 'patients', 'doctors', 'patient_profile', 'doctor_profile', 'landing'},
+  };
 
   void _onViewPatient(String patientName) {
     setState(() {
@@ -156,7 +176,6 @@ class _MainRootControllerState extends State<MainRootController> {
     return AppShell(
       activeRole: _activeRole,
       activeView: _activeView,
-      onRoleChanged: _onRoleChanged,
       onViewChanged: _onViewChanged,
       onBookClick: _openBookingModal,
       onLogout: _logout,
