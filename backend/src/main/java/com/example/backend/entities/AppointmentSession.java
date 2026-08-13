@@ -46,6 +46,11 @@ public class AppointmentSession {
     @JoinColumn(name = "practitioner_user_id", nullable = false)
     private DoctorProfile practitioner;
 
+    // Copied from the visit so the overlap constraint can key on the patient.
+    @NotNull
+    @Column(name = "patient_user_id", nullable = false, updatable = false)
+    private UUID patientUserId;
+
     @NotNull
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
@@ -100,6 +105,7 @@ public class AppointmentSession {
             Instant endTime
     ) {
         this.appointment = appointment;
+        this.patientUserId = appointment.getPatient().getUserId();
         this.practitioner = practitioner;
         this.category = category;
         this.treatmentName = treatmentName;

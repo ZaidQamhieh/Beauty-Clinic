@@ -37,9 +37,11 @@ import java.time.LocalDate;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -91,6 +93,8 @@ public class AppointmentService {
 
         assertVisitFitsOneDay(requested);
         assertVisitDoesNotClashWithItself(requested);
+        assertOneOfEachTreatment(requested);
+        assertNoOtherVisitThatDay(patient.getUserId(), requested.get(0).startTime(), replaced);
 
         Appointment appointment = new Appointment(patient, requested.get(0).startTime());
         currentUser.id().ifPresent(id -> appointment.setCreatedBy(users.getReferenceById(id)));
@@ -337,6 +341,38 @@ public class AppointmentService {
     private Instant[] withTurnover(Instant startTime, Instant endTime) {
         Duration turnover = clinic.turnover();
         return new Instant[]{startTime.minus(turnover), endTime.plus(turnover)};
+    }
+
+    // A treatment is done once a visit. Repeating one in a single trip is a
+    // mistake in the booking, not a clinical plan.
+    private void assertOneOfEachTreatment(List<AddSessionRequest> requested) {
+        Set<TreatmentName> seen = EnumSet.noneOf(TreatmentName.class);
+
+        for (AddSessionRequest session : requested) {
+            if (!seen.add(session.treatmentName())) {
+                throw new ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "That treatment is already in this visit");
+            }
+        }
+    }
+
+    // Everything a patient has on one day belongs to one visit, so a second
+    // booking for that day is a mistake rather than a separate trip.
+    private void assertNoOtherVisitThatDay(UUID patientUserId, Instant startTime, Appointment replaced) {
+        LocalDate day = startTime.atZone(clinic.zone()).toLocalDate();
+
+        boolean taken = appointments.existsBookedForPatientBetween(
+                patientUserId,
+                startOfDay(day),
+                startOfDay(day.plusDays(1)),
+                replaced == null ? null : replaced.getId());
+
+        if (taken) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "That patient already has a visit booked that day");
+        }
     }
 
     // One visit is one trip, so its treatments share a day and one cancellation cutoff.
