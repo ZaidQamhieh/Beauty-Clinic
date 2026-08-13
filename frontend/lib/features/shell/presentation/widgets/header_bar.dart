@@ -149,26 +149,28 @@ class HeaderBar extends StatelessWidget implements PreferredSizeWidget {
                 ],
               ),
 
-              const SizedBox(width: 8),
-
-              // New Appointment Action Button
-              ElevatedButton.icon(
-                onPressed: onBookClick,
-                style: ElevatedButton.styleFrom(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: compactText ? 10 : 14,
-                    vertical: 8,
+              // Booking is a page action, not a global one: only a screen that
+              // passes a handler shows it here.
+              if (onBookClick != null) ...[
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  onPressed: onBookClick,
+                  style: ElevatedButton.styleFrom(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: compactText ? 10 : 14,
+                      vertical: 8,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
                   ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
+                  icon: const Icon(Icons.add_rounded, size: 16),
+                  label: Text(
+                    compactText || isMobile ? 'Book' : 'New Appt',
+                    style: AppTypography.labelSmall(color: AppColors.white),
                   ),
                 ),
-                icon: const Icon(Icons.add_rounded, size: 16),
-                label: Text(
-                  compactText || isMobile ? 'Book' : 'New Appt',
-                  style: AppTypography.labelSmall(color: AppColors.white),
-                ),
-              ),
+              ],
 
               const SizedBox(width: 10),
 

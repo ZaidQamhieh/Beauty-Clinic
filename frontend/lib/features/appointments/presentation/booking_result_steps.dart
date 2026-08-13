@@ -22,6 +22,8 @@ class BookingSuccessStep extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+      // Hugs its sessions, so a one-treatment visit is not a screen of nothing.
+      mainAxisSize: MainAxisSize.min,
       children: [
         const Icon(Icons.check_circle_outline, color: AppColors.sage, size: 44),
         const SizedBox(height: 12),
@@ -35,8 +37,9 @@ class BookingSuccessStep extends StatelessWidget {
           style: AppTypography.bodyMedium(),
         ),
         const SizedBox(height: 16),
-        Expanded(
+        Flexible(
           child: ListView(
+            shrinkWrap: true,
             children: [
               for (final session in appointment.plannedSessions)
                 Padding(

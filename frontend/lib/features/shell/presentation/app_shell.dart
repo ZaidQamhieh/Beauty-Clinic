@@ -12,7 +12,9 @@ class AppShell extends StatefulWidget {
   final String activeRole;
   final String activeView;
   final ValueChanged<String> onViewChanged;
-  final VoidCallback onBookClick;
+
+  /// Null on pages that own their own booking action, which is most of them.
+  final VoidCallback? onBookClick;
   final VoidCallback? onLogout;
 
   const AppShell({
@@ -21,7 +23,7 @@ class AppShell extends StatefulWidget {
     required this.activeRole,
     required this.activeView,
     required this.onViewChanged,
-    required this.onBookClick,
+    this.onBookClick,
     this.onLogout,
   });
 

@@ -37,10 +37,7 @@ class AppointmentsScreen extends StatefulWidget {
   State<AppointmentsScreen> createState() => _AppointmentsScreenState();
 }
 
-class _AppointmentsScreenState extends State<AppointmentsScreen>
-    with SingleTickerProviderStateMixin {
-  late final TabController _tabs;
-
+class _AppointmentsScreenState extends State<AppointmentsScreen> {
   List<Appointment>? _upcoming;
   List<Appointment>? _history;
   bool _loading = true;
@@ -62,7 +59,6 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: 2, vsync: this);
     widget.bookedSignal.addListener(_onExternalBooking);
     _useClinicRules();
     _load();
@@ -94,7 +90,6 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
   @override
   void dispose() {
     widget.bookedSignal.removeListener(_onExternalBooking);
-    _tabs.dispose();
     super.dispose();
   }
 
@@ -255,6 +250,25 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
     }
   }
 
+  // A fresh visit. Same sheet as a reschedule, with nothing to replace.
+  Future<void> _book() async {
+    Appointment? booked;
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (_) => BookingFlowSheet(
+        treatmentApi: widget.treatmentApi,
+        appointmentApi: widget.appointmentApi,
+        doctorApi: widget.doctorApi,
+        onBooked: (a) => booked = a,
+      ),
+    );
+    if (!mounted) return;
+    if (result == true && booked != null) {
+      setState(() => _insertUpcoming(booked!));
+      _reloadAfterMutation();
+    }
+  }
+
   Future<void> _reschedule(Appointment appointment) async {
     Appointment? booked;
     final result = await showDialog<bool>(
@@ -288,21 +302,35 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('My appointments', style: AppTypography.displayTitle()),
-          const SizedBox(height: 16),
-          TabBar(
-            controller: _tabs,
-            labelColor: AppColors.rose,
-            unselectedLabelColor: AppColors.textMuted,
-            indicatorColor: AppColors.rose,
-            labelStyle: AppTypography.labelMedium(),
-            unselectedLabelStyle: AppTypography.labelMedium(),
-            tabs: const [
-              Tab(text: 'Upcoming'),
-              Tab(text: 'History'),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'My appointments',
+                  style: AppTypography.displayTitle(),
+                ),
+              ),
+              // Booking lives with the list it adds to, not in the global header.
+              ElevatedButton.icon(
+                onPressed: _book,
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+                icon: const Icon(Icons.add_rounded, size: 16),
+                label: Text(
+                  'New appointment',
+                  style: AppTypography.labelSmall(color: AppColors.white),
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           Expanded(child: _content()),
         ],
       ),
@@ -320,28 +348,67 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
         onRetry: _load,
       );
     }
-    return TabBarView(
-      controller: _tabs,
+    final upcoming = _column(
+      'UPCOMING',
+      _list(
+        _upcoming ?? const [],
+        'No upcoming appointments.',
+        (appointment) => _UpcomingCard(
+          appointment: appointment,
+          cancellable: _stillCancellable(appointment),
+          onCancel: () => _cancel(appointment),
+          onReschedule: () => _reschedule(appointment),
+        ),
+        hasMore: _upcomingHasMore,
+        onLoadMore: () => _loadMore(upcoming: true),
+      ),
+    );
+
+    final history = _column(
+      'HISTORY',
+      _list(
+        _history ?? const [],
+        'No past appointments yet.',
+        (appointment) => _HistoryCard(appointment: appointment),
+        hasMore: _historyHasMore,
+        onLoadMore: () => _loadMore(upcoming: false),
+      ),
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Side by side where there is room; stacked when the pair would be
+        // too narrow to read, which is the tabs' job done by the layout.
+        if (constraints.maxWidth < 900) {
+          return ListView(
+            children: [
+              SizedBox(height: 320, child: upcoming),
+              const SizedBox(height: 24),
+              SizedBox(height: 320, child: history),
+            ],
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(flex: 3, child: upcoming),
+            const SizedBox(width: 32),
+            Expanded(flex: 2, child: history),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _column(String title, Widget body) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _list(
-          _upcoming ?? const [],
-          'No upcoming appointments.',
-          (appointment) => _UpcomingCard(
-            appointment: appointment,
-            cancellable: _stillCancellable(appointment),
-            onCancel: () => _cancel(appointment),
-            onReschedule: () => _reschedule(appointment),
-          ),
-          hasMore: _upcomingHasMore,
-          onLoadMore: () => _loadMore(upcoming: true),
-        ),
-        _list(
-          _history ?? const [],
-          'No past appointments yet.',
-          (appointment) => _HistoryCard(appointment: appointment),
-          hasMore: _historyHasMore,
-          onLoadMore: () => _loadMore(upcoming: false),
-        ),
+        Text(title, style: AppTypography.labelSmall()),
+        const SizedBox(height: 4),
+        const Divider(),
+        const SizedBox(height: 8),
+        Expanded(child: body),
       ],
     );
   }

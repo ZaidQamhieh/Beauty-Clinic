@@ -21,8 +21,10 @@ class BookingBrowseStep extends StatelessWidget {
     required this.selectedDay,
     required this.maxHorizonDays,
     required this.treatments,
+    required this.alreadyInVisit,
     required this.selectedTreatment,
     required this.slots,
+    required this.openSlots,
     required this.slotsLoading,
     required this.slotsError,
     required this.dayLocked,
@@ -42,9 +44,16 @@ class BookingBrowseStep extends StatelessWidget {
   final int maxHorizonDays;
 
   final List<Treatment> treatments;
+
+  /// Treatment names already held in the visit, offered greyed out.
+  final Set<String> alreadyInVisit;
   final Treatment? selectedTreatment;
 
   final List<FreeSlot>? slots;
+
+  /// Open time shown before a treatment narrows the roster. Not bookable: a
+  /// slot is only real once measured in the chosen treatment's own length.
+  final List<FreeSlot>? openSlots;
   final bool slotsLoading;
   final String? slotsError;
 
@@ -71,13 +80,11 @@ class BookingBrowseStep extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         if (constraints.maxWidth >= 720) {
+          // Stretched, so the left column is height-bounded and its calendar can fill.
           return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              SizedBox(
-                width: 340,
-                child: SingleChildScrollView(child: _leftPanel(context)),
-              ),
+              SizedBox(width: 340, child: _leftPanel(context, fill: true)),
               const SizedBox(width: 24),
               Expanded(child: SingleChildScrollView(child: _rightPanel())),
             ],
@@ -87,7 +94,7 @@ class BookingBrowseStep extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _leftPanel(context),
+              _leftPanel(context, fill: false),
               const SizedBox(height: 20),
               _rightPanel(),
             ],
@@ -97,11 +104,27 @@ class BookingBrowseStep extends StatelessWidget {
     );
   }
 
-  Widget _leftPanel(BuildContext context) {
+  // fill: the column owns a bounded height, so the calendar takes what is left
+  // rather than running past the panel and forcing a scroll to reach its end.
+  Widget _leftPanel(BuildContext context, {required bool fill}) {
+    final calendar = _calendar(context, fill: fill);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: fill ? MainAxisSize.max : MainAxisSize.min,
       children: [
-        _calendar(context),
+        Text('SELECTED TREATMENT', style: AppTypography.labelSmall()),
+        const SizedBox(height: 8),
+        _treatmentCombobox(),
+        const SizedBox(height: 16),
+        Text('AVAILABILITY VIEW', style: AppTypography.labelSmall()),
+        const SizedBox(height: 8),
+        _viewToggle(),
+        const SizedBox(height: 16),
+        Text('DATE', style: AppTypography.labelSmall()),
+        const SizedBox(height: 8),
+        // Laid out after the fixed children, so the note below keeps its space.
+        if (fill) Expanded(child: calendar) else calendar,
         if (dayLocked) ...[
           const SizedBox(height: 8),
           Text(
@@ -109,21 +132,14 @@ class BookingBrowseStep extends StatelessWidget {
             style: AppTypography.bodySmall(),
           ),
         ],
-        const SizedBox(height: 20),
-        Text('SELECTED TREATMENT', style: AppTypography.labelSmall()),
-        const SizedBox(height: 8),
-        _treatmentCombobox(),
-        const SizedBox(height: 20),
-        Text('AVAILABILITY VIEW', style: AppTypography.labelSmall()),
-        const SizedBox(height: 8),
-        _viewToggle(),
       ],
     );
   }
 
-  Widget _calendar(BuildContext context) {
-    return Container(
-      height: 320,
+  Widget _calendar(BuildContext context, {required bool fill}) {
+    final calendar = Container(
+      // Unset when filling: the Expanded above hands down the height.
+      height: fill ? null : 320,
       decoration: BoxDecoration(
         color: AppColors.bgAlt,
         borderRadius: BorderRadius.circular(14),
@@ -148,46 +164,16 @@ class BookingBrowseStep extends StatelessWidget {
         ),
       ),
     );
+
+    return calendar;
   }
 
   Widget _treatmentCombobox() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        color: AppColors.bgCard,
-        border: Border.all(color: AppColors.border),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.search, size: 16, color: AppColors.rose),
-          const SizedBox(width: 8),
-          Expanded(
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<Treatment>(
-                isExpanded: true,
-                value: selectedTreatment,
-                icon: const Icon(
-                  Icons.keyboard_arrow_down,
-                  color: AppColors.textMuted,
-                ),
-                items: [
-                  for (final treatment in treatments)
-                    DropdownMenuItem(
-                      value: treatment,
-                      child: Text(
-                        '${treatment.label} · ${treatment.durationMinutes} min',
-                        style: AppTypography.bodyMedium(),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                ],
-                onChanged: onTreatmentChanged,
-              ),
-            ),
-          ),
-        ],
-      ),
+    return _TreatmentField(
+      treatments: treatments,
+      alreadyInVisit: alreadyInVisit,
+      selected: selectedTreatment,
+      onChanged: onTreatmentChanged,
     );
   }
 
@@ -268,6 +254,8 @@ class BookingBrowseStep extends StatelessWidget {
         ),
       );
     }
+    // Unfiltered: the whole roster, since no treatment has narrowed it yet.
+    if (selectedTreatment == null) return _directory();
     final free = slots ?? const <FreeSlot>[];
     if (free.isEmpty) {
       return SizedBox(
@@ -293,6 +281,124 @@ class BookingBrowseStep extends StatelessWidget {
         children: [
           Flexible(child: Text(title, style: AppTypography.labelLarge())),
           Text(note, style: AppTypography.labelSmall()),
+        ],
+      ),
+    );
+  }
+
+  // ─── Unfiltered: every doctor, before a treatment narrows them ────────────
+
+  // Open time comes from the shortest treatment everyone qualifies for, so it
+  // reads as "when this doctor is free" rather than as bookable slots.
+  Widget _directory() {
+    final open = openSlots ?? const <FreeSlot>[];
+
+    // The toggle still decides the shape; only the source of the times differs.
+    if (!viewByDoctor) {
+      if (open.isEmpty) {
+        return SizedBox(
+          height: 240,
+          child: BookingMessage(
+            icon: Icons.event_busy_outlined,
+            text:
+                'Nothing free on ${BookingFormat.calendarDay(selectedDay)}. '
+                'Try another day.',
+          ),
+        );
+      }
+      return _byTime(open);
+    }
+
+    final byDoctor = _groupByDoctor(open);
+
+    final roster = doctorsById.values.toList()
+      ..sort((a, b) {
+        final free = _freeHours(
+          byDoctor[b.userId] ?? const [],
+        ).length.compareTo(_freeHours(byDoctor[a.userId] ?? const []).length);
+        return free != 0 ? free : a.fullName.compareTo(b.fullName);
+      });
+
+    if (roster.isEmpty) {
+      return const SizedBox(
+        height: 240,
+        child: BookingMessage(
+          icon: Icons.person_off_outlined,
+          text: 'No doctors are listed yet.',
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _panelHeader(
+          'Our Doctors — ${BookingFormat.calendarDay(selectedDay)}',
+          'Pick a treatment to book',
+        ),
+        for (final doctor in roster)
+          _directoryCard(doctor, byDoctor[doctor.userId] ?? const []),
+      ],
+    );
+  }
+
+  Widget _directoryCard(DoctorSummary doctor, List<FreeSlot> open) {
+    final tags = doctor.categoryTags;
+    final freeHours = _freeHours(open).length;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.bgCard,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 24,
+                backgroundColor: AppColors.bgRose,
+                child: Text(
+                  doctor.initials,
+                  style: AppTypography.labelLarge(color: AppColors.rose),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(doctor.fullName, style: AppTypography.labelLarge()),
+                    Text(
+                      // No specialization qualifies for consultations alone.
+                      tags.isEmpty ? 'Consultations' : tags.join(', '),
+                      style: AppTypography.bodySmall(),
+                    ),
+                  ],
+                ),
+              ),
+              if (open.isNotEmpty) _hoursBadge(freeHours),
+            ],
+          ),
+          if (open.isEmpty) ...[
+            const SizedBox(height: 12),
+            Text(
+              'Nothing free on ${BookingFormat.calendarDay(selectedDay)}.',
+              style: AppTypography.bodySmall(),
+            ),
+          ] else ...[
+            const SizedBox(height: 14),
+            _timelineBar(open),
+            const SizedBox(height: 14),
+            Text(
+              'Free from ${BookingFormat.time12(open.map((s) => s.startTime).reduce((a, b) => a.isBefore(b) ? a : b))}',
+              style: AppTypography.bodySmall(),
+            ),
+          ],
         ],
       ),
     );
@@ -479,57 +585,92 @@ class BookingBrowseStep extends StatelessWidget {
           '${doctor?.fullName ?? 'Doctor'} — pick a time',
           BookingFormat.calendarDay(selectedDay),
         ),
-        ..._periodPills(slots),
+        _agenda(slots),
       ],
     );
   }
 
-  // Small tappable pills, grouped by period.
-  List<Widget> _periodPills(List<FreeSlot> slots) {
-    final widgets = <Widget>[];
-    _groupByPeriod(slots).forEach((label, list) {
-      if (list.isEmpty) return;
-      widgets.add(
-        Padding(
-          padding: const EdgeInsets.only(top: 12, bottom: 8),
-          child: Text(label, style: AppTypography.labelSmall()),
-        ),
-      );
-      widgets.add(
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (final slot in list)
-              Material(
-                color: AppColors.rosePale,
-                borderRadius: BorderRadius.circular(8),
-                child: InkWell(
-                  onTap: () => onSlotChosen(slot),
-                  borderRadius: BorderRadius.circular(8),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AppColors.borderRose),
-                    ),
+  // An hour per row, empty ones kept: a gap in the day is information, and
+  // pills alone left it to be inferred from times that were simply missing.
+  Widget _agenda(List<FreeSlot> slots) {
+    final byHour = <int, List<FreeSlot>>{};
+    for (final slot in slots) {
+      byHour
+          .putIfAbsent(ClinicTime.at(slot.startTime).hour, () => [])
+          .add(slot);
+    }
+    if (byHour.isEmpty) {
+      return Text('No free times.', style: AppTypography.bodySmall());
+    }
+
+    for (final list in byHour.values) {
+      list.sort((a, b) => a.startTime.compareTo(b.startTime));
+    }
+    final hours = byHour.keys.toList()..sort();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (var hour = hours.first; hour <= hours.last; hour++)
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: AppColors.hairline)),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: 62,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 8),
                     child: Text(
-                      BookingFormat.time12(slot.startTime),
-                      style: AppTypography.labelMedium(
-                        color: AppColors.roseDark,
-                      ),
+                      BookingFormat.hour12(hour),
+                      style: AppTypography.labelSmall(),
                     ),
                   ),
                 ),
-              ),
-          ],
+                Expanded(
+                  child: byHour[hour] == null
+                      ? Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text('—', style: AppTypography.bodySmall()),
+                        )
+                      : Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            for (final slot in byHour[hour]!) _timeChip(slot),
+                          ],
+                        ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _timeChip(FreeSlot slot) {
+    return Material(
+      color: AppColors.rosePale,
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        onTap: () => onSlotChosen(slot),
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppColors.borderRose),
+          ),
+          child: Text(
+            BookingFormat.time12(slot.startTime),
+            style: AppTypography.labelMedium(color: AppColors.roseDark),
+          ),
         ),
-      );
-    });
-    return widgets;
+      ),
+    );
   }
 
   // ─── By time: chronological cards grouped by period ────────────────────────
@@ -537,8 +678,12 @@ class BookingBrowseStep extends StatelessWidget {
   Widget _byTime(List<FreeSlot> slots) {
     final children = <Widget>[
       _panelHeader(
-        'Available Slots — ${BookingFormat.calendarDay(selectedDay)}',
-        'Chronological timeline',
+        selectedTreatment == null
+            ? 'Open Times — ${BookingFormat.calendarDay(selectedDay)}'
+            : 'Available Slots — ${BookingFormat.calendarDay(selectedDay)}',
+        selectedTreatment == null
+            ? 'Pick a treatment to book'
+            : 'Chronological timeline',
       ),
     ];
     _groupByPeriod(slots).forEach((label, list) {
@@ -561,11 +706,19 @@ class BookingBrowseStep extends StatelessWidget {
   }
 
   Widget _slotCard(FreeSlot slot) {
+    final treatment = selectedTreatment;
     final doctor = doctorsById[slot.practitionerUserId];
-    final specialty = (doctor?.categoryTags.isNotEmpty ?? false)
+    // Unfiltered, the row is a free time and nothing more: no work is planned
+    // for it, so naming a speciality or a length would invent one.
+    final specialty =
+        treatment != null && (doctor?.categoryTags.isNotEmpty ?? false)
         ? doctor!.categoryTags.first
         : '';
-    final duration = selectedTreatment?.durationMinutes;
+    final duration = treatment?.durationMinutes;
+    final subtitle = [
+      if (specialty.isNotEmpty) specialty,
+      if (duration != null) '$duration min',
+    ].join(' · ');
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -594,25 +747,23 @@ class BookingBrowseStep extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(slot.practitionerName, style: AppTypography.labelLarge()),
-                Text(
-                  [
-                    if (specialty.isNotEmpty) specialty,
-                    if (duration != null) '$duration min',
-                  ].join(' · '),
-                  style: AppTypography.bodySmall(),
-                ),
+                // Dropped rather than left blank, so the row closes up.
+                if (subtitle.isNotEmpty)
+                  Text(subtitle, style: AppTypography.bodySmall()),
               ],
             ),
           ),
-          IconButton(
-            style: IconButton.styleFrom(
-              backgroundColor: AppColors.rose,
-              foregroundColor: AppColors.white,
-              minimumSize: const Size(34, 34),
+          // Booking needs a treatment: the cart item is built from one.
+          if (selectedTreatment != null)
+            IconButton(
+              style: IconButton.styleFrom(
+                backgroundColor: AppColors.rose,
+                foregroundColor: AppColors.white,
+                minimumSize: const Size(34, 34),
+              ),
+              icon: const Icon(Icons.arrow_forward, size: 16),
+              onPressed: () => onSlotChosen(slot),
             ),
-            icon: const Icon(Icons.arrow_forward, size: 16),
-            onPressed: () => onSlotChosen(slot),
-          ),
         ],
       ),
     );
@@ -620,9 +771,11 @@ class BookingBrowseStep extends StatelessWidget {
 
   // ─── Slot grouping helpers ────────────────────────────────────────────────
 
-  Map<String, List<FreeSlot>> _slotsByDoctor() {
+  Map<String, List<FreeSlot>> _slotsByDoctor() => _groupByDoctor(slots);
+
+  Map<String, List<FreeSlot>> _groupByDoctor(List<FreeSlot>? source) {
     final byDoctor = <String, List<FreeSlot>>{};
-    for (final slot in slots ?? const <FreeSlot>[]) {
+    for (final slot in source ?? const <FreeSlot>[]) {
       byDoctor.putIfAbsent(slot.practitionerUserId, () => []).add(slot);
     }
     for (final list in byDoctor.values) {
@@ -680,5 +833,173 @@ class BookingBrowseStep extends StatelessWidget {
       list.sort((a, b) => a.startTime.compareTo(b.startTime));
     }
     return groups;
+  }
+}
+
+/// The treatment filter. Stateful only to own the field's controller, which is
+/// what makes clearing the text mean "no treatment" rather than nothing at all.
+class _TreatmentField extends StatefulWidget {
+  const _TreatmentField({
+    required this.treatments,
+    required this.alreadyInVisit,
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final List<Treatment> treatments;
+  final Set<String> alreadyInVisit;
+  final Treatment? selected;
+  final ValueChanged<Treatment?> onChanged;
+
+  @override
+  State<_TreatmentField> createState() => _TreatmentFieldState();
+}
+
+class _TreatmentFieldState extends State<_TreatmentField> {
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.selected?.label ?? '',
+  );
+
+  late bool _empty = _controller.text.isEmpty;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addListener(_onTextChanged);
+  }
+
+  // Emptied by hand: drop the filter and show the whole roster again.
+  void _onTextChanged() {
+    final empty = _controller.text.isEmpty;
+
+    // Only on the edge, so the trailing icon swaps without rebuilding per keystroke.
+    if (empty != _empty) {
+      setState(() => _empty = empty);
+    }
+    if (empty && widget.selected != null) {
+      widget.onChanged(null);
+    }
+  }
+
+  // Clears a typed filter as well as a selection: both live in this field.
+  void _clear() {
+    _controller.clear();
+    widget.onChanged(null);
+  }
+
+  // A selection made elsewhere still has to reach the field.
+  @override
+  void didUpdateWidget(covariant _TreatmentField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final label = widget.selected?.label ?? '';
+    if (widget.selected != oldWidget.selected && _controller.text != label) {
+      _controller.text = label;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.removeListener(_onTextChanged);
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Widget _clearButton() {
+    return IconButton(
+      icon: const Icon(Icons.close, size: 18, color: AppColors.textMuted),
+      tooltip: 'Clear treatment',
+      splashRadius: 18,
+      onPressed: _clear,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final border = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(10),
+      borderSide: const BorderSide(color: AppColors.border),
+    );
+
+    return DropdownMenu<Treatment>(
+      controller: _controller,
+      initialSelection: widget.selected,
+      // The magnifier promised filtering the old dropdown never did.
+      enableFilter: true,
+      requestFocusOnTap: true,
+      expandedInsets: EdgeInsets.zero,
+      hintText: 'Search treatments',
+      leadingIcon: const Icon(Icons.search, size: 16, color: AppColors.rose),
+      textStyle: AppTypography.bodyMedium(),
+      // Nothing to clear when the field is empty, so the chevron stands in.
+      trailingIcon: _empty
+          ? const Icon(Icons.keyboard_arrow_down, color: AppColors.textMuted)
+          : _clearButton(),
+      selectedTrailingIcon: _empty
+          ? const Icon(Icons.keyboard_arrow_up, color: AppColors.textMuted)
+          : _clearButton(),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: AppColors.bgCard,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+        border: border,
+        enabledBorder: border,
+        focusedBorder: border.copyWith(
+          borderSide: const BorderSide(color: AppColors.rose),
+        ),
+      ),
+      // Uncapped on purpose. DropdownMenu never calls its own scrollToHighlight,
+      // so arrow keys walk the highlight out of a scrolling menu and it stays put.
+      // The catalogue is short enough to show whole, which sidesteps it.
+      menuStyle: MenuStyle(
+        // Hangs off the field's bottom edge instead of floating over it.
+        alignment: Alignment.bottomLeft,
+        backgroundColor: const WidgetStatePropertyAll(AppColors.bgCard),
+        surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+        elevation: const WidgetStatePropertyAll(4),
+        padding: const WidgetStatePropertyAll(
+          EdgeInsets.symmetric(vertical: 4),
+        ),
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: const BorderSide(color: AppColors.border),
+          ),
+        ),
+      ),
+      dropdownMenuEntries: [
+        for (final treatment in widget.treatments)
+          DropdownMenuEntry(
+            value: treatment,
+            // Name only, so typing filters on the treatment and not on its length.
+            label: treatment.label,
+            // A treatment is done once a visit, so its own row says why.
+            enabled: !widget.alreadyInVisit.contains(treatment.name),
+            leadingIcon: Icon(
+              widget.alreadyInVisit.contains(treatment.name)
+                  ? Icons.check_circle_outline
+                  : Icons.spa_outlined,
+              size: 18,
+              color: widget.alreadyInVisit.contains(treatment.name)
+                  ? AppColors.sage
+                  : AppColors.rose,
+            ),
+            trailingIcon: Text(
+              widget.alreadyInVisit.contains(treatment.name)
+                  ? 'in this visit'
+                  : '${treatment.durationMinutes} min',
+              style: AppTypography.bodySmall(),
+            ),
+            style: MenuItemButton.styleFrom(
+              minimumSize: const Size.fromHeight(36),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              textStyle: AppTypography.bodyMedium(),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+      ],
+      onSelected: widget.onChanged,
+    );
   }
 }
