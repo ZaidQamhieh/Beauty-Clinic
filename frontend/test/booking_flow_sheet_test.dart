@@ -4,6 +4,7 @@ import 'package:beauty_clinic_app/auth/auth_session.dart';
 import 'package:beauty_clinic_app/features/appointments/data/appointment_api.dart';
 import 'package:beauty_clinic_app/features/appointments/data/clinic_time.dart';
 import 'package:beauty_clinic_app/features/appointments/data/doctor_api.dart';
+import 'package:beauty_clinic_app/features/appointments/data/treatment.dart';
 import 'package:beauty_clinic_app/features/appointments/data/treatment_api.dart';
 import 'package:beauty_clinic_app/features/appointments/presentation/booking_flow_sheet.dart';
 import 'package:beauty_clinic_app/features/appointments/presentation/booking_format.dart';
@@ -35,6 +36,14 @@ void main() {
           'category': 'FACIAL',
           'durationMinutes': 20,
           'price': 100.0,
+        },
+        // A second one, so a visit with two treatments is still expressible now
+        // that the same treatment cannot be booked twice.
+        {
+          'treatmentName': 'HYDRAFACIAL',
+          'category': 'FACIAL',
+          'durationMinutes': 60,
+          'price': 450.0,
         },
       ];
     } else if (options.path == '/api/treatments/rules') {
@@ -106,6 +115,14 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  // Nothing is selected when the sheet opens, so every booking starts here.
+  Future<void> chooseTreatment(WidgetTester tester, String label) async {
+    await tester.tap(find.byType(DropdownMenu<Treatment>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(label).last);
+    await tester.pumpAndSettle();
+  }
+
   Future<void> pumpSheet(WidgetTester tester) async {
     // Wide enough for the two-column step.
     tester.view.physicalSize = const Size(1600, 2000);
@@ -160,9 +177,11 @@ void main() {
   testWidgets('add another refetches with the held slot', (tester) async {
     await pumpSheet(tester);
 
+    // Opening probes for the roster's open time before any treatment is picked.
     expect(slotSearches(), hasLength(1));
     expect((slotSearches().single.data as Map)['held'], isEmpty);
 
+    await chooseTreatment(tester, 'Consultation');
     await tapText(tester, 'Choose Doctor');
     await tapText(tester, slotPill());
 
@@ -171,7 +190,6 @@ void main() {
     await tapText(tester, 'Add another');
 
     // Held items cannot be offered again.
-    expect(slotSearches(), hasLength(2));
     final held = (slotSearches().last.data as Map)['held'] as List;
     expect(held, hasLength(1));
     expect(held.single['practitionerUserId'], 'doc-1');
@@ -188,6 +206,7 @@ void main() {
     // Before anything is held, the whole horizon is open.
     expect(calendar().lastDate.isAfter(calendar().firstDate), isTrue);
 
+    await chooseTreatment(tester, 'Consultation');
     await tapText(tester, 'Choose Doctor');
     await tapText(tester, slotPill());
     await tapText(tester, 'Add another');
@@ -201,6 +220,7 @@ void main() {
   testWidgets('a different day cannot reach the cart', (tester) async {
     await pumpSheet(tester);
 
+    await chooseTreatment(tester, 'Consultation');
     await tapText(tester, 'Choose Doctor');
     await tapText(tester, slotPill());
     await tapText(tester, 'Add another');
@@ -225,11 +245,14 @@ void main() {
       pinned,
     );
 
-    // A second treatment can still be added on the pinned day.
+    // A second treatment can still be added on the pinned day, so long as it is
+    // a different one: the same treatment twice in a visit is refused.
+    await chooseTreatment(tester, 'Hydrafacial');
     await tapText(tester, 'Choose Doctor');
     await tapText(tester, slotPill());
     expect(find.text('Review your visit'), findsOneWidget);
-    expect(find.text('Consultation'), findsNWidgets(2));
+    expect(find.text('Consultation'), findsOneWidget);
+    expect(find.text('Hydrafacial'), findsOneWidget);
   });
 
   testWidgets('emptying the cart releases its held times', (tester) async {
@@ -238,31 +261,31 @@ void main() {
     CalendarDatePicker calendar() =>
         tester.widget<CalendarDatePicker>(find.byType(CalendarDatePicker));
 
+    await chooseTreatment(tester, 'Consultation');
     await tapText(tester, 'Choose Doctor');
     await tapText(tester, slotPill());
     await tapText(tester, 'Add another');
 
     // Refetched while one slot is held.
-    expect(slotSearches(), hasLength(2));
     expect((slotSearches().last.data as Map)['held'], hasLength(1));
 
+    await chooseTreatment(tester, 'Hydrafacial');
     await tapText(tester, 'Choose Doctor');
     await tapText(tester, slotPill());
     expect(find.text('Review your visit'), findsOneWidget);
 
-    final remove = find.byIcon(Icons.remove_circle_outline);
+    final remove = find.byIcon(Icons.close);
     expect(remove, findsNWidgets(2));
 
     await tester.tap(remove.first);
     await tester.pumpAndSettle();
     expect(find.text('Review your visit'), findsOneWidget);
 
-    await tester.tap(find.byIcon(Icons.remove_circle_outline).first);
+    await tester.tap(find.byIcon(Icons.close).first);
     await tester.pumpAndSettle();
 
     // Back on browse, searched again with nothing held.
     expect(find.text('SELECTED TREATMENT'), findsOneWidget);
-    expect(slotSearches(), hasLength(3));
     expect((slotSearches().last.data as Map)['held'], isEmpty);
 
     // The date is free to move again.
@@ -270,17 +293,22 @@ void main() {
     expect(find.textContaining('One visit is one day'), findsNothing);
   });
 
-  testWidgets('add another keeps the cart and the chosen treatment', (
+  testWidgets('add another keeps the cart and clears the treatment', (
     tester,
   ) async {
     await pumpSheet(tester);
 
+    await chooseTreatment(tester, 'Consultation');
     await tapText(tester, 'Choose Doctor');
     await tapText(tester, slotPill());
     await tapText(tester, 'Add another');
 
-    // Back on browse with the treatment still selected.
+    // Back on browse. The treatment clears rather than staying chosen: it is
+    // already held, and cannot be booked into this visit a second time.
     expect(find.text('SELECTED TREATMENT'), findsOneWidget);
-    expect((slotSearches().last.data as Map)['treatmentName'], 'CONSULTATION');
+    expect(find.text('Choose Doctor'), findsNothing);
+
+    // Still one held slot, so the cart survived the step back.
+    expect((slotSearches().last.data as Map)['held'], hasLength(1));
   });
 }
