@@ -108,7 +108,7 @@ public interface AppointmentSessionRepository extends JpaRepository<AppointmentS
             @Param("endTime") Instant endTime
     );
 
-    // Across every visit: session_no_patient_overlap is keyed on appointment_id, so it sees one.
+    // The named error for what session_no_patient_overlap would otherwise reject as a raw violation.
     @Query("""
             select count(s) > 0
             from AppointmentSession s

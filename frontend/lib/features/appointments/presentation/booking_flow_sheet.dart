@@ -58,6 +58,9 @@ class _BookingFlowSheetState extends State<BookingFlowSheet> {
   String? _chosenDoctorId; // by-doctor step two: a doctor was chosen
 
   List<FreeSlot>? _slots;
+
+  /// Open time per doctor before a treatment narrows it; never booked from.
+  List<FreeSlot>? _openSlots;
   bool _slotsLoading = false;
   String? _slotsError;
   int _slotRequest = 0; // newest slot search; older replies are dropped
@@ -106,7 +109,8 @@ class _BookingFlowSheetState extends State<BookingFlowSheet> {
       _today = DateTime(clinicNow.year, clinicNow.month, clinicNow.day);
       _selectedDay = _today;
       _doctorsById = {for (final d in doctors) d.userId: d};
-      _selectedTreatment = _treatments.isNotEmpty ? _treatments.first : null;
+      // Unset on purpose: the patient picks, rather than inheriting the first row.
+      _selectedTreatment = null;
 
       if (!patient.healthFormComplete) {
         setState(() => _step = _Step.gateBlocked);
@@ -129,12 +133,30 @@ class _BookingFlowSheetState extends State<BookingFlowSheet> {
     });
   }
 
+  // Everyone qualifies for a consultation and it is the shortest treatment, so
+  // its grid is the closest honest answer to "when is this doctor simply free".
+  Treatment? get _probeTreatment {
+    if (_treatments.isEmpty) return null;
+    for (final treatment in _treatments) {
+      if (treatment.name == 'CONSULTATION') return treatment;
+    }
+    return _treatments.reduce(
+      (a, b) => a.durationMinutes <= b.durationMinutes ? a : b,
+    );
+  }
+
   Future<void> _loadSlots() async {
-    final treatment = _selectedTreatment;
+    // No treatment picked yet: probe, so the roster can still show open time.
+    final probing = _selectedTreatment == null;
+    final treatment = _selectedTreatment ?? _probeTreatment;
     if (treatment == null) return;
     final request = ++_slotRequest;
     setState(() {
-      _slots = null;
+      if (probing) {
+        _openSlots = null;
+      } else {
+        _slots = null;
+      }
       _slotsError = null;
       _slotsLoading = true;
       _chosenDoctorId = null;
@@ -149,7 +171,11 @@ class _BookingFlowSheetState extends State<BookingFlowSheet> {
       );
       if (!mounted || request != _slotRequest) return;
       setState(() {
-        _slots = slots;
+        if (probing) {
+          _openSlots = slots;
+        } else {
+          _slots = slots;
+        }
         _slotsLoading = false;
       });
     } on ForbiddenException {
@@ -176,8 +202,9 @@ class _BookingFlowSheetState extends State<BookingFlowSheet> {
     _loadSlots();
   }
 
+  // Null is a real choice here: clearing the field returns to the full roster.
   void _selectTreatment(Treatment? treatment) {
-    if (treatment == null || treatment.name == _selectedTreatment?.name) return;
+    if (treatment?.name == _selectedTreatment?.name) return;
     setState(() => _selectedTreatment = treatment);
     _loadSlots();
   }
@@ -197,11 +224,20 @@ class _BookingFlowSheetState extends State<BookingFlowSheet> {
     });
   }
 
-  // Refetch, so held slots drop out.
+  // Refetch, so held slots drop out. The selection clears with it: the treatment
+  // just added is no longer on offer, so leaving it chosen would dangle.
   void _addAnother() {
-    setState(() => _step = _Step.browse);
+    setState(() {
+      _step = _Step.browse;
+      _selectedTreatment = null;
+    });
     _loadSlots();
   }
+
+  /// Already in the visit. Shown greyed rather than dropped, so the reason a
+  /// treatment cannot be picked twice is visible instead of a hole in the list.
+  Set<String> get _alreadyInVisit =>
+      _cart.map((item) => item.treatment.name).toSet();
 
   void _removeCartItem(int index) {
     setState(() {
@@ -262,6 +298,8 @@ class _BookingFlowSheetState extends State<BookingFlowSheet> {
 
   // ─── Build ────────────────────────────────────────────────────────────────
 
+  bool get _fillsHeight => _step == _Step.browse;
+
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
@@ -279,12 +317,19 @@ class _BookingFlowSheetState extends State<BookingFlowSheet> {
           padding: const EdgeInsets.fromLTRB(28, 24, 28, 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            // Only browsing needs the whole cap: its calendar fills the height
+            // it is given. Every other step hugs its content, so a one-treatment
+            // review is a short card rather than a tall mostly empty sheet.
+            mainAxisSize: _fillsHeight ? MainAxisSize.max : MainAxisSize.min,
             children: [
               _header(),
               const SizedBox(height: 8),
               const Divider(),
               const SizedBox(height: 12),
-              Expanded(child: _body()),
+              if (_fillsHeight)
+                Expanded(child: _body())
+              else
+                Flexible(child: _body()),
             ],
           ),
         ),
@@ -340,8 +385,10 @@ class _BookingFlowSheetState extends State<BookingFlowSheet> {
           selectedDay: _selectedDay,
           maxHorizonDays: _rules?.maxHorizonDays ?? 180,
           treatments: _treatments,
+          alreadyInVisit: _alreadyInVisit,
           selectedTreatment: _selectedTreatment,
           slots: _slots,
+          openSlots: _openSlots,
           slotsLoading: _slotsLoading,
           slotsError: _slotsError,
           dayLocked: _cart.isNotEmpty,

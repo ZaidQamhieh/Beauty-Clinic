@@ -49,6 +49,22 @@ public interface AppointmentRepository extends JpaRepository<Appointment, UUID> 
             """)
     List<Appointment> findBetween(@Param("from") Instant from, @Param("to") Instant to);
 
+    // One visit a day. The replaced one is excluded: a reschedule within the day
+    // cancels it in the same transaction, so it must not block its own successor.
+    @Query("""
+            select count(a) > 0 from Appointment a
+            where a.patient.userId = :patientUserId
+              and a.status = com.example.backend.entities.Appointment.AppointmentStatus.BOOKED
+              and a.scheduledAt >= :from
+              and a.scheduledAt < :to
+              and (:excludedId is null or a.id <> :excludedId)
+            """)
+    boolean existsBookedForPatientBetween(
+            @Param("patientUserId") UUID patientUserId,
+            @Param("from") Instant from,
+            @Param("to") Instant to,
+            @Param("excludedId") UUID excludedId);
+
     // Booked, not yet started, soonest first.
     @EntityGraph(attributePaths = {"patient", "patient.user"})
     @Query("""

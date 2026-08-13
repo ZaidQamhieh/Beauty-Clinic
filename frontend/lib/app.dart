@@ -241,7 +241,8 @@ class _MainRootControllerState extends State<MainRootController> {
       activeRole: _activeRole,
       activeView: _activeView,
       onViewChanged: _onViewChanged,
-      onBookClick: _openBookingModal,
+      // No onBookClick: booking belongs to the appointments page, which carries
+      // its own button, rather than following the user onto every screen.
       onLogout: _logout,
       child: Stack(
         children: [

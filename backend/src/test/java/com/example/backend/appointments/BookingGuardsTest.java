@@ -155,7 +155,8 @@ class BookingGuardsTest extends AbstractIntegrationTest {
     void allowsEarlierTreatmentWhileWindowOpen() {
         Fixture fixture = clinic();
         Instant visitStart = at(13, 30);
-        UUID appointmentId = visitWith(fixture, planned(visitStart));
+        // Not a consultation: the added session is one, and a visit holds each once.
+        UUID appointmentId = visitWith(fixture, planned(visitStart, TreatmentName.MICRONEEDLING));
 
         callerIs(fixture.doctorUserId(), Role.RECEPTIONIST);
         nowIs(at(11, 30));
@@ -175,8 +176,8 @@ class BookingGuardsTest extends AbstractIntegrationTest {
         Fixture fixture = clinic();
         UUID appointmentId = visitWith(
                 fixture,
-                new Slot(at(10, 0), SessionStatus.COMPLETED),
-                new Slot(at(14, 0), SessionStatus.PLANNED));
+                new Slot(at(10, 0), SessionStatus.COMPLETED, TreatmentName.CONSULTATION),
+                new Slot(at(14, 0), SessionStatus.PLANNED, TreatmentName.MICRONEEDLING));
 
         callerIs(fixture.doctorUserId(), Role.RECEPTIONIST);
 
@@ -194,11 +195,17 @@ class BookingGuardsTest extends AbstractIntegrationTest {
     private record Fixture(UUID patientUserId, UUID doctorUserId) {
     }
 
-    private record Slot(Instant start, SessionStatus status) {
+    private record Slot(Instant start, SessionStatus status, TreatmentName treatment) {
     }
 
     private Slot planned(Instant start) {
-        return new Slot(start, SessionStatus.PLANNED);
+        return new Slot(start, SessionStatus.PLANNED, TreatmentName.CONSULTATION);
+    }
+
+    // A visit holds each treatment once, so a test that adds a second session
+    // has to seed the first one as something else.
+    private Slot planned(Instant start, TreatmentName treatment) {
+        return new Slot(start, SessionStatus.PLANNED, treatment);
     }
 
     private void nowIs(Instant now) {
@@ -248,8 +255,8 @@ class BookingGuardsTest extends AbstractIntegrationTest {
                 AppointmentSession session = sessions.save(new AppointmentSession(
                         appointment,
                         doctor,
-                        TreatmentName.CONSULTATION.category(),
-                        TreatmentName.CONSULTATION,
+                        slot.treatment().category(),
+                        slot.treatment(),
                         new BigDecimal("100.00"),
                         20,
                         slot.start(),

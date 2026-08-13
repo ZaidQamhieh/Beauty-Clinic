@@ -110,6 +110,7 @@ public class AppointmentSessionService {
         Instant startTime = request.startTime();
         Instant endTime = startTime.plus(Duration.ofMinutes(tariff.durationMinutes()));
 
+        assertNotAlreadyInVisit(appointment, treatment);
         assertQualified(practitioner, treatment);
         assertBookableWindow(startTime);
         cancellation.assertLeavesRoomToCancel(startTime);
@@ -329,6 +330,19 @@ public class AppointmentSessionService {
         }
     }
 
+    // Also reached by POST /sessions, so the rule cannot live in book() alone.
+    // A cancelled one does not count: dropping a treatment must let it be rebooked.
+    private void assertNotAlreadyInVisit(Appointment appointment, TreatmentName treatment) {
+        boolean already = sessions.findByAppointmentId(appointment.getId()).stream()
+                .filter(s -> s.getStatus() != SessionStatus.CANCELLED)
+                .anyMatch(s -> s.getTreatmentName() == treatment);
+
+        if (already) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "That treatment is already in this visit");
+        }
+    }
+
     // Mirrors session_no_practitioner_overlap, widened by turnover, which is a clinic rule.
     private void assertFree(UUID practitionerUserId, Instant startTime, Instant endTime) {
         Duration turnover = clinic.turnover();
@@ -339,7 +353,7 @@ public class AppointmentSessionService {
         }
     }
 
-    // Spans every visit; session_no_patient_overlap is keyed on one, so the lock does the rest.
+    // Checked here to name the clash; session_no_patient_overlap is what holds it under a race.
     private void assertPatientFree(Appointment appointment, Instant startTime, Instant endTime) {
         UUID patientUserId = appointment.getPatient().getUserId();
 
