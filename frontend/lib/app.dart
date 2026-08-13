@@ -17,6 +17,7 @@ import 'package:beauty_clinic_app/features/appointments/presentation/appointment
 import 'package:beauty_clinic_app/features/appointments/presentation/booking_flow_sheet.dart';
 import 'package:beauty_clinic_app/features/products/data/product_api.dart';
 import 'package:beauty_clinic_app/features/products/presentation/product_catalog_screen.dart';
+import 'package:beauty_clinic_app/features/staff_management/staff_management_screen.dart';
 import 'package:beauty_clinic_app/network/api_client.dart';
 import 'package:beauty_clinic_app/screens/login_screen.dart';
 import 'package:beauty_clinic_app/screens/register_screen.dart';
@@ -204,6 +205,7 @@ class _MainRootControllerState extends State<MainRootController> {
       'appointments',
       'patients',
       'doctors',
+      'staff_management',
       'patient_profile',
       'doctor_profile',
       'landing',
@@ -285,6 +287,12 @@ class _MainRootControllerState extends State<MainRootController> {
           key: const ValueKey('products'),
           api: _products,
           canManage: widget.authSession.role == Role.admin,
+        );
+      case 'staff_management':
+        return StaffManagementScreen(
+          key: const ValueKey('staff_management'),
+          apiClient: _apiClient,
+          authSession: widget.authSession,
         );
       case 'doctor_profile':
         return DoctorProfileScreen(

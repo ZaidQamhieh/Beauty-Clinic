@@ -1,18 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../auth/auth_session.dart';
-import '../network/api_client.dart';
-import 'staff_management_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({
-    super.key,
-    required this.authSession,
-    required this.apiClient,
-  });
+  const HomeScreen({super.key, required this.authSession});
 
   final AuthSession authSession;
-  final ApiClient apiClient;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -66,21 +59,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 8),
               const Text('Your secure session is active.'),
-              const SizedBox(height: 24),
-              FilledButton.icon(
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => StaffManagementScreen(
-                        apiClient: widget.apiClient,
-                        authSession: widget.authSession,
-                      ),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.groups_rounded),
-                label: const Text('Staff management'),
-              ),
             ],
           ),
         ),

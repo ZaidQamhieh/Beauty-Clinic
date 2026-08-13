@@ -18,8 +18,10 @@ public interface UserAccountRepository extends JpaRepository<UserAccount, UUID> 
 
     Optional<UserAccount> findByEmailIgnoreCase(String email);
 
-    // Mirrors uq_user_account_phone, which is scoped to live rows, so a soft delete frees it.
+    // Mirrors uq_user_account_phone, which is scoped to live rows, so a soft delete
+    // frees it.
     boolean existsByPhone(String phone);
+
     List<UserAccount> findAllByRoleInOrderByLastNameAscFirstNameAsc(Collection<Role> roles);
 
     // Locked: concurrent failed logins must not lose an increment.
