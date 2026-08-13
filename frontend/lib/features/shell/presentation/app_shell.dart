@@ -365,6 +365,11 @@ class _AppShellState extends State<AppShell> {
             'icon': Icons.health_and_safety_outlined,
           },
           {
+            'id': 'staff_management',
+            'label': 'Staff Management',
+            'icon': Icons.groups_rounded,
+          },
+          {
             'id': 'patient_profile',
             'label': 'Patient Details',
             'icon': Icons.assignment_ind_outlined,

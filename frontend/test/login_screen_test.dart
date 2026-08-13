@@ -17,7 +17,9 @@ void main() {
     final session = testSession(adapter, store, now);
     addTearDown(session.dispose);
 
-    await tester.pumpWidget(BeautyClinicApp(authSession: session));
+    await tester.pumpWidget(
+      TickerMode(enabled: false, child: BeautyClinicApp(authSession: session)),
+    );
     await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const Key('emailField')),
@@ -44,7 +46,9 @@ void main() {
     );
     addTearDown(session.dispose);
 
-    await tester.pumpWidget(BeautyClinicApp(authSession: session));
+    await tester.pumpWidget(
+      TickerMode(enabled: false, child: BeautyClinicApp(authSession: session)),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('Sign in'), findsOneWidget);
