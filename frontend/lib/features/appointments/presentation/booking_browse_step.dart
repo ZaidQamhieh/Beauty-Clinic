@@ -28,6 +28,7 @@ class BookingBrowseStep extends StatelessWidget {
     required this.slotsLoading,
     required this.slotsError,
     required this.dayLocked,
+    required this.isReschedule,
     required this.doctorsById,
     required this.viewByDoctor,
     required this.chosenDoctorId,
@@ -59,6 +60,9 @@ class BookingBrowseStep extends StatelessWidget {
 
   /// True once a treatment is held, pinning the visit to its day.
   final bool dayLocked;
+
+  /// A reschedule may change day freely; doing so drops the kept cart.
+  final bool isReschedule;
 
   final Map<String, DoctorSummary> doctorsById;
   final bool viewByDoctor;
@@ -129,6 +133,13 @@ class BookingBrowseStep extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             'One visit is one day. Remove your treatments to pick another date.',
+            style: AppTypography.bodySmall(),
+          ),
+        ] else if (isReschedule && alreadyInVisit.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text(
+            'Picking a different day starts this visit over — kept '
+            'treatments will need to be re-added.',
             style: AppTypography.bodySmall(),
           ),
         ],

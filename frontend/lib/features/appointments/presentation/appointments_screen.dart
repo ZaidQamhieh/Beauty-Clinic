@@ -50,6 +50,9 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
   bool _loadingMore = false;
   int _loadRun = 0; // newest reload; older pages are dropped
 
+  /// null shows every history status.
+  String? _historyFilter;
+
   /// Booked while the first load was in flight.
   Appointment? _pendingBooked;
 
@@ -250,6 +253,53 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     }
   }
 
+  // Drops one treatment out of a multi-treatment visit; the rest stays
+  // booked. The backend re-syncs the visit's time, or closes it outright
+  // once nothing is left planned, so a quiet reload picks up either outcome.
+  Future<void> _cancelSession(
+    Appointment appointment,
+    AppointmentSession session,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cancel this treatment?'),
+        content: Text(
+          'This drops ${session.treatmentLabel} from the visit on '
+          '${BookingFormat.dayWithYear(appointment.scheduledAt)}. '
+          'The rest of the visit stays booked.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Keep it'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.rose),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Cancel treatment'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      await widget.appointmentApi.cancelSession(appointment.id, session.id);
+      if (!mounted) return;
+      _snack('Treatment cancelled.');
+      _reloadAfterMutation();
+    } on BookingConflictException catch (error) {
+      if (mounted) _snack(error.message);
+    } on ForbiddenException {
+      if (mounted) _snack('That treatment is not yours to cancel.');
+    } catch (_) {
+      if (mounted) {
+        _snack('Could not cancel. Check your connection and try again.');
+      }
+    }
+  }
+
   // A fresh visit. Same sheet as a reschedule, with nothing to replace.
   Future<void> _book() async {
     Appointment? booked;
@@ -278,6 +328,8 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
         appointmentApi: widget.appointmentApi,
         doctorApi: widget.doctorApi,
         replacesAppointmentId: appointment.id,
+        // Kept as-is unless the patient picks a different day.
+        initialSessions: appointment.plannedSessions,
         onBooked: (a) => booked = a,
       ),
     );
@@ -325,7 +377,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                 icon: const Icon(Icons.add_rounded, size: 16),
                 label: Text(
                   'New appointment',
-                  style: AppTypography.labelSmall(color: AppColors.white),
+                  style: AppTypography.labelMedium(color: AppColors.white),
                 ),
               ),
             ],
@@ -348,6 +400,12 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
         onRetry: _load,
       );
     }
+    final allHistory = _history ?? const [];
+    final markedDates = {
+      for (final a in _upcoming ?? const <Appointment>[]) _dayOf(a.scheduledAt),
+      for (final a in allHistory) _dayOf(a.scheduledAt),
+    };
+
     final upcoming = _column(
       'UPCOMING',
       _list(
@@ -358,20 +416,45 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
           cancellable: _stillCancellable(appointment),
           onCancel: () => _cancel(appointment),
           onReschedule: () => _reschedule(appointment),
+          onCancelSession: (session) => _cancelSession(appointment, session),
         ),
         hasMore: _upcomingHasMore,
         onLoadMore: () => _loadMore(upcoming: true),
       ),
     );
+    // Every possible outcome, not just the ones currently in the list, so
+    // the filter itself documents what a visit can become.
+    const historyStatuses = ['Completed', 'Pending', 'Missed', 'Cancelled'];
+    final filter = _historyFilter;
+    final filteredHistory = filter == null
+        ? allHistory
+        : allHistory
+              .where((a) => _HistoryCard._historyStatus(a) == filter)
+              .toList();
 
     final history = _column(
       'HISTORY',
-      _list(
-        _history ?? const [],
-        'No past appointments yet.',
-        (appointment) => _HistoryCard(appointment: appointment),
-        hasMore: _historyHasMore,
-        onLoadMore: () => _loadMore(upcoming: false),
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _MiniCalendar(markedDates: markedDates),
+          const SizedBox(height: 16),
+          _historyFilterRow(historyStatuses),
+          const SizedBox(height: 12),
+          Expanded(
+            child: _list(
+              filteredHistory,
+              filter == null
+                  ? 'No past appointments yet.'
+                  : 'No $filter appointments.',
+              (appointment) => _HistoryCard(appointment: appointment),
+              // Paging fetches unfiltered pages, so "load more" only makes
+              // sense while every status is shown.
+              hasMore: filter == null && _historyHasMore,
+              onLoadMore: () => _loadMore(upcoming: false),
+            ),
+          ),
+        ],
       ),
     );
 
@@ -398,6 +481,12 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
         );
       },
     );
+  }
+
+  // Clinic-local calendar day, stripped of time, for matching against the grid.
+  static DateTime _dayOf(DateTime instant) {
+    final local = ClinicTime.at(instant);
+    return DateTime(local.year, local.month, local.day);
   }
 
   Widget _column(String title, Widget body) {
@@ -436,6 +525,52 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     );
   }
 
+  Widget _historyFilterRow(List<String> statuses) {
+    final labels = ['All', ...statuses];
+    return Row(
+      children: [
+        for (var i = 0; i < labels.length; i++) ...[
+          if (i > 0) const SizedBox(width: 6),
+          Expanded(
+            child: _historyFilterChip(
+              labels[i],
+              selected: _historyFilter == (labels[i] == 'All'
+                  ? null
+                  : labels[i]),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _historyFilterChip(String label, {required bool selected}) {
+    return GestureDetector(
+      onTap: () => setState(
+        () => _historyFilter = label == 'All' ? null : label,
+      ),
+      child: Container(
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.rosePale : AppColors.bgAlt,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected ? AppColors.borderRose : AppColors.border,
+          ),
+        ),
+        child: Text(
+          label,
+          overflow: TextOverflow.ellipsis,
+          maxLines: 1,
+          style: AppTypography.labelSmall(
+            color: selected ? AppColors.rose : AppColors.textMuted,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _loadMoreButton(VoidCallback onLoadMore) {
     return Center(
       child: OutlinedButton(
@@ -452,12 +587,168 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
   }
 }
 
+/// A compact month view. Days that carry an appointment — upcoming or past
+/// — get a tinted mark, so the patient sees at a glance where visits fall.
+class _MiniCalendar extends StatefulWidget {
+  const _MiniCalendar({required this.markedDates});
+
+  final Set<DateTime> markedDates;
+
+  @override
+  State<_MiniCalendar> createState() => _MiniCalendarState();
+}
+
+class _MiniCalendarState extends State<_MiniCalendar> {
+  static const _months = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ];
+  static const _weekdayLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+
+  late DateTime _month;
+
+  @override
+  void initState() {
+    super.initState();
+    final today = ClinicTime.at(DateTime.now());
+    _month = DateTime(today.year, today.month);
+  }
+
+  void _shiftMonth(int delta) {
+    setState(() => _month = DateTime(_month.year, _month.month + delta));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final todayLocal = ClinicTime.at(DateTime.now());
+    final today = DateTime(todayLocal.year, todayLocal.month, todayLocal.day);
+    final firstOfMonth = DateTime(_month.year, _month.month);
+    final daysInMonth = DateTime(_month.year, _month.month + 1, 0).day;
+    // Monday-first grid: Monday's weekday value is 1, so no blanks needed there.
+    final leadingBlanks = firstOfMonth.weekday - 1;
+
+    final cells = <Widget>[
+      for (var i = 0; i < leadingBlanks; i++) const SizedBox(width: 26, height: 26),
+      for (var day = 1; day <= daysInMonth; day++)
+        _dayCell(DateTime(_month.year, _month.month, day), today),
+    ];
+
+    final weeks = <Widget>[];
+    for (var i = 0; i < cells.length; i += 7) {
+      final end = i + 7 < cells.length ? i + 7 : cells.length;
+      final week = cells.sublist(i, end);
+      while (week.length < 7) {
+        week.add(const SizedBox(width: 26, height: 26));
+      }
+      weeks.add(
+        Padding(
+          padding: const EdgeInsets.only(bottom: 4),
+          child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: week),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.bgCard,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '${_months[_month.month - 1]} ${_month.year}',
+                style: AppTypography.labelMedium(),
+              ),
+              Row(
+                children: [
+                  _navButton(Icons.chevron_left, () => _shiftMonth(-1)),
+                  _navButton(Icons.chevron_right, () => _shiftMonth(1)),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              for (final label in _weekdayLabels)
+                SizedBox(
+                  width: 26,
+                  child: Text(
+                    label,
+                    textAlign: TextAlign.center,
+                    style: AppTypography.labelSmall(),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          ...weeks,
+        ],
+      ),
+    );
+  }
+
+  Widget _navButton(IconData icon, VoidCallback onPressed) {
+    return IconButton(
+      icon: Icon(icon, size: 18, color: AppColors.textMuted),
+      onPressed: onPressed,
+      visualDensity: VisualDensity.compact,
+      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+      padding: EdgeInsets.zero,
+    );
+  }
+
+  Widget _dayCell(DateTime date, DateTime today) {
+    final isToday = date == today;
+    final isMarked = widget.markedDates.contains(date);
+    return Container(
+      width: 26,
+      height: 26,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: isToday
+            ? AppColors.rose
+            : (isMarked ? AppColors.rosePale : null),
+        shape: BoxShape.circle,
+      ),
+      child: Text(
+        '${date.day}',
+        style: AppTypography.bodySmall(
+          color: isToday
+              ? AppColors.white
+              : (isMarked ? AppColors.roseDark : AppColors.textSub),
+        ).copyWith(
+          fontWeight: isToday || isMarked ? FontWeight.w700 : FontWeight.w400,
+        ),
+      ),
+    );
+  }
+}
+
 class _UpcomingCard extends StatelessWidget {
   const _UpcomingCard({
     required this.appointment,
     required this.cancellable,
     required this.onCancel,
     required this.onReschedule,
+    required this.onCancelSession,
   });
 
   final Appointment appointment;
@@ -467,15 +758,46 @@ class _UpcomingCard extends StatelessWidget {
   final VoidCallback onCancel;
   final VoidCallback onReschedule;
 
+  /// Drops one treatment out of the visit; the rest stays booked.
+  final ValueChanged<AppointmentSession> onCancelSession;
+
   @override
   Widget build(BuildContext context) {
+    final sessions = appointment.plannedSessions.isNotEmpty
+        ? appointment.plannedSessions
+        : appointment.sessions;
     return _AppointmentCard(
       appointment: appointment,
       // Still to come, or all if none planned.
-      sessions: appointment.plannedSessions.isNotEmpty
-          ? appointment.plannedSessions
-          : appointment.sessions,
+      sessions: sessions,
       statusLabel: 'Confirmed',
+      // A day full of treatments reads better when the soonest one stands
+      // out and the rest of the day recedes.
+      highlightNext: true,
+      // Only worth offering per-treatment cancel when there's more than one
+      // to choose between; with a single session it's the same as "Cancel".
+      sessionTrailing: cancellable && sessions.length > 1
+          ? (session) => session.isPlanned
+                ? IconButton(
+                    tooltip: 'Cancel this treatment',
+                    onPressed: () => onCancelSession(session),
+                    style: IconButton.styleFrom(
+                      backgroundColor: AppColors.bgAlt,
+                      shape: const CircleBorder(),
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 26,
+                      minHeight: 26,
+                    ),
+                    padding: EdgeInsets.zero,
+                    icon: const Icon(
+                      Icons.close,
+                      size: 13,
+                      color: AppColors.textMuted,
+                    ),
+                  )
+                : null
+          : null,
       footer: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -487,22 +809,20 @@ class _UpcomingCard extends StatelessWidget {
             const SizedBox(height: 8),
           ],
           Row(
+            mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: cancellable ? onReschedule : null,
-                  child: const Text('Reschedule'),
+              OutlinedButton(
+                onPressed: cancellable ? onCancel : null,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFFDC2626),
                 ),
+                child: const Text('Cancel'),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: cancellable ? onCancel : null,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFFDC2626),
-                  ),
-                  child: const Text('Cancel'),
-                ),
+              const SizedBox(width: 10),
+              FilledButton(
+                onPressed: cancellable ? onReschedule : null,
+                style: FilledButton.styleFrom(backgroundColor: AppColors.rose),
+                child: const Text('Reschedule'),
               ),
             ],
           ),
@@ -548,6 +868,8 @@ class _AppointmentCard extends StatelessWidget {
     required this.sessions,
     required this.statusLabel,
     this.footer,
+    this.sessionTrailing,
+    this.highlightNext = false,
   });
 
   final Appointment appointment;
@@ -557,44 +879,190 @@ class _AppointmentCard extends StatelessWidget {
   final String statusLabel;
   final Widget? footer;
 
+  /// Per-session action (e.g. cancel just that treatment); null hides it.
+  final Widget? Function(AppointmentSession session)? sessionTrailing;
+
+  /// Weights the soonest planned session and mutes the rest; only makes
+  /// sense while the visit is still ahead of the patient, not in history.
+  final bool highlightNext;
+
+  // Cancelled visits recede so upcoming and completed ones read first.
+  bool get _muted => statusLabel == 'Cancelled';
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.bgCard,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Flexible(
-                child: Text(
-                  '${BookingFormat.day(appointment.scheduledAt)} · '
-                  '${BookingFormat.time12(appointment.scheduledAt)}',
-                  style: AppTypography.labelLarge(),
+    String? nextId;
+    if (highlightNext) {
+      for (final session in sessions) {
+        if (session.isPlanned) {
+          nextId = session.id;
+          break;
+        }
+      }
+    }
+
+    return Opacity(
+      opacity: _muted ? 0.6 : 1,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: _muted ? AppColors.bgAlt : AppColors.bgCard,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Flexible(
+                  child: Text(
+                    '${BookingFormat.day(appointment.scheduledAt)} · '
+                    '${BookingFormat.time12(appointment.scheduledAt)}',
+                    style: AppTypography.labelLarge(),
+                  ),
                 ),
+                StatusPill(status: statusLabel),
+              ],
+            ),
+            const SizedBox(height: 8),
+            const Divider(height: 1, color: AppColors.border),
+            const SizedBox(height: 10),
+            for (final session in sessions)
+              _SessionRow(
+                session: session,
+                isNext: session.id == nextId,
+                trailing: sessionTrailing?.call(session),
               ),
-              StatusPill(status: statusLabel),
-            ],
-          ),
-          const SizedBox(height: 8),
-          for (final session in sessions)
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Text(
-                '${session.treatmentLabel} · ${BookingFormat.time12(session.startTime)} · '
+            if (footer != null) ...[const SizedBox(height: 4), footer!],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// One treatment line: the soonest planned one is weighted and tinted, the
+/// rest of the day recedes so the visit reads as "what's next" first.
+class _SessionRow extends StatelessWidget {
+  const _SessionRow({
+    required this.session,
+    required this.isNext,
+    this.trailing,
+  });
+
+  final AppointmentSession session;
+  final bool isNext;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final row = Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        _CategoryBadge(
+          category: session.category,
+          backgroundOverride: isNext ? AppColors.bgCard : null,
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    session.treatmentLabel,
+                    style: AppTypography.labelMedium(),
+                  ),
+                  if (isNext) ...[
+                    const SizedBox(width: 6),
+                    Text(
+                      'NEXT',
+                      style: AppTypography.labelSmall(
+                        color: AppColors.roseDark,
+                      ).copyWith(fontWeight: FontWeight.w700),
+                    ),
+                  ],
+                ],
+              ),
+              Text(
+                '${BookingFormat.time12(session.startTime)} · '
                 '${session.practitionerName}',
                 style: AppTypography.bodySmall(),
               ),
-            ),
-          if (footer != null) ...[const SizedBox(height: 12), footer!],
-        ],
+            ],
+          ),
+        ),
+        ?trailing,
+      ],
+    );
+
+    if (isNext) {
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: -8),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          color: AppColors.rosePale,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 2),
+          child: row,
+        ),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Opacity(opacity: 0.6, child: row),
+    );
+  }
+}
+
+/// A tinted circle glyph per treatment category, so a scan of the list reads
+/// by type at a glance instead of by reading every line.
+class _CategoryBadge extends StatelessWidget {
+  const _CategoryBadge({required this.category, this.backgroundOverride});
+
+  final String category;
+
+  /// Swaps out the category tint, e.g. when the row already has its own
+  /// tinted background and the icon needs a plain backdrop instead.
+  final Color? backgroundOverride;
+
+  static const _byCategory = {
+    'FACIAL': (Icons.spa_outlined, AppColors.sage, AppColors.bgSage),
+    'LASER': (Icons.bolt_outlined, AppColors.gold, AppColors.goldPale),
+    'INJECTABLE': (Icons.vaccines_outlined, AppColors.rose, AppColors.bgRose),
+    'BODY': (
+      Icons.self_improvement_outlined,
+      AppColors.lav,
+      AppColors.bgLavender,
+    ),
+    'CONSULTATION': (
+      Icons.chat_bubble_outline,
+      AppColors.textSub,
+      AppColors.bgAlt,
+    ),
+  };
+  static const _fallback = (
+    Icons.medical_services_outlined,
+    AppColors.textSub,
+    AppColors.bgAlt,
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final (icon, fg, bg) = _byCategory[category] ?? _fallback;
+    return Container(
+      width: 30,
+      height: 30,
+      decoration: BoxDecoration(
+        color: backgroundOverride ?? bg,
+        shape: BoxShape.circle,
       ),
+      child: Icon(icon, size: 15, color: fg),
     );
   }
 }

@@ -3,26 +3,10 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../data/appointment_api.dart';
-import '../data/clinic_time.dart';
 import '../data/free_slot.dart';
 import '../data/treatment.dart';
 import 'booking_format.dart';
 import 'booking_result_steps.dart';
-
-const _months = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-];
 
 /// One chosen treatment, waiting to be booked.
 class BookingCartItem {
@@ -51,6 +35,7 @@ class BookingReviewStep extends StatelessWidget {
     required this.items,
     required this.submitting,
     required this.isReschedule,
+    required this.unedited,
     required this.errorMessage,
     required this.onRemove,
     required this.onAddAnother,
@@ -60,6 +45,10 @@ class BookingReviewStep extends StatelessWidget {
   final List<BookingCartItem> items;
   final bool submitting;
   final bool isReschedule;
+
+  /// A reschedule that still matches what was already booked; nothing to
+  /// confirm until something changes.
+  final bool unedited;
   final String? errorMessage;
 
   final ValueChanged<int> onRemove;
@@ -83,31 +72,37 @@ class BookingReviewStep extends StatelessWidget {
         if (errorMessage != null) ...[
           const SizedBox(height: 8),
           BookingErrorBanner(message: errorMessage!),
+        ] else if (unedited) ...[
+          const SizedBox(height: 8),
+          Text(
+            'Nothing changed yet — remove, add, or move a treatment to '
+            'reschedule.',
+            style: AppTypography.bodySmall(),
+          ),
         ],
         const SizedBox(height: 12),
         Row(
+          mainAxisAlignment: MainAxisAlignment.end,
           children: [
-            Expanded(
-              child: OutlinedButton(
-                onPressed: submitting ? null : onAddAnother,
-                child: const Text('Add another'),
-              ),
+            OutlinedButton(
+              onPressed: submitting ? null : onAddAnother,
+              child: const Text('Add another'),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: FilledButton(
-                style: FilledButton.styleFrom(backgroundColor: AppColors.rose),
-                onPressed: submitting || items.isEmpty ? null : onSubmit,
-                child: submitting
-                    ? const SizedBox(
-                        height: 18,
-                        width: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : Text(
-                        isReschedule ? 'Confirm reschedule' : 'Confirm booking',
-                      ),
-              ),
+            const SizedBox(width: 10),
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: AppColors.rose),
+              onPressed: submitting || items.isEmpty || unedited
+                  ? null
+                  : onSubmit,
+              child: submitting
+                  ? const SizedBox(
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Text(
+                      isReschedule ? 'Confirm reschedule' : 'Confirm booking',
+                    ),
             ),
           ],
         ),
@@ -115,110 +110,143 @@ class BookingReviewStep extends StatelessWidget {
     );
   }
 
-  // A ticket: the date on its own stub, the visit itself beside it. Chronological
-  // rather than in the order treatments were added, so it reads as the day runs.
+  // A day header, then each treatment strung along a connecting line so the
+  // ticket reads as an itinerary rather than a repeated stub.
   Widget _ticket() {
     final ordered = [...items]
       ..sort((a, b) => a.slot.startTime.compareTo(b.slot.startTime));
-    final at = ClinicTime.at(ordered.first.slot.startTime);
     final total = items.fold(0.0, (sum, item) => sum + item.treatment.price);
 
     return Container(
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.bgCard,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.borderRose),
       ),
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Container(
-              width: 96,
-              decoration: const BoxDecoration(
-                color: AppColors.bgRose,
-                borderRadius: BorderRadius.horizontal(
-                  left: Radius.circular(15),
-                ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            BookingFormat.day(ordered.first.slot.startTime),
+            style: AppTypography.labelMedium(
+              color: AppColors.roseDark,
+            ).copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 10),
+          const Divider(height: 1, color: AppColors.borderRose),
+          const SizedBox(height: 14),
+          for (var i = 0; i < ordered.length; i++)
+            _timelineRow(ordered[i], isLast: i == ordered.length - 1),
+          const Divider(height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(_durationLabel, style: AppTypography.bodySmall()),
+              Text(
+                BookingFormat.money(total),
+                style: AppTypography.labelLarge(),
               ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    '${at.day}',
-                    style: AppTypography.displayTitle(
-                      color: AppColors.roseDark,
-                    ),
-                  ),
-                  Text(
-                    _months[at.month - 1].toUpperCase(),
-                    style: AppTypography.labelSmall(color: AppColors.roseDark),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    BookingFormat.time12(ordered.first.slot.startTime),
-                    style: AppTypography.labelMedium(color: AppColors.roseDark),
-                  ),
-                ],
-              ),
-            ),
-            Container(width: 1, color: AppColors.borderRose),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    for (final item in ordered) _treatmentRow(item),
-                    const Divider(),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(_durationLabel, style: AppTypography.bodySmall()),
-                        Text(
-                          BookingFormat.money(total),
-                          style: AppTypography.labelLarge(),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
+            ],
+          ),
+        ],
       ),
     );
   }
 
-  Widget _treatmentRow(BookingCartItem item) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
+  Widget _timelineRow(BookingCartItem item, {required bool isLast}) {
+    return IntrinsicHeight(
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(
+          SizedBox(
+            width: 14,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(item.treatment.label, style: AppTypography.labelMedium()),
-                Text(
-                  '${BookingFormat.time12(item.slot.startTime)} · '
-                  '${item.treatment.durationMinutes} min · '
-                  '${item.slot.practitionerName}',
-                  style: AppTypography.bodySmall(),
+                Container(
+                  width: 9,
+                  height: 9,
+                  margin: const EdgeInsets.only(top: 5),
+                  decoration: BoxDecoration(
+                    color: AppColors.rose,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: AppColors.bgCard, width: 2),
+                    boxShadow: const [
+                      BoxShadow(color: AppColors.rose, spreadRadius: 1.5),
+                    ],
+                  ),
                 ),
+                if (!isLast)
+                  Expanded(
+                    child: Container(
+                      width: 1.5,
+                      margin: const EdgeInsets.only(top: 3),
+                      color: AppColors.borderRose,
+                    ),
+                  ),
               ],
             ),
           ),
-          Text(
-            BookingFormat.money(item.treatment.price),
-            style: AppTypography.labelMedium(),
-          ),
-          IconButton(
-            icon: const Icon(Icons.close, size: 18, color: AppColors.textMuted),
-            // Keyed on the caller's order, which is not the display order.
-            onPressed: submitting ? null : () => onRemove(items.indexOf(item)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(bottom: isLast ? 0 : 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    BookingFormat.time12(item.slot.startTime),
+                    style: AppTypography.labelSmall(
+                      color: AppColors.roseDark,
+                    ).copyWith(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          item.treatment.label,
+                          style: AppTypography.labelMedium(),
+                        ),
+                      ),
+                      Text(
+                        BookingFormat.money(item.treatment.price),
+                        style: AppTypography.labelMedium(),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(
+                          Icons.close,
+                          size: 14,
+                          color: AppColors.textMuted,
+                        ),
+                        style: IconButton.styleFrom(
+                          backgroundColor: AppColors.bgAlt,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(
+                          minWidth: 24,
+                          minHeight: 24,
+                        ),
+                        // Keyed on the caller's order, which is not the
+                        // display order.
+                        onPressed: submitting
+                            ? null
+                            : () => onRemove(items.indexOf(item)),
+                      ),
+                    ],
+                  ),
+                  Text(
+                    '${item.treatment.durationMinutes} min · '
+                    '${item.slot.practitionerName}',
+                    style: AppTypography.bodySmall(),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),
