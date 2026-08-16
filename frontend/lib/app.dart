@@ -22,7 +22,7 @@ import 'package:beauty_clinic_app/network/api_client.dart';
 import 'package:beauty_clinic_app/screens/login_screen.dart';
 import 'package:beauty_clinic_app/screens/register_screen.dart';
 
-/// Main Application Entry Widget for Yasmine Beauty Clinic
+/// Main Application Entry Widget for Beauty Clinic
 class BeautyClinicApp extends StatelessWidget {
   const BeautyClinicApp({super.key, this.authSession});
 
@@ -33,7 +33,7 @@ class BeautyClinicApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Yasmine Beauty & Derma Clinic',
+      title: 'Beauty & Derma Clinic',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       home: AuthGate(authSession: authSession),

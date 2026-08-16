@@ -10,7 +10,6 @@ import java.util.UUID;
 public record AddPatientProductRequest(
         @NotNull UUID productId,
         @NotNull ProductSource source,
-        // Discontinuing stamps today, so a future start would make the routine impossible to end.
         @PastOrPresent LocalDate startedOn
 ) {
 }
