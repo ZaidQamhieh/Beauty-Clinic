@@ -21,14 +21,10 @@ import java.util.UUID;
 public class AccessTokenService {
 
     public static final String AUTHORITIES_CLAIM = "authorities";
-
     public static final String SESSION_CLAIM = "sid";
-
     // Account id. Ownership rules compare this, not email subject.
     public static final String USER_ID_CLAIM = "uid";
-
     private final JwtEncoder jwtEncoder;
-
     private final TokenProperties properties;
 
     public IssuedAccessToken issue(UserAccountDetails user, UUID sessionId) {
