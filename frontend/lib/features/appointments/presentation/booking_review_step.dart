@@ -84,25 +84,30 @@ class BookingReviewStep extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
-            OutlinedButton(
-              onPressed: submitting ? null : onAddAnother,
-              child: const Text('Add another'),
+            Flexible(
+              child: OutlinedButton(
+                onPressed: submitting ? null : onAddAnother,
+                child: const Text('Add another'),
+              ),
             ),
             const SizedBox(width: 10),
-            FilledButton(
-              style: FilledButton.styleFrom(backgroundColor: AppColors.rose),
-              onPressed: submitting || items.isEmpty || unedited
-                  ? null
-                  : onSubmit,
-              child: submitting
-                  ? const SizedBox(
-                      height: 18,
-                      width: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : Text(
-                      isReschedule ? 'Confirm reschedule' : 'Confirm booking',
-                    ),
+            Flexible(
+              child: FilledButton(
+                style: FilledButton.styleFrom(backgroundColor: AppColors.rose),
+                onPressed: submitting || items.isEmpty || unedited
+                    ? null
+                    : onSubmit,
+                child: submitting
+                    ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Text(
+                        isReschedule ? 'Confirm reschedule' : 'Confirm booking',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+              ),
             ),
           ],
         ),

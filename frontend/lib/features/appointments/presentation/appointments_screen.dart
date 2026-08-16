@@ -816,18 +816,27 @@ class _UpcomingCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              OutlinedButton(
-                onPressed: cancellable ? onCancel : null,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFFDC2626),
+              Flexible(
+                child: OutlinedButton(
+                  onPressed: cancellable ? onCancel : null,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFFDC2626),
+                  ),
+                  child: const Text('Cancel'),
                 ),
-                child: const Text('Cancel'),
               ),
               const SizedBox(width: 10),
-              FilledButton(
-                onPressed: cancellable ? onReschedule : null,
-                style: FilledButton.styleFrom(backgroundColor: AppColors.rose),
-                child: const Text('Reschedule'),
+              Flexible(
+                child: FilledButton(
+                  onPressed: cancellable ? onReschedule : null,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.rose,
+                  ),
+                  child: const Text(
+                    'Reschedule',
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
               ),
             ],
           ),
