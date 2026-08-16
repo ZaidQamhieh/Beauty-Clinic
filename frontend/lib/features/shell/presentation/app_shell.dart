@@ -93,7 +93,18 @@ class _AppShellState extends State<AppShell> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
           child: Row(
             children: [
-              const YasmineLogo(size: 34, isDarkBackground: true),
+              // Collapsed rail has no room; logo expands it.
+              if (!isDrawer && isCollapsed)
+                InkWell(
+                  borderRadius: BorderRadius.circular(20),
+                  onTap: () => setState(() => _isSidebarCollapsed = false),
+                  child: const Padding(
+                    padding: EdgeInsets.all(3),
+                    child: YasmineLogo(size: 28, isDarkBackground: true),
+                  ),
+                )
+              else
+                const YasmineLogo(size: 34, isDarkBackground: true),
               if (!isCollapsed) ...[
                 const SizedBox(width: 12),
                 Expanded(
@@ -278,13 +289,18 @@ class _AppShellState extends State<AppShell> {
             'icon': Icons.video_call_outlined,
           },
           {
-            'id': 'landing',
-            'label': 'Clinic Portal',
-            'icon': Icons.storefront_outlined,
+            'id': 'products',
+            'label': 'Products',
+            'icon': Icons.inventory_2_outlined,
           },
         ];
       case 'patient':
         return [
+          {
+            'id': 'landing',
+            'label': 'Clinic Homepage',
+            'icon': Icons.home_outlined,
+          },
           {
             'id': 'patient_profile',
             'label': 'My Medical Profile',
@@ -296,14 +312,9 @@ class _AppShellState extends State<AppShell> {
             'icon': Icons.spa_outlined,
           },
           {
-            'id': 'book',
-            'label': 'Book Appointment',
-            'icon': Icons.calendar_month_outlined,
-          },
-          {
-            'id': 'landing',
-            'label': 'Clinic Homepage',
-            'icon': Icons.home_outlined,
+            'id': 'products',
+            'label': 'Products',
+            'icon': Icons.inventory_2_outlined,
           },
         ];
       case 'receptionist':
@@ -330,14 +341,19 @@ class _AppShellState extends State<AppShell> {
             'icon': Icons.medical_information_outlined,
           },
           {
-            'id': 'landing',
-            'label': 'Main Website',
-            'icon': Icons.web_outlined,
+            'id': 'products',
+            'label': 'Products',
+            'icon': Icons.inventory_2_outlined,
           },
         ];
       case 'admin':
       default:
         return [
+          {
+            'id': 'landing',
+            'label': 'Clinic Landing Page',
+            'icon': Icons.space_dashboard_outlined,
+          },
           {
             'id': 'dashboard',
             'label': 'Overview Dashboard',
@@ -378,11 +394,6 @@ class _AppShellState extends State<AppShell> {
             'id': 'doctor_profile',
             'label': 'Doctor Profile View',
             'icon': Icons.badge_outlined,
-          },
-          {
-            'id': 'landing',
-            'label': 'Clinic Landing Page',
-            'icon': Icons.space_dashboard_outlined,
           },
         ];
     }

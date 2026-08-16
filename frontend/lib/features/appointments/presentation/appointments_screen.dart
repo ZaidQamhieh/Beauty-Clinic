@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
-import '../../../core/widgets/status_pill.dart';
 import '../../../network/api_client.dart';
 import '../data/appointment.dart';
 import '../data/appointment_api.dart';
@@ -12,9 +11,11 @@ import '../data/booking_exceptions.dart';
 import '../data/clinic_time.dart';
 import '../data/doctor_api.dart';
 import '../data/treatment_api.dart';
+import 'appointment_card.dart';
 import 'booking_flow_sheet.dart';
 import 'booking_format.dart';
 import 'booking_result_steps.dart';
+import 'mini_calendar.dart';
 
 /// The patient's own appointments: upcoming and history.
 class AppointmentsScreen extends StatefulWidget {
@@ -30,7 +31,7 @@ class AppointmentsScreen extends StatefulWidget {
   final TreatmentApi treatmentApi;
   final DoctorApi doctorApi;
 
-  /// Fires when a visit is booked elsewhere; cleared once read.
+  /// Fires when booked elsewhere; cleared once read.
   final ValueNotifier<Appointment?> bookedSignal;
 
   @override
@@ -50,10 +51,13 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
   bool _loadingMore = false;
   int _loadRun = 0; // newest reload; older pages are dropped
 
-  /// Booked while the first load was in flight.
+  /// null shows every history status.
+  String? _historyFilter;
+
+  /// Booked while the first load ran.
   Appointment? _pendingBooked;
 
-  /// How late a patient may still cancel, once the rules land.
+  /// How late a patient may cancel.
   Duration? _cancellationCutoff;
 
   @override
@@ -80,7 +84,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     }
   }
 
-  // The backend refuses inside the cutoff, so do not offer it.
+  // Backend refuses inside the cutoff.
   bool _stillCancellable(Appointment appointment) {
     final cutoff = _cancellationCutoff;
     if (cutoff == null) return true;
@@ -174,7 +178,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
   void _onExternalBooking() {
     final appointment = widget.bookedSignal.value;
     if (appointment == null) return;
-    // Consumed once, so a stale visit cannot outlive this screen.
+    // Consumed once; stale visits can't outlive it.
     widget.bookedSignal.value = null;
     if (_upcoming == null) {
       _pendingBooked = appointment;
@@ -250,7 +254,52 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     }
   }
 
-  // A fresh visit. Same sheet as a reschedule, with nothing to replace.
+  // Drops one treatment; backend resyncs or closes visit.
+  Future<void> _cancelSession(
+    Appointment appointment,
+    AppointmentSession session,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cancel this treatment?'),
+        content: Text(
+          'This drops ${session.treatmentLabel} from the visit on '
+          '${BookingFormat.dayWithYear(appointment.scheduledAt)}. '
+          'The rest of the visit stays booked.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Keep it'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.rose),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Cancel treatment'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      await widget.appointmentApi.cancelSession(appointment.id, session.id);
+      if (!mounted) return;
+      _snack('Treatment cancelled.');
+      _reloadAfterMutation();
+    } on BookingConflictException catch (error) {
+      if (mounted) _snack(error.message);
+    } on ForbiddenException {
+      if (mounted) _snack('That treatment is not yours to cancel.');
+    } catch (_) {
+      if (mounted) {
+        _snack('Could not cancel. Check your connection and try again.');
+      }
+    }
+  }
+
+  // A fresh visit; same sheet, nothing to replace.
   Future<void> _book() async {
     Appointment? booked;
     final result = await showDialog<bool>(
@@ -278,6 +327,8 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
         appointmentApi: widget.appointmentApi,
         doctorApi: widget.doctorApi,
         replacesAppointmentId: appointment.id,
+        // Kept as-is unless the day changes.
+        initialSessions: appointment.plannedSessions,
         onBooked: (a) => booked = a,
       ),
     );
@@ -310,7 +361,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                   style: AppTypography.displayTitle(),
                 ),
               ),
-              // Booking lives with the list it adds to, not in the global header.
+              // Booking button lives with its own list.
               ElevatedButton.icon(
                 onPressed: _book,
                 style: ElevatedButton.styleFrom(
@@ -325,7 +376,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                 icon: const Icon(Icons.add_rounded, size: 16),
                 label: Text(
                   'New appointment',
-                  style: AppTypography.labelSmall(color: AppColors.white),
+                  style: AppTypography.labelMedium(color: AppColors.white),
                 ),
               ),
             ],
@@ -348,37 +399,65 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
         onRetry: _load,
       );
     }
+    final allHistory = _history ?? const [];
+    final markedDates = {
+      for (final a in _upcoming ?? const <Appointment>[]) _dayOf(a.scheduledAt),
+      for (final a in allHistory) _dayOf(a.scheduledAt),
+    };
+
     final upcoming = _column(
       'UPCOMING',
       _list(
         _upcoming ?? const [],
         'No upcoming appointments.',
-        (appointment) => _UpcomingCard(
+        (appointment) => UpcomingCard(
           appointment: appointment,
           cancellable: _stillCancellable(appointment),
           onCancel: () => _cancel(appointment),
           onReschedule: () => _reschedule(appointment),
+          onCancelSession: (session) => _cancelSession(appointment, session),
         ),
         hasMore: _upcomingHasMore,
         onLoadMore: () => _loadMore(upcoming: true),
       ),
     );
+    // Shows every outcome, not just current ones.
+    const historyStatuses = ['Completed', 'Pending', 'Missed', 'Cancelled'];
+    final filter = _historyFilter;
+    final filteredHistory = filter == null
+        ? allHistory
+        : allHistory
+              .where((a) => HistoryCard.historyStatus(a) == filter)
+              .toList();
 
     final history = _column(
       'HISTORY',
-      _list(
-        _history ?? const [],
-        'No past appointments yet.',
-        (appointment) => _HistoryCard(appointment: appointment),
-        hasMore: _historyHasMore,
-        onLoadMore: () => _loadMore(upcoming: false),
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          MiniCalendar(markedDates: markedDates),
+          const SizedBox(height: 16),
+          _historyFilterRow(historyStatuses),
+          const SizedBox(height: 12),
+          Expanded(
+            child: _list(
+              filteredHistory,
+              filter == null
+                  ? 'No past appointments yet.'
+                  : 'No $filter appointments.',
+              (appointment) => HistoryCard(appointment: appointment),
+              // Load more only works when unfiltered.
+              hasMore: filter == null && _historyHasMore,
+              onLoadMore: () => _loadMore(upcoming: false),
+            ),
+          ),
+        ],
       ),
     );
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Side by side where there is room; stacked when the pair would be
-        // too narrow to read, which is the tabs' job done by the layout.
+        // Side by side when there's room.
         if (constraints.maxWidth < 900) {
           return ListView(
             children: [
@@ -398,6 +477,12 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
         );
       },
     );
+  }
+
+  // Clinic-local day, time stripped, for grid matching.
+  static DateTime _dayOf(DateTime instant) {
+    final local = ClinicTime.at(instant);
+    return DateTime(local.year, local.month, local.day);
   }
 
   Widget _column(String title, Widget body) {
@@ -436,6 +521,50 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     );
   }
 
+  Widget _historyFilterRow(List<String> statuses) {
+    final labels = ['All', ...statuses];
+    return Row(
+      children: [
+        for (var i = 0; i < labels.length; i++) ...[
+          if (i > 0) const SizedBox(width: 6),
+          Expanded(
+            child: _historyFilterChip(
+              labels[i],
+              selected:
+                  _historyFilter == (labels[i] == 'All' ? null : labels[i]),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _historyFilterChip(String label, {required bool selected}) {
+    return GestureDetector(
+      onTap: () =>
+          setState(() => _historyFilter = label == 'All' ? null : label),
+      child: Container(
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.rosePale : AppColors.bgAlt,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected ? AppColors.borderRose : AppColors.border,
+          ),
+        ),
+        child: Text(
+          label,
+          overflow: TextOverflow.ellipsis,
+          maxLines: 1,
+          style: AppTypography.labelSmall(
+            color: selected ? AppColors.rose : AppColors.textMuted,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _loadMoreButton(VoidCallback onLoadMore) {
     return Center(
       child: OutlinedButton(
@@ -447,153 +576,6 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                 child: CircularProgressIndicator(strokeWidth: 2),
               )
             : const Text('Load more'),
-      ),
-    );
-  }
-}
-
-class _UpcomingCard extends StatelessWidget {
-  const _UpcomingCard({
-    required this.appointment,
-    required this.cancellable,
-    required this.onCancel,
-    required this.onReschedule,
-  });
-
-  final Appointment appointment;
-
-  /// False once the cancellation cutoff has passed.
-  final bool cancellable;
-  final VoidCallback onCancel;
-  final VoidCallback onReschedule;
-
-  @override
-  Widget build(BuildContext context) {
-    return _AppointmentCard(
-      appointment: appointment,
-      // Still to come, or all if none planned.
-      sessions: appointment.plannedSessions.isNotEmpty
-          ? appointment.plannedSessions
-          : appointment.sessions,
-      statusLabel: 'Confirmed',
-      footer: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (!cancellable) ...[
-            Text(
-              'Too close to the appointment to change it. Call the clinic.',
-              style: AppTypography.bodySmall(),
-            ),
-            const SizedBox(height: 8),
-          ],
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: cancellable ? onReschedule : null,
-                  child: const Text('Reschedule'),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: cancellable ? onCancel : null,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFFDC2626),
-                  ),
-                  child: const Text('Cancel'),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _HistoryCard extends StatelessWidget {
-  const _HistoryCard({required this.appointment});
-
-  final Appointment appointment;
-
-  @override
-  Widget build(BuildContext context) {
-    return _AppointmentCard(
-      appointment: appointment,
-      // What was delivered, not only what is planned.
-      sessions: [...appointment.sessions]
-        ..sort((a, b) => a.startTime.compareTo(b.startTime)),
-      statusLabel: _historyStatus(appointment),
-    );
-  }
-
-  // What became of the visit, per its treatments.
-  static String _historyStatus(Appointment appointment) {
-    if (!appointment.isBooked) return 'Cancelled';
-    final sessions = appointment.sessions;
-    if (sessions.any((s) => s.status == 'COMPLETED')) return 'Completed';
-    if (sessions.isEmpty) return 'Pending';
-    if (sessions.every((s) => s.status == 'CANCELLED')) return 'Cancelled';
-    // Nothing delivered and nothing left planned.
-    if (sessions.every((s) => !s.isPlanned)) return 'Missed';
-    // Past, but no outcome was recorded.
-    return 'Pending';
-  }
-}
-
-class _AppointmentCard extends StatelessWidget {
-  const _AppointmentCard({
-    required this.appointment,
-    required this.sessions,
-    required this.statusLabel,
-    this.footer,
-  });
-
-  final Appointment appointment;
-
-  /// Which treatments to list; the caller decides.
-  final List<AppointmentSession> sessions;
-  final String statusLabel;
-  final Widget? footer;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.bgCard,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Flexible(
-                child: Text(
-                  '${BookingFormat.day(appointment.scheduledAt)} · '
-                  '${BookingFormat.time12(appointment.scheduledAt)}',
-                  style: AppTypography.labelLarge(),
-                ),
-              ),
-              StatusPill(status: statusLabel),
-            ],
-          ),
-          const SizedBox(height: 8),
-          for (final session in sessions)
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Text(
-                '${session.treatmentLabel} · ${BookingFormat.time12(session.startTime)} · '
-                '${session.practitionerName}',
-                style: AppTypography.bodySmall(),
-              ),
-            ),
-          if (footer != null) ...[const SizedBox(height: 12), footer!],
-        ],
       ),
     );
   }

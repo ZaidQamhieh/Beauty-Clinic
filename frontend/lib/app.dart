@@ -190,15 +190,15 @@ class _MainRootControllerState extends State<MainRootController> {
       'patients',
       'doctor_profile',
       'consultations',
-      'landing',
+      'products',
     },
-    'patient' => {'patient_profile', 'dashboard', 'book', 'landing'},
+    'patient' => {'patient_profile', 'dashboard', 'products', 'landing'},
     'receptionist' => {
       'dashboard',
       'appointments',
       'patients',
       'doctors',
-      'landing',
+      'products',
     },
     _ => {
       'dashboard',
@@ -208,6 +208,7 @@ class _MainRootControllerState extends State<MainRootController> {
       'staff_management',
       'patient_profile',
       'doctor_profile',
+      'products',
       'landing',
     },
   };
