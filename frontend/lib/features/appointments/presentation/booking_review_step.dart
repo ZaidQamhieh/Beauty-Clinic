@@ -46,8 +46,7 @@ class BookingReviewStep extends StatelessWidget {
   final bool submitting;
   final bool isReschedule;
 
-  /// A reschedule that still matches what was already booked; nothing to
-  /// confirm until something changes.
+  /// Matches what's already booked; nothing to confirm.
   final bool unedited;
   final String? errorMessage;
 
@@ -59,7 +58,7 @@ class BookingReviewStep extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      // Hugs the ticket, and only scrolls once the visit outgrows the sheet.
+      // Hugs the ticket; scrolls if it outgrows.
       mainAxisSize: MainAxisSize.min,
       children: [
         Text('Review your visit', style: AppTypography.labelLarge()),
@@ -115,8 +114,7 @@ class BookingReviewStep extends StatelessWidget {
     );
   }
 
-  // A day header, then each treatment strung along a connecting line so the
-  // ticket reads as an itinerary rather than a repeated stub.
+  // Day header, then treatments on a timeline.
   Widget _ticket() {
     final ordered = [...items]
       ..sort((a, b) => a.slot.startTime.compareTo(b.slot.startTime));
@@ -236,8 +234,7 @@ class BookingReviewStep extends StatelessWidget {
                           minWidth: 24,
                           minHeight: 24,
                         ),
-                        // Keyed on the caller's order, which is not the
-                        // display order.
+                        // Keyed on caller's order, not display order.
                         onPressed: submitting
                             ? null
                             : () => onRemove(items.indexOf(item)),

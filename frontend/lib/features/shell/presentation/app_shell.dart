@@ -93,8 +93,7 @@ class _AppShellState extends State<AppShell> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
           child: Row(
             children: [
-              // Collapsed rail has no room for a second button, so the logo
-              // itself expands it back out.
+              // Collapsed rail has no room; logo expands it.
               if (!isDrawer && isCollapsed)
                 InkWell(
                   borderRadius: BorderRadius.circular(20),

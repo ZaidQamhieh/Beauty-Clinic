@@ -40,8 +40,7 @@ class HeaderBar extends StatelessWidget implements PreferredSizeWidget {
           return Stack(
             alignment: Alignment.center,
             children: [
-              // Search sits dead-center of the whole bar, independent of how
-              // wide the brand block or the account cluster happen to be.
+              // Search sits dead-center, independent of side widths.
               if (showSearch && !isMobile) _searchField(),
 
               Row(
@@ -85,15 +84,12 @@ class HeaderBar extends StatelessWidget implements PreferredSizeWidget {
 
                   const SizedBox(width: 12),
 
-                  // The role is read-only. A user must sign in to their own
-                  // account to reach a different portal.
+                  // Role is read-only; sign in to switch it.
                   _buildRoleBadge(compact: compactText),
 
                   const Spacer(),
 
-                  // Everything past here is the far-right account cluster:
-                  // notifications, the page's own action, then account
-                  // controls, with nothing else between it and the edge.
+                  // Everything after this is the right-edge cluster.
                   Stack(
                     children: [
                       IconButton(
@@ -124,8 +120,7 @@ class HeaderBar extends StatelessWidget implements PreferredSizeWidget {
                     ],
                   ),
 
-                  // Booking is a page action, not a global one: only a screen
-                  // that passes a handler shows it here.
+                  // Booking is per-page, shown only when passed.
                   if (onBookClick != null) ...[
                     const SizedBox(width: 8),
                     ElevatedButton.icon(
@@ -197,9 +192,7 @@ class HeaderBar extends StatelessWidget implements PreferredSizeWidget {
             color: AppColors.textMuted,
           ),
           contentPadding: const EdgeInsets.symmetric(vertical: 6),
-          // The outer Container already paints the box; without this the
-          // theme's own filled background doubles up on top of it (only
-          // visible once focused, since idle colors happen to match).
+          // Prevents the theme's fill from doubling up.
           filled: false,
           border: InputBorder.none,
           enabledBorder: InputBorder.none,

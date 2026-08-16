@@ -23,7 +23,7 @@ class UpcomingCard extends StatelessWidget {
   final VoidCallback onCancel;
   final VoidCallback onReschedule;
 
-  /// Drops one treatment out of the visit; the rest stays booked.
+  /// Drops one treatment; the rest stays.
   final ValueChanged<AppointmentSession> onCancelSession;
 
   @override
@@ -36,11 +36,9 @@ class UpcomingCard extends StatelessWidget {
       // Still to come, or all if none planned.
       sessions: sessions,
       statusLabel: 'Confirmed',
-      // A day full of treatments reads better when the soonest one stands
-      // out and the rest of the day recedes.
+      // Soonest treatment stands out; rest recedes.
       highlightNext: true,
-      // Only worth offering per-treatment cancel when there's more than one
-      // to choose between; with a single session it's the same as "Cancel".
+      // Only useful with more than one treatment.
       sessionTrailing: cancellable && sessions.length > 1
           ? (session) => session.isPlanned
                 ? IconButton(
@@ -153,14 +151,13 @@ class _AppointmentCard extends StatelessWidget {
   final String statusLabel;
   final Widget? footer;
 
-  /// Per-session action (e.g. cancel just that treatment); null hides it.
+  /// Per-session action; null hides it.
   final Widget? Function(AppointmentSession session)? sessionTrailing;
 
-  /// Weights the soonest planned session and mutes the rest; only makes
-  /// sense while the visit is still ahead of the patient, not in history.
+  /// Weights next session; only for upcoming visits.
   final bool highlightNext;
 
-  // Cancelled visits recede so upcoming and completed ones read first.
+  // Cancelled visits recede; others read first.
   bool get _muted => statusLabel == 'Cancelled';
 
   @override
@@ -217,8 +214,7 @@ class _AppointmentCard extends StatelessWidget {
   }
 }
 
-/// One treatment line: the soonest planned one is weighted and tinted, the
-/// rest of the day recedes so the visit reads as "what's next" first.
+/// One row; soonest treatment weighted, rest recede.
 class _SessionRow extends StatelessWidget {
   const _SessionRow({
     required this.session,
@@ -291,15 +287,13 @@ class _SessionRow extends StatelessWidget {
   }
 }
 
-/// A tinted circle glyph per treatment category, so a scan of the list reads
-/// by type at a glance instead of by reading every line.
+/// Tinted glyph per category, for quick scanning.
 class _CategoryBadge extends StatelessWidget {
   const _CategoryBadge({required this.category, this.backgroundOverride});
 
   final String category;
 
-  /// Swaps out the category tint, e.g. when the row already has its own
-  /// tinted background and the icon needs a plain backdrop instead.
+  /// Swaps the tint when row has its own.
   final Color? backgroundOverride;
 
   static const _byCategory = {

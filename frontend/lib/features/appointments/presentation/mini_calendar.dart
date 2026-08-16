@@ -4,8 +4,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../data/clinic_time.dart';
 
-/// A compact month view. Days that carry an appointment — upcoming or past
-/// — get a tinted mark, so the patient sees at a glance where visits fall.
+/// Month view; days with visits get tinted.
 class MiniCalendar extends StatefulWidget {
   const MiniCalendar({super.key, required this.markedDates});
 
@@ -51,7 +50,7 @@ class _MiniCalendarState extends State<MiniCalendar> {
     final today = DateTime(todayLocal.year, todayLocal.month, todayLocal.day);
     final firstOfMonth = DateTime(_month.year, _month.month);
     final daysInMonth = DateTime(_month.year, _month.month + 1, 0).day;
-    // Monday-first grid: Monday's weekday value is 1, so no blanks needed there.
+    // Monday-first grid; Monday's weekday value is 1.
     final leadingBlanks = firstOfMonth.weekday - 1;
 
     final cells = <Widget>[

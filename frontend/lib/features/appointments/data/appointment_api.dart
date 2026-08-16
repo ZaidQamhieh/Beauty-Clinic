@@ -133,9 +133,7 @@ class AppointmentApi {
     }
   }
 
-  /// Drops one treatment from the visit; the rest stays booked. The backend
-  /// re-syncs the visit's time to whatever remains, or cancels it outright
-  /// once nothing is left planned.
+  /// Drops one treatment; backend resyncs or cancels.
   Future<AppointmentSession> cancelSession(
     String appointmentId,
     String sessionId,

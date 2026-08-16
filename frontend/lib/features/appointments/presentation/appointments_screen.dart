@@ -31,7 +31,7 @@ class AppointmentsScreen extends StatefulWidget {
   final TreatmentApi treatmentApi;
   final DoctorApi doctorApi;
 
-  /// Fires when a visit is booked elsewhere; cleared once read.
+  /// Fires when booked elsewhere; cleared once read.
   final ValueNotifier<Appointment?> bookedSignal;
 
   @override
@@ -54,10 +54,10 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
   /// null shows every history status.
   String? _historyFilter;
 
-  /// Booked while the first load was in flight.
+  /// Booked while the first load ran.
   Appointment? _pendingBooked;
 
-  /// How late a patient may still cancel, once the rules land.
+  /// How late a patient may cancel.
   Duration? _cancellationCutoff;
 
   @override
@@ -84,7 +84,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     }
   }
 
-  // The backend refuses inside the cutoff, so do not offer it.
+  // Backend refuses inside the cutoff.
   bool _stillCancellable(Appointment appointment) {
     final cutoff = _cancellationCutoff;
     if (cutoff == null) return true;
@@ -178,7 +178,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
   void _onExternalBooking() {
     final appointment = widget.bookedSignal.value;
     if (appointment == null) return;
-    // Consumed once, so a stale visit cannot outlive this screen.
+    // Consumed once; stale visits can't outlive it.
     widget.bookedSignal.value = null;
     if (_upcoming == null) {
       _pendingBooked = appointment;
@@ -254,9 +254,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     }
   }
 
-  // Drops one treatment out of a multi-treatment visit; the rest stays
-  // booked. The backend re-syncs the visit's time, or closes it outright
-  // once nothing is left planned, so a quiet reload picks up either outcome.
+  // Drops one treatment; backend resyncs or closes visit.
   Future<void> _cancelSession(
     Appointment appointment,
     AppointmentSession session,
@@ -301,7 +299,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     }
   }
 
-  // A fresh visit. Same sheet as a reschedule, with nothing to replace.
+  // A fresh visit; same sheet, nothing to replace.
   Future<void> _book() async {
     Appointment? booked;
     final result = await showDialog<bool>(
@@ -329,7 +327,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
         appointmentApi: widget.appointmentApi,
         doctorApi: widget.doctorApi,
         replacesAppointmentId: appointment.id,
-        // Kept as-is unless the patient picks a different day.
+        // Kept as-is unless the day changes.
         initialSessions: appointment.plannedSessions,
         onBooked: (a) => booked = a,
       ),
@@ -363,7 +361,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                   style: AppTypography.displayTitle(),
                 ),
               ),
-              // Booking lives with the list it adds to, not in the global header.
+              // Booking button lives with its own list.
               ElevatedButton.icon(
                 onPressed: _book,
                 style: ElevatedButton.styleFrom(
@@ -423,8 +421,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
         onLoadMore: () => _loadMore(upcoming: true),
       ),
     );
-    // Every possible outcome, not just the ones currently in the list, so
-    // the filter itself documents what a visit can become.
+    // Shows every outcome, not just current ones.
     const historyStatuses = ['Completed', 'Pending', 'Missed', 'Cancelled'];
     final filter = _historyFilter;
     final filteredHistory = filter == null
@@ -449,8 +446,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                   ? 'No past appointments yet.'
                   : 'No $filter appointments.',
               (appointment) => HistoryCard(appointment: appointment),
-              // Paging fetches unfiltered pages, so "load more" only makes
-              // sense while every status is shown.
+              // Load more only works when unfiltered.
               hasMore: filter == null && _historyHasMore,
               onLoadMore: () => _loadMore(upcoming: false),
             ),
@@ -461,8 +457,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Side by side where there is room; stacked when the pair would be
-        // too narrow to read, which is the tabs' job done by the layout.
+        // Side by side when there's room.
         if (constraints.maxWidth < 900) {
           return ListView(
             children: [
@@ -484,7 +479,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     );
   }
 
-  // Clinic-local calendar day, stripped of time, for matching against the grid.
+  // Clinic-local day, time stripped, for grid matching.
   static DateTime _dayOf(DateTime instant) {
     final local = ClinicTime.at(instant);
     return DateTime(local.year, local.month, local.day);

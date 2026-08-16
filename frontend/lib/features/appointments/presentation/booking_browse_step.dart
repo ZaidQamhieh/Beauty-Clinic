@@ -61,7 +61,7 @@ class BookingBrowseStep extends StatelessWidget {
   /// True once a treatment is held, pinning the visit to its day.
   final bool dayLocked;
 
-  /// A reschedule may change day freely; doing so drops the kept cart.
+  /// Reschedule may change day; drops the kept cart.
   final bool isReschedule;
 
   final Map<String, DoctorSummary> doctorsById;
