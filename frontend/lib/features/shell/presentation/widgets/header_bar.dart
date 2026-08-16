@@ -142,9 +142,7 @@ class HeaderBar extends StatelessWidget implements PreferredSizeWidget {
                       icon: const Icon(Icons.add_rounded, size: 16),
                       label: Text(
                         compactText || isMobile ? 'Book' : 'New Appt',
-                        style: AppTypography.labelSmall(
-                          color: AppColors.white,
-                        ),
+                        style: AppTypography.labelSmall(color: AppColors.white),
                       ),
                     ),
                   ],

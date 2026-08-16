@@ -534,9 +534,8 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
           Expanded(
             child: _historyFilterChip(
               labels[i],
-              selected: _historyFilter == (labels[i] == 'All'
-                  ? null
-                  : labels[i]),
+              selected:
+                  _historyFilter == (labels[i] == 'All' ? null : labels[i]),
             ),
           ),
         ],
@@ -546,9 +545,8 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
 
   Widget _historyFilterChip(String label, {required bool selected}) {
     return GestureDetector(
-      onTap: () => setState(
-        () => _historyFilter = label == 'All' ? null : label,
-      ),
+      onTap: () =>
+          setState(() => _historyFilter = label == 'All' ? null : label),
       child: Container(
         alignment: Alignment.center,
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
@@ -638,7 +636,8 @@ class _MiniCalendarState extends State<_MiniCalendar> {
     final leadingBlanks = firstOfMonth.weekday - 1;
 
     final cells = <Widget>[
-      for (var i = 0; i < leadingBlanks; i++) const SizedBox(width: 26, height: 26),
+      for (var i = 0; i < leadingBlanks; i++)
+        const SizedBox(width: 26, height: 26),
       for (var day = 1; day <= daysInMonth; day++)
         _dayCell(DateTime(_month.year, _month.month, day), today),
     ];
@@ -653,7 +652,10 @@ class _MiniCalendarState extends State<_MiniCalendar> {
       weeks.add(
         Padding(
           padding: const EdgeInsets.only(bottom: 4),
-          child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: week),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: week,
+          ),
         ),
       );
     }
@@ -730,13 +732,16 @@ class _MiniCalendarState extends State<_MiniCalendar> {
       ),
       child: Text(
         '${date.day}',
-        style: AppTypography.bodySmall(
-          color: isToday
-              ? AppColors.white
-              : (isMarked ? AppColors.roseDark : AppColors.textSub),
-        ).copyWith(
-          fontWeight: isToday || isMarked ? FontWeight.w700 : FontWeight.w400,
-        ),
+        style:
+            AppTypography.bodySmall(
+              color: isToday
+                  ? AppColors.white
+                  : (isMarked ? AppColors.roseDark : AppColors.textSub),
+            ).copyWith(
+              fontWeight: isToday || isMarked
+                  ? FontWeight.w700
+                  : FontWeight.w400,
+            ),
       ),
     );
   }
@@ -1007,10 +1012,7 @@ class _SessionRow extends StatelessWidget {
           color: AppColors.rosePale,
           borderRadius: BorderRadius.circular(10),
         ),
-        child: Padding(
-          padding: const EdgeInsets.only(bottom: 2),
-          child: row,
-        ),
+        child: Padding(padding: const EdgeInsets.only(bottom: 2), child: row),
       );
     }
     return Padding(
