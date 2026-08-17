@@ -111,9 +111,9 @@ public class AppointmentSessionService {
         Instant startTime = request.startTime();
         Instant endTime = startTime.plus(Duration.ofMinutes(tariff.durationMinutes()));
 
-        assertNotAlreadyInVisit(appointment, treatment);
-        // Here, not add(): book() joins too.
+        // Before the rest, as add() checked it first.
         assertKeepsCancellationWindow(appointment, startTime);
+        assertNotAlreadyInVisit(appointment, treatment);
         assertQualified(practitioner, treatment);
 
         // One place names the pick, so every per-slot check below is identified.

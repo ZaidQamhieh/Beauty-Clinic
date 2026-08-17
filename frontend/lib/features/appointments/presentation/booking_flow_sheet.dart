@@ -315,7 +315,8 @@ class _BookingFlowSheetState extends State<BookingFlowSheet>
       if (!silent) _slotFail('You can only search your own diary.', request);
     } catch (_) {
       // A failed poll keeps the shown times.
-      if (!silent) _slotFail('Could not load times. Tap to try again.', request);
+      if (!silent)
+        _slotFail('Could not load times. Tap to try again.', request);
     }
   }
 
