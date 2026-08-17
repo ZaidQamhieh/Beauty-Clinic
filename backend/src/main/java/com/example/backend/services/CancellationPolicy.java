@@ -1,7 +1,6 @@
 package com.example.backend.services;
 
 import com.example.backend.config.ClinicProperties;
-import com.example.backend.exception.SlotTakenException;
 import com.example.backend.security.CurrentUser;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -45,14 +44,14 @@ public class CancellationPolicy {
     }
 
     // A patient may not book what they would have no right to cancel. The desk still may.
-    // A lost slot: it was offered, then aged past the cutoff while they decided.
     public void assertLeavesRoomToCancel(Instant startTime) {
         if (leavesRoomToCancel(startTime)) {
             return;
         }
 
         Duration cutoff = clinic.cancellationCutoff();
-        throw new SlotTakenException(
+        throw new ResponseStatusException(
+                HttpStatus.CONFLICT,
                 "Patients book at least " + cutoff.toMinutes()
                         + " minutes ahead, so the booking can still be cancelled");
     }
