@@ -4,6 +4,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../data/clinic_time.dart';
 import '../data/doctor_summary.dart';
+import '../data/enum_label.dart';
 import '../data/free_slot.dart';
 import '../data/treatment.dart';
 import 'booking_format.dart';
@@ -13,7 +14,7 @@ import 'booking_result_steps.dart';
 const int _dayStartHour = 9;
 const int _dayEndHour = 18;
 
-/// Picking a day, a treatment, and a time.
+/// Picks day, treatment, and time.
 class BookingBrowseStep extends StatelessWidget {
   const BookingBrowseStep({
     super.key,
@@ -24,6 +25,7 @@ class BookingBrowseStep extends StatelessWidget {
     required this.alreadyInVisit,
     required this.selectedTreatment,
     required this.slots,
+    required this.takenSlot,
     required this.openSlots,
     required this.slotsLoading,
     required this.slotsError,
@@ -46,22 +48,24 @@ class BookingBrowseStep extends StatelessWidget {
 
   final List<Treatment> treatments;
 
-  /// Treatment names already held in the visit, offered greyed out.
+  /// Names held in visit, shown greyed.
   final Set<String> alreadyInVisit;
   final Treatment? selectedTreatment;
 
   final List<FreeSlot>? slots;
 
-  /// Open time shown before a treatment narrows the roster. Not bookable: a
-  /// slot is only real once measured in the chosen treatment's own length.
+  /// Lost to another booking; offered disabled.
+  final FreeSlot? takenSlot;
+
+  /// Open time before treatment narrows roster.
   final List<FreeSlot>? openSlots;
   final bool slotsLoading;
   final String? slotsError;
 
-  /// True once a treatment is held, pinning the visit to its day.
+  /// True once a treatment pins the day.
   final bool dayLocked;
 
-  /// Reschedule may change day; drops the kept cart.
+  /// Reschedule may change day, dropping cart.
   final bool isReschedule;
 
   final Map<String, DoctorSummary> doctorsById;
@@ -84,7 +88,7 @@ class BookingBrowseStep extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         if (constraints.maxWidth >= 720) {
-          // Stretched, so the left column is height-bounded and its calendar can fill.
+          // Stretched, so left calendar can fill.
           return Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -108,8 +112,7 @@ class BookingBrowseStep extends StatelessWidget {
     );
   }
 
-  // fill: the column owns a bounded height, so the calendar takes what is left
-  // rather than running past the panel and forcing a scroll to reach its end.
+  // Bounded height lets calendar take remainder.
   Widget _leftPanel(BuildContext context, {required bool fill}) {
     final calendar = _calendar(context, fill: fill);
 
@@ -127,7 +130,7 @@ class BookingBrowseStep extends StatelessWidget {
         const SizedBox(height: 16),
         Text('DATE', style: AppTypography.labelSmall()),
         const SizedBox(height: 8),
-        // Laid out after the fixed children, so the note below keeps its space.
+        // After fixed children, note keeps space.
         if (fill) Expanded(child: calendar) else calendar,
         if (dayLocked) ...[
           const SizedBox(height: 8),
@@ -149,13 +152,13 @@ class BookingBrowseStep extends StatelessWidget {
 
   Widget _calendar(BuildContext context, {required bool fill}) {
     final calendar = Container(
-      // Unset when filling: the Expanded above hands down the height.
+      // Filling: Expanded hands down the height.
       height: fill ? null : 320,
       decoration: BoxDecoration(
         color: AppColors.bgAlt,
         borderRadius: BorderRadius.circular(14),
       ),
-      // Recolour the Material calendar to the rose theme.
+      // Recolour Material calendar to rose.
       child: Theme(
         data: Theme.of(context).copyWith(
           colorScheme: const ColorScheme.light(
@@ -164,7 +167,7 @@ class BookingBrowseStep extends StatelessWidget {
             onSurface: AppColors.text,
           ),
         ),
-        // A locked day offers only itself, so no other date is tappable.
+        // A locked day offers only itself.
         child: CalendarDatePicker(
           initialDate: selectedDay,
           firstDate: dayLocked ? selectedDay : today,
@@ -265,10 +268,10 @@ class BookingBrowseStep extends StatelessWidget {
         ),
       );
     }
-    // Unfiltered: the whole roster, since no treatment has narrowed it yet.
+    // Whole roster, no treatment narrowing yet.
     if (selectedTreatment == null) return _directory();
     final free = slots ?? const <FreeSlot>[];
-    if (free.isEmpty) {
+    if (free.isEmpty && _taken == null) {
       return SizedBox(
         height: 240,
         child: BookingMessage(
@@ -281,7 +284,21 @@ class BookingBrowseStep extends StatelessWidget {
     }
     if (!viewByDoctor) return _byTime(free);
     if (chosenDoctorId != null) return _doctorTimes(chosenDoctorId!);
+    // No doctor cards to host it.
+    if (free.isEmpty) return _byTime(free);
     return _byDoctor();
+  }
+
+  // Kept only for the shown day.
+  FreeSlot? get _taken {
+    final slot = takenSlot;
+    if (slot == null || selectedTreatment == null) return null;
+    final start = ClinicTime.at(slot.startTime);
+    final sameDay =
+        start.year == selectedDay.year &&
+        start.month == selectedDay.month &&
+        start.day == selectedDay.day;
+    return sameDay ? slot : null;
   }
 
   Widget _panelHeader(String title, String note) {
@@ -297,14 +314,13 @@ class BookingBrowseStep extends StatelessWidget {
     );
   }
 
-  // ─── Unfiltered: every doctor, before a treatment narrows them ────────────
+  // ─── Unfiltered roster ────────────
 
-  // Open time comes from the shortest treatment everyone qualifies for, so it
-  // reads as "when this doctor is free" rather than as bookable slots.
+  // Open time reads as free, not bookable.
   Widget _directory() {
     final open = openSlots ?? const <FreeSlot>[];
 
-    // The toggle still decides the shape; only the source of the times differs.
+    // Toggle decides shape; time source differs.
     if (!viewByDoctor) {
       if (open.isEmpty) {
         return SizedBox(
@@ -555,7 +571,7 @@ class BookingBrowseStep extends StatelessWidget {
           children: [
             for (int hour = start; hour < end; hour++) ...[
               Expanded(
-                // Hover a block to see its hour range.
+                // Hover shows the hour range.
                 child: Tooltip(
                   message: BookingFormat.hourRange12(hour),
                   waitDuration: const Duration(milliseconds: 200),
@@ -601,14 +617,20 @@ class BookingBrowseStep extends StatelessWidget {
     );
   }
 
-  // An hour per row, empty ones kept: a gap in the day is information, and
-  // pills alone left it to be inferred from times that were simply missing.
+  // Empty hours kept: a gap is information.
   Widget _agenda(List<FreeSlot> slots) {
+    final taken = _taken;
     final byHour = <int, List<FreeSlot>>{};
     for (final slot in slots) {
       byHour
           .putIfAbsent(ClinicTime.at(slot.startTime).hour, () => [])
           .add(slot);
+    }
+    // Its own doctor still shows it, disabled.
+    if (taken != null && taken.practitionerUserId == chosenDoctorId) {
+      byHour
+          .putIfAbsent(ClinicTime.at(taken.startTime).hour, () => [])
+          .add(taken);
     }
     if (byHour.isEmpty) {
       return Text('No free times.', style: AppTypography.bodySmall());
@@ -651,7 +673,10 @@ class BookingBrowseStep extends StatelessWidget {
                           spacing: 8,
                           runSpacing: 8,
                           children: [
-                            for (final slot in byHour[hour]!) _timeChip(slot),
+                            for (final slot in byHour[hour]!)
+                              slot == taken
+                                  ? _takenChip(slot)
+                                  : _timeChip(slot),
                           ],
                         ),
                 ),
@@ -659,6 +684,27 @@ class BookingBrowseStep extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+
+  // No InkWell, so nothing is pickable.
+  Widget _takenChip(FreeSlot slot) {
+    return Tooltip(
+      message: 'Booked by someone else',
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: AppColors.bgAlt,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Text(
+          BookingFormat.time12(slot.startTime),
+          style: AppTypography.labelMedium(
+            color: AppColors.textMuted,
+          ).copyWith(decoration: TextDecoration.lineThrough),
+        ),
+      ),
     );
   }
 
@@ -684,7 +730,7 @@ class BookingBrowseStep extends StatelessWidget {
     );
   }
 
-  // ─── By time: chronological cards grouped by period ────────────────────────
+  // ─── By time ────────────────────────
 
   Widget _byTime(List<FreeSlot> slots) {
     final children = <Widget>[
@@ -697,7 +743,12 @@ class BookingBrowseStep extends StatelessWidget {
             : 'Chronological timeline',
       ),
     ];
-    _groupByPeriod(slots).forEach((label, list) {
+    final taken = _taken;
+    // Merged in, so it keeps its place.
+    final rows = taken == null || slots.contains(taken)
+        ? slots
+        : [...slots, taken];
+    _groupByPeriod(rows).forEach((label, list) {
       if (list.isEmpty) return;
       children.add(
         Padding(
@@ -706,7 +757,7 @@ class BookingBrowseStep extends StatelessWidget {
         ),
       );
       for (final slot in list) {
-        children.add(_slotCard(slot));
+        children.add(_slotCard(slot, taken: slot == taken));
       }
     });
 
@@ -716,26 +767,27 @@ class BookingBrowseStep extends StatelessWidget {
     );
   }
 
-  Widget _slotCard(FreeSlot slot) {
+  Widget _slotCard(FreeSlot slot, {bool taken = false}) {
     final treatment = selectedTreatment;
     final doctor = doctorsById[slot.practitionerUserId];
-    // Unfiltered, the row is a free time and nothing more: no work is planned
-    // for it, so naming a speciality or a length would invent one.
+    // Unfiltered rows plan no work.
     final specialty =
         treatment != null && (doctor?.categoryTags.isNotEmpty ?? false)
         ? doctor!.categoryTags.first
         : '';
     final duration = treatment?.durationMinutes;
-    final subtitle = [
-      if (specialty.isNotEmpty) specialty,
-      if (duration != null) '$duration min',
-    ].join(' · ');
+    final subtitle = taken
+        ? 'Booked by someone else'
+        : [
+            if (specialty.isNotEmpty) specialty,
+            if (duration != null) '$duration min',
+          ].join(' · ');
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppColors.bgCard,
+        color: taken ? AppColors.bgAlt : AppColors.bgCard,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.border),
       ),
@@ -744,12 +796,16 @@ class BookingBrowseStep extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             decoration: BoxDecoration(
-              color: AppColors.rosePale,
+              color: taken ? AppColors.bgCard : AppColors.rosePale,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
               BookingFormat.time12(slot.startTime),
-              style: AppTypography.labelMedium(color: AppColors.roseDark),
+              style: taken
+                  ? AppTypography.labelMedium(
+                      color: AppColors.textMuted,
+                    ).copyWith(decoration: TextDecoration.lineThrough)
+                  : AppTypography.labelMedium(color: AppColors.roseDark),
             ),
           ),
           const SizedBox(width: 14),
@@ -757,23 +813,29 @@ class BookingBrowseStep extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(slot.practitionerName, style: AppTypography.labelLarge()),
-                // Dropped rather than left blank, so the row closes up.
+                Text(
+                  slot.practitionerName,
+                  style: AppTypography.labelLarge(
+                    color: taken ? AppColors.textMuted : AppColors.text,
+                  ),
+                ),
+                // Dropped, so the row closes up.
                 if (subtitle.isNotEmpty)
                   Text(subtitle, style: AppTypography.bodySmall()),
               ],
             ),
           ),
-          // Booking needs a treatment: the cart item is built from one.
+          // Cart item is built from a treatment.
           if (selectedTreatment != null)
             IconButton(
               style: IconButton.styleFrom(
-                backgroundColor: AppColors.rose,
-                foregroundColor: AppColors.white,
+                backgroundColor: taken ? AppColors.bgAlt : AppColors.rose,
+                foregroundColor: taken ? AppColors.textMuted : AppColors.white,
                 minimumSize: const Size(34, 34),
               ),
               icon: const Icon(Icons.arrow_forward, size: 16),
-              onPressed: () => onSlotChosen(slot),
+              // Null disables the button outright.
+              onPressed: taken ? null : () => onSlotChosen(slot),
             ),
         ],
       ),
@@ -823,7 +885,7 @@ class BookingBrowseStep extends StatelessWidget {
     return (start, end);
   }
 
-  // Slots bucketed by period, each in start order.
+  // Slots by period, each in start order.
   Map<String, List<FreeSlot>> _groupByPeriod(List<FreeSlot> slots) {
     final groups = <String, List<FreeSlot>>{
       'MORNING': [],
@@ -847,8 +909,7 @@ class BookingBrowseStep extends StatelessWidget {
   }
 }
 
-/// The treatment filter. Stateful only to own the field's controller, which is
-/// what makes clearing the text mean "no treatment" rather than nothing at all.
+/// The treatment filter, owning its controller.
 class _TreatmentField extends StatefulWidget {
   const _TreatmentField({
     required this.treatments,
@@ -871,7 +932,38 @@ class _TreatmentFieldState extends State<_TreatmentField> {
     text: widget.selected?.label ?? '',
   );
 
-  late bool _empty = _controller.text.isEmpty;
+  final MenuController _menu = MenuController();
+  final FocusNode _focus = FocusNode();
+
+  /// Set while the field mirrors a selection.
+  bool _syncing = false;
+
+  /// Null means every category.
+  String? _category;
+
+  bool get _empty => _controller.text.isEmpty;
+
+  // Catalogue order, one entry per category.
+  List<String> get _categories {
+    final seen = <String>[];
+    for (final treatment in widget.treatments) {
+      if (!seen.contains(treatment.category)) seen.add(treatment.category);
+    }
+    return seen;
+  }
+
+  // Typed text narrows, unless naming the pick.
+  List<Treatment> get _visible {
+    final query = _controller.text.trim().toLowerCase();
+    final chosen = widget.selected?.label.toLowerCase();
+    final typed = query.isEmpty || query == chosen ? '' : query;
+    return widget.treatments.where((treatment) {
+      final inCategory = _category == null || treatment.category == _category;
+      final matches =
+          typed.isEmpty || treatment.label.toLowerCase().contains(typed);
+      return inCategory && matches;
+    }).toList();
+  }
 
   @override
   void initState() {
@@ -879,32 +971,57 @@ class _TreatmentFieldState extends State<_TreatmentField> {
     _controller.addListener(_onTextChanged);
   }
 
-  // Emptied by hand: drop the filter and show the whole roster again.
+  // Emptied by hand drops the filter.
   void _onTextChanged() {
-    final empty = _controller.text.isEmpty;
-
-    // Only on the edge, so the trailing icon swaps without rebuilding per keystroke.
-    if (empty != _empty) {
-      setState(() => _empty = empty);
-    }
-    if (empty && widget.selected != null) {
+    if (_syncing) return;
+    setState(() {});
+    if (_empty && widget.selected != null) {
       widget.onChanged(null);
     }
   }
 
-  // Clears a typed filter as well as a selection: both live in this field.
+  // Mirrors a selection without re-entering the listener.
+  void _setText(String text) {
+    _syncing = true;
+    _controller.text = text;
+    _syncing = false;
+  }
+
+  void _select(Treatment treatment) {
+    _setText(treatment.label);
+    _menu.close();
+    widget.onChanged(treatment);
+  }
+
+  // Clears typed text and selection.
   void _clear() {
-    _controller.clear();
+    _setText('');
+    setState(() {});
     widget.onChanged(null);
   }
 
-  // A selection made elsewhere still has to reach the field.
+  // Typed text compounds with a narrowed list.
+  void _pickCategory(String? category) {
+    setState(() {
+      _category = category;
+      if (category != null) _setText('');
+    });
+    if (category != null && widget.selected != null) {
+      widget.onChanged(null);
+    }
+  }
+
+  // A selection made elsewhere reaches the field.
   @override
   void didUpdateWidget(covariant _TreatmentField oldWidget) {
     super.didUpdateWidget(oldWidget);
     final label = widget.selected?.label ?? '';
     if (widget.selected != oldWidget.selected && _controller.text != label) {
-      _controller.text = label;
+      _setText(label);
+    }
+    // A selection outside the filter hides itself.
+    if (widget.selected != null && widget.selected!.category != _category) {
+      _category = null;
     }
   }
 
@@ -912,7 +1029,79 @@ class _TreatmentFieldState extends State<_TreatmentField> {
   void dispose() {
     _controller.removeListener(_onTextChanged);
     _controller.dispose();
+    _focus.dispose();
     super.dispose();
+  }
+
+  // Pinned above the list, outside its scroll.
+  Widget _categoryBar() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+      child: Row(
+        children: [
+          _categoryChip('All', _category == null, () => _pickCategory(null)),
+          for (final category in _categories) ...[
+            const SizedBox(width: 6),
+            _categoryChip(
+              humanizeEnum(category),
+              _category == category,
+              () => _pickCategory(category),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _categoryChip(String label, bool active, VoidCallback onTap) {
+    return Material(
+      color: active ? AppColors.rosePale : AppColors.bgAlt,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: active ? AppColors.borderRose : AppColors.border,
+            ),
+          ),
+          child: Text(
+            label,
+            style: AppTypography.labelSmall(
+              color: active ? AppColors.roseDark : AppColors.textMuted,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _treatmentItem(Treatment treatment) {
+    final held = widget.alreadyInVisit.contains(treatment.name);
+    return MenuItemButton(
+      // Once a visit, so row says why.
+      onPressed: held ? null : () => _select(treatment),
+      leadingIcon: Icon(
+        held ? Icons.check_circle_outline : Icons.spa_outlined,
+        size: 18,
+        color: held ? AppColors.sage : AppColors.rose,
+      ),
+      trailingIcon: Text(
+        held ? 'in this visit' : '${treatment.durationMinutes} min',
+        style: AppTypography.bodySmall(),
+      ),
+      style: MenuItemButton.styleFrom(
+        minimumSize: const Size.fromHeight(36),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        textStyle: AppTypography.bodyMedium(),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+      child: Text(treatment.label),
+    );
   }
 
   Widget _clearButton() {
@@ -924,93 +1113,123 @@ class _TreatmentFieldState extends State<_TreatmentField> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _field() {
     final border = OutlineInputBorder(
       borderRadius: BorderRadius.circular(10),
       borderSide: const BorderSide(color: AppColors.border),
     );
 
-    return DropdownMenu<Treatment>(
+    return TextField(
       controller: _controller,
-      initialSelection: widget.selected,
-      // The magnifier promised filtering the old dropdown never did.
-      enableFilter: true,
-      requestFocusOnTap: true,
-      expandedInsets: EdgeInsets.zero,
-      hintText: 'Search treatments',
-      leadingIcon: const Icon(Icons.search, size: 16, color: AppColors.rose),
-      textStyle: AppTypography.bodyMedium(),
-      // Nothing to clear when the field is empty, so the chevron stands in.
-      trailingIcon: _empty
-          ? const Icon(Icons.keyboard_arrow_down, color: AppColors.textMuted)
-          : _clearButton(),
-      selectedTrailingIcon: _empty
-          ? const Icon(Icons.keyboard_arrow_up, color: AppColors.textMuted)
-          : _clearButton(),
-      inputDecorationTheme: InputDecorationTheme(
+      focusNode: _focus,
+      style: AppTypography.bodyMedium(),
+      onTap: _menu.open,
+      // The magnifier now really filters.
+      onChanged: (_) {
+        if (!_menu.isOpen) _menu.open();
+      },
+      decoration: InputDecoration(
         filled: true,
         fillColor: AppColors.bgCard,
+        hintText: 'Search treatments',
+        hintStyle: AppTypography.bodyMedium(color: AppColors.textMuted),
         contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+        prefixIcon: const Icon(Icons.search, size: 16, color: AppColors.rose),
+        prefixIconConstraints: const BoxConstraints(minWidth: 38),
+        // Empty field has nothing to clear.
+        suffixIcon: _empty
+            ? IconButton(
+                icon: Icon(
+                  _menu.isOpen
+                      ? Icons.keyboard_arrow_up
+                      : Icons.keyboard_arrow_down,
+                  color: AppColors.textMuted,
+                ),
+                onPressed: () => _menu.isOpen ? _menu.close() : _menu.open(),
+              )
+            : _clearButton(),
         border: border,
         enabledBorder: border,
         focusedBorder: border.copyWith(
           borderSide: const BorderSide(color: AppColors.rose),
         ),
       ),
-      // Uncapped on purpose. DropdownMenu never calls its own scrollToHighlight,
-      // so arrow keys walk the highlight out of a scrolling menu and it stays put.
-      // The catalogue is short enough to show whole, which sidesteps it.
-      menuStyle: MenuStyle(
-        // Hangs off the field's bottom edge instead of floating over it.
-        alignment: Alignment.bottomLeft,
-        backgroundColor: const WidgetStatePropertyAll(AppColors.bgCard),
-        surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
-        elevation: const WidgetStatePropertyAll(4),
-        padding: const WidgetStatePropertyAll(
-          EdgeInsets.symmetric(vertical: 4),
-        ),
-        shape: WidgetStatePropertyAll(
-          RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: const BorderSide(color: AppColors.border),
-          ),
-        ),
-      ),
-      dropdownMenuEntries: [
-        for (final treatment in widget.treatments)
-          DropdownMenuEntry(
-            value: treatment,
-            // Name only, so typing filters on the treatment and not on its length.
-            label: treatment.label,
-            // A treatment is done once a visit, so its own row says why.
-            enabled: !widget.alreadyInVisit.contains(treatment.name),
-            leadingIcon: Icon(
-              widget.alreadyInVisit.contains(treatment.name)
-                  ? Icons.check_circle_outline
-                  : Icons.spa_outlined,
-              size: 18,
-              color: widget.alreadyInVisit.contains(treatment.name)
-                  ? AppColors.sage
-                  : AppColors.rose,
-            ),
-            trailingIcon: Text(
-              widget.alreadyInVisit.contains(treatment.name)
-                  ? 'in this visit'
-                  : '${treatment.durationMinutes} min',
-              style: AppTypography.bodySmall(),
-            ),
-            style: MenuItemButton.styleFrom(
-              minimumSize: const Size.fromHeight(36),
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              textStyle: AppTypography.bodyMedium(),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+    );
+  }
+
+  // Own scroll, so the bar stays put.
+  Widget _menuPanel(double width) {
+    final visible = _visible;
+
+    return SizedBox(
+      width: width,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _categoryBar(),
+          const Divider(height: 1, color: AppColors.hairline),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 260),
+            // Own scroll position, not the page's.
+            child: SingleChildScrollView(
+              primary: false,
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (visible.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 12,
+                      ),
+                      child: Text(
+                        'No treatments in this category.',
+                        style: AppTypography.bodySmall(),
+                      ),
+                    ),
+                  for (final treatment in visible) _treatmentItem(treatment),
+                ],
               ),
             ),
           ),
-      ],
-      onSelected: widget.onChanged,
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Menu is sized to its field.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        return MenuAnchor(
+          controller: _menu,
+          alignmentOffset: const Offset(0, 4),
+          // Repaints the chevron, which reads the menu.
+          onOpen: () => setState(() {}),
+          onClose: () => setState(() {}),
+          style: MenuStyle(
+            backgroundColor: const WidgetStatePropertyAll(AppColors.bgCard),
+            surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+            elevation: const WidgetStatePropertyAll(4),
+            padding: const WidgetStatePropertyAll(
+              EdgeInsets.symmetric(vertical: 4),
+            ),
+            shape: WidgetStatePropertyAll(
+              RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: const BorderSide(color: AppColors.border),
+              ),
+            ),
+          ),
+          menuChildren: [_menuPanel(width)],
+          builder: (context, controller, child) => _field(),
+        );
+      },
     );
   }
 }

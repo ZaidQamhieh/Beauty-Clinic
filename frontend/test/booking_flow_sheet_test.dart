@@ -4,7 +4,6 @@ import 'package:beauty_clinic_app/auth/auth_session.dart';
 import 'package:beauty_clinic_app/features/appointments/data/appointment_api.dart';
 import 'package:beauty_clinic_app/features/appointments/data/clinic_time.dart';
 import 'package:beauty_clinic_app/features/appointments/data/doctor_api.dart';
-import 'package:beauty_clinic_app/features/appointments/data/treatment.dart';
 import 'package:beauty_clinic_app/features/appointments/data/treatment_api.dart';
 import 'package:beauty_clinic_app/features/appointments/presentation/booking_flow_sheet.dart';
 import 'package:beauty_clinic_app/features/appointments/presentation/booking_format.dart';
@@ -21,7 +20,7 @@ void main() {
 
   String iso(DateTime value) => value.toUtc().toIso8601String();
 
-  // Read in the clinic zone, whose offset moves with DST.
+  // Read in the clinic zone.
   String slotPill() => BookingFormat.time12(slotStart);
 
   // One router, so call order stays free.
@@ -37,8 +36,7 @@ void main() {
           'durationMinutes': 20,
           'price': 100.0,
         },
-        // A second one, so a visit with two treatments is still expressible now
-        // that the same treatment cannot be booked twice.
+        // A second treatment, for two-treatment visits.
         {
           'treatmentName': 'HYDRAFACIAL',
           'category': 'FACIAL',
@@ -115,9 +113,9 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  // Nothing is selected when the sheet opens, so every booking starts here.
+  // Every booking starts by picking here.
   Future<void> chooseTreatment(WidgetTester tester, String label) async {
-    await tester.tap(find.byType(DropdownMenu<Treatment>));
+    await tester.tap(find.byType(TextField));
     await tester.pumpAndSettle();
     await tester.tap(find.text(label).last);
     await tester.pumpAndSettle();
@@ -148,7 +146,7 @@ void main() {
       .where((r) => r.path == '/api/appointments/free-slots')
       .toList();
 
-  // A 403 on the first call must not orphan the other three.
+  // One 403 must not orphan others.
   testWidgets('a forbidden patient read names the real reason', (tester) async {
     adapter = QueueAdapter(
       List.generate(40, (_) {
@@ -177,7 +175,7 @@ void main() {
   testWidgets('add another refetches with the held slot', (tester) async {
     await pumpSheet(tester);
 
-    // Opening probes for the roster's open time before any treatment is picked.
+    // Probes the roster's open time first.
     expect(slotSearches(), hasLength(1));
     expect((slotSearches().single.data as Map)['held'], isEmpty);
 
@@ -196,14 +194,14 @@ void main() {
     expect(held.single['startTime'], iso(slotStart));
   });
 
-  // The backend rejects a visit spanning two days.
+  // Backend rejects a two-day visit.
   testWidgets('a held cart pins the calendar to one day', (tester) async {
     await pumpSheet(tester);
 
     CalendarDatePicker calendar() =>
         tester.widget<CalendarDatePicker>(find.byType(CalendarDatePicker));
 
-    // Before anything is held, the whole horizon is open.
+    // Nothing held, so horizon is open.
     expect(calendar().lastDate.isAfter(calendar().firstDate), isTrue);
 
     await chooseTreatment(tester, 'Consultation');
@@ -230,7 +228,7 @@ void main() {
         .widget<CalendarDatePicker>(find.byType(CalendarDatePicker))
         .initialDate!;
 
-    // Even driven directly, another day is refused while held.
+    // Another day is refused while held.
     tester
         .widget<CalendarDatePicker>(find.byType(CalendarDatePicker))
         .onDateChanged
@@ -245,8 +243,7 @@ void main() {
       pinned,
     );
 
-    // A second treatment can still be added on the pinned day, so long as it is
-    // a different one: the same treatment twice in a visit is refused.
+    // A different treatment fits the pinned day.
     await chooseTreatment(tester, 'Hydrafacial');
     await tapText(tester, 'Choose Doctor');
     await tapText(tester, slotPill());
@@ -284,7 +281,7 @@ void main() {
     await tester.tap(find.byIcon(Icons.close).first);
     await tester.pumpAndSettle();
 
-    // Back on browse, searched again with nothing held.
+    // Back on browse, nothing held now.
     expect(find.text('SELECTED TREATMENT'), findsOneWidget);
     expect((slotSearches().last.data as Map)['held'], isEmpty);
 
@@ -303,12 +300,11 @@ void main() {
     await tapText(tester, slotPill());
     await tapText(tester, 'Add another');
 
-    // Back on browse. The treatment clears rather than staying chosen: it is
-    // already held, and cannot be booked into this visit a second time.
+    // Treatment clears: it is already held.
     expect(find.text('SELECTED TREATMENT'), findsOneWidget);
     expect(find.text('Choose Doctor'), findsNothing);
 
-    // Still one held slot, so the cart survived the step back.
+    // One held slot, so cart survived.
     expect((slotSearches().last.data as Map)['held'], hasLength(1));
   });
 }

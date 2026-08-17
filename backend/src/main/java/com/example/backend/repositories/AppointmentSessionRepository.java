@@ -122,4 +122,13 @@ public interface AppointmentSessionRepository extends JpaRepository<AppointmentS
             @Param("startTime") Instant startTime,
             @Param("endTime") Instant endTime
     );
+
+    // Cheap stand-in for the day's slot picture.
+    @Query("""
+            select count(s), max(s.updatedAt)
+            from AppointmentSession s
+            where s.startTime >= :from
+              and s.startTime < :to
+            """)
+    Object[] dayFingerprint(@Param("from") Instant from, @Param("to") Instant to);
 }

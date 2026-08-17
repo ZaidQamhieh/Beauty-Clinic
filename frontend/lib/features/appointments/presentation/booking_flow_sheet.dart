@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
@@ -17,6 +20,10 @@ import '../data/treatment_api.dart';
 import 'booking_browse_step.dart';
 import 'booking_result_steps.dart';
 import 'booking_review_step.dart';
+
+// Poll pace, widened when day quiet.
+const Duration _pollFast = Duration(seconds: 15);
+const Duration _pollSlow = Duration(seconds: 60);
 
 /// The booking flow: pick treatment, doctor, time.
 class BookingFlowSheet extends StatefulWidget {
@@ -46,7 +53,8 @@ class BookingFlowSheet extends StatefulWidget {
 
 enum _Step { loading, gateBlocked, fatalError, browse, review, success }
 
-class _BookingFlowSheetState extends State<BookingFlowSheet> {
+class _BookingFlowSheetState extends State<BookingFlowSheet>
+    with WidgetsBindingObserver {
   _Step _step = _Step.loading;
   String _fatalMessage = '';
 
@@ -77,6 +85,15 @@ class _BookingFlowSheetState extends State<BookingFlowSheet> {
 
   /// Why the last confirm failed.
   String? _conflictMessage;
+
+  /// The pick that lost, offered disabled.
+  FreeSlot? _takenSlot;
+
+  Timer? _poll;
+  Duration _pollDelay = _pollFast;
+
+  /// Day token last seen by a probe.
+  String? _dayVersion;
   bool _submitting = false;
 
   Appointment? _booked;
@@ -86,7 +103,69 @@ class _BookingFlowSheetState extends State<BookingFlowSheet> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _bootstrap();
+    _schedulePoll();
+  }
+
+  @override
+  void dispose() {
+    _poll?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  // Hidden tab polls nothing; returning probes now.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _quicken();
+      _probeDay();
+      return;
+    }
+    _poll?.cancel();
+  }
+
+  void _schedulePoll() {
+    _poll?.cancel();
+    _poll = Timer(_pollDelay, _probeDay);
+  }
+
+  void _quicken() => _pollDelay = _pollFast;
+
+  void _slacken() {
+    final next = _pollDelay * 2;
+    _pollDelay = next > _pollSlow ? _pollSlow : next;
+  }
+
+  // Cheap token first, times only on change.
+  Future<void> _probeDay() async {
+    if (!mounted) return;
+
+    if (_step != _Step.browse || _slotsLoading) {
+      _schedulePoll();
+      return;
+    }
+
+    try {
+      final version = await widget.appointmentApi.dayVersion(_selectedDay);
+      if (!mounted) return;
+
+      // First probe records only; list already fresh.
+      if (_dayVersion == null || version == _dayVersion) {
+        _dayVersion = version;
+        _slacken();
+      } else {
+        _dayVersion = version;
+        _quicken();
+        await _loadSlots(silent: true);
+      }
+    } catch (_) {
+      // A failed probe changes nothing on screen.
+      _slacken();
+    }
+
+    if (mounted) _schedulePoll();
   }
 
   // ─── Loading ──────────────────────────────────────────────────────────────
@@ -185,22 +264,25 @@ class _BookingFlowSheetState extends State<BookingFlowSheet> {
     );
   }
 
-  Future<void> _loadSlots() async {
+  // silent: a poll, disturbing nothing on screen.
+  Future<void> _loadSlots({bool silent = false}) async {
     // No treatment yet; probe shows open time.
     final probing = _selectedTreatment == null;
     final treatment = _selectedTreatment ?? _probeTreatment;
     if (treatment == null) return;
     final request = ++_slotRequest;
-    setState(() {
-      if (probing) {
-        _openSlots = null;
-      } else {
-        _slots = null;
-      }
-      _slotsError = null;
-      _slotsLoading = true;
-      _chosenDoctorId = null;
-    });
+    if (!silent) {
+      setState(() {
+        if (probing) {
+          _openSlots = null;
+        } else {
+          _slots = null;
+        }
+        _slotsError = null;
+        _slotsLoading = true;
+        _chosenDoctorId = null;
+      });
+    }
     try {
       final slots = await widget.appointmentApi.freeSlots(
         treatmentName: treatment.name,
@@ -210,6 +292,12 @@ class _BookingFlowSheetState extends State<BookingFlowSheet> {
         replacesAppointmentId: widget.replacesAppointmentId,
       );
       if (!mounted || request != _slotRequest) return;
+
+      // Identical times need no rebuild.
+      final shown = probing ? _openSlots : _slots;
+      final frees = _takenSlot != null && slots.contains(_takenSlot);
+      if (silent && !frees && listEquals(shown, slots)) return;
+
       setState(() {
         if (probing) {
           _openSlots = slots;
@@ -217,11 +305,19 @@ class _BookingFlowSheetState extends State<BookingFlowSheet> {
           _slots = slots;
         }
         _slotsLoading = false;
+        // Free again, so it stops reading taken.
+        if (frees) {
+          _takenSlot = null;
+          _conflictMessage = null;
+        }
       });
     } on ForbiddenException {
-      _slotFail('You can only search your own diary.', request);
+      if (!silent) _slotFail('You can only search your own diary.', request);
     } catch (_) {
-      _slotFail('Could not load times. Tap to try again.', request);
+      // A failed poll keeps the shown times.
+      if (!silent) {
+        _slotFail('Could not load times. Tap to try again.', request);
+      }
     }
   }
 
@@ -244,13 +340,21 @@ class _BookingFlowSheetState extends State<BookingFlowSheet> {
       _cart.clear();
     }
     setState(() => _selectedDay = newDay);
+    // New day, so its token is unknown.
+    _dayVersion = null;
+    _quicken();
     _loadSlots();
   }
 
   // Null clears the field; shows full roster.
   void _selectTreatment(Treatment? treatment) {
     if (treatment?.name == _selectedTreatment?.name) return;
-    setState(() => _selectedTreatment = treatment);
+    setState(() {
+      _selectedTreatment = treatment;
+      // Belonged to the treatment being left.
+      _takenSlot = null;
+    });
+    _quicken();
     _loadSlots();
   }
 
@@ -266,6 +370,7 @@ class _BookingFlowSheetState extends State<BookingFlowSheet> {
       _cart.add(BookingCartItem(treatment: _selectedTreatment!, slot: slot));
       _reviewError = null;
       _conflictMessage = null;
+      _takenSlot = null;
       _step = _Step.review;
     });
   }
@@ -275,6 +380,7 @@ class _BookingFlowSheetState extends State<BookingFlowSheet> {
     setState(() {
       _step = _Step.browse;
       _selectedTreatment = null;
+      _takenSlot = null;
     });
     _loadSlots();
   }
@@ -368,12 +474,20 @@ class _BookingFlowSheetState extends State<BookingFlowSheet> {
       _submitting = false;
       _reviewError = null;
       _conflictMessage = message;
+      _takenSlot = _cartSlotFor(lost.name);
       _cart.removeWhere((item) => item.treatment.name == lost.name);
       // Preselected, so the next pick replaces it.
       _selectedTreatment = lost;
       _step = _Step.browse;
     });
     _loadSlots();
+  }
+
+  FreeSlot? _cartSlotFor(String treatmentName) {
+    for (final item in _cart) {
+      if (item.treatment.name == treatmentName) return item.slot;
+    }
+    return null;
   }
 
   Treatment? _treatmentNamed(String? name) {
@@ -492,6 +606,7 @@ class _BookingFlowSheetState extends State<BookingFlowSheet> {
             alreadyInVisit: _alreadyInVisit,
             selectedTreatment: _selectedTreatment,
             slots: _slots,
+            takenSlot: _takenSlot,
             openSlots: _openSlots,
             slotsLoading: _slotsLoading,
             slotsError: _slotsError,

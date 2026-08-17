@@ -16,8 +16,12 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -72,9 +76,29 @@ public class DoctorAvailabilityService {
     // The weekly pattern settles first, then the day's overrides go on top and win.
     @Transactional(readOnly = true)
     public List<TimeRange> openWindowsOn(UUID doctorUserId, LocalDate date) {
-        List<DoctorAvailability> effective = availabilities.findEffectiveOn(
-                doctorUserId, date, date.getDayOfWeek());
+        return windowsFrom(availabilities.findEffectiveOn(
+                doctorUserId, date, date.getDayOfWeek()));
+    }
 
+    // One roster, one query, not per doctor.
+    @Transactional(readOnly = true)
+    public Map<UUID, List<TimeRange>> openWindowsOn(Collection<UUID> doctorUserIds, LocalDate date) {
+        if (doctorUserIds.isEmpty()) {
+            return Map.of();
+        }
+
+        Map<UUID, List<DoctorAvailability>> byDoctor = availabilities
+                .findEffectiveOnForAll(doctorUserIds, date, date.getDayOfWeek()).stream()
+                .collect(Collectors.groupingBy(a -> a.getDoctor().getUserId()));
+
+        Map<UUID, List<TimeRange>> windows = new LinkedHashMap<>();
+        for (UUID doctorUserId : doctorUserIds) {
+            windows.put(doctorUserId, windowsFrom(byDoctor.getOrDefault(doctorUserId, List.of())));
+        }
+        return windows;
+    }
+
+    private List<TimeRange> windowsFrom(List<DoctorAvailability> effective) {
         List<DoctorAvailability> recurring = ofKind(effective, AvailabilityKind.RECURRING);
         List<DoctorAvailability> overrides = ofKind(effective, AvailabilityKind.OVERRIDE);
 

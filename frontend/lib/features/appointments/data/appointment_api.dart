@@ -92,6 +92,19 @@ class AppointmentApi {
     }
   }
 
+  /// Token that moves when the day changes.
+  Future<String> dayVersion(DateTime date) async {
+    try {
+      final response = await _client.get<Map<String, dynamic>>(
+        '/api/appointments/day-version',
+        queryParameters: {'date': _isoDate(date)},
+      );
+      return response.data!['version'] as String;
+    } on DioException catch (error) {
+      throw _mapError(error);
+    }
+  }
+
   /// Creates the visit; [replacesAppointmentId] reschedules.
   Future<Appointment> book({
     required String patientUserId,

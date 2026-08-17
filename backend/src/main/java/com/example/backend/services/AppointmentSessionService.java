@@ -60,6 +60,8 @@ public class AppointmentSessionService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Appointment is not booked");
         }
 
+        cancellation.assertEditable(appointment.getScheduledAt());
+
         // Taken once, as book() does: the patient-overlap check has no constraint behind it.
         patients.lockForBooking(appointment.getPatient().getUserId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No such patient"));
@@ -72,8 +74,6 @@ public class AppointmentSessionService {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT, "That treatment is not on the day of this visit");
         }
-
-        assertKeepsCancellationWindow(appointment, request.startTime());
 
         return AppointmentSessionResponse.of(schedule(appointment, request));
     }
@@ -111,6 +111,8 @@ public class AppointmentSessionService {
         Instant startTime = request.startTime();
         Instant endTime = startTime.plus(Duration.ofMinutes(tariff.durationMinutes()));
 
+        // Before the rest, as add() checked it first.
+        assertKeepsCancellationWindow(appointment, startTime);
         assertNotAlreadyInVisit(appointment, treatment);
         assertQualified(practitioner, treatment);
 
@@ -159,11 +161,11 @@ public class AppointmentSessionService {
         String message = cause.getMessage() == null ? "" : cause.getMessage();
 
         if (message.contains("session_no_practitioner_overlap")) {
-            return new SlotTakenException("Doctor already has a booking then, or too close to one");
+            return new SlotTakenException("That time has just been taken. Please choose another one.");
         }
 
         if (message.contains("session_no_patient_overlap")) {
-            return new SlotTakenException("The patient already has a treatment booked then");
+            return new SlotTakenException("You already have another treatment booked at that time.");
         }
 
         return race;
@@ -361,7 +363,7 @@ public class AppointmentSessionService {
 
         if (sessions.existsOverlappingActiveSession(
                 practitionerUserId, startTime.minus(turnover), endTime.plus(turnover))) {
-            throw new SlotTakenException("Doctor already has a booking then, or too close to one");
+            throw new SlotTakenException("That time has just been taken. Please choose another one.");
         }
     }
 
@@ -370,7 +372,7 @@ public class AppointmentSessionService {
         UUID patientUserId = appointment.getPatient().getUserId();
 
         if (sessions.existsOverlappingActiveSessionForPatient(patientUserId, startTime, endTime)) {
-            throw new SlotTakenException("The patient already has a treatment booked then");
+            throw new SlotTakenException("You already have another treatment booked at that time.");
         }
     }
 
