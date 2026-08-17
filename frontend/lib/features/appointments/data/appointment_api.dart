@@ -173,6 +173,7 @@ class AppointmentApi {
     if (status == 409) {
       return BookingConflictException(
         message ?? 'That time is no longer available.',
+        treatmentName: _treatmentFrom(error.response?.data),
       );
     }
     if (status == 400) {
@@ -181,6 +182,17 @@ class AppointmentApi {
       );
     }
     return error;
+  }
+
+  // Set when one pick lost, not all.
+  String? _treatmentFrom(Object? data) {
+    if (data is Map) {
+      final name = data['treatmentName'];
+      if (name is String && name.isNotEmpty) {
+        return name;
+      }
+    }
+    return null;
   }
 
   String? _messageFrom(Object? data) {

@@ -95,6 +95,7 @@ public class AppointmentService {
         assertVisitDoesNotClashWithItself(requested);
         assertOneOfEachTreatment(requested);
         assertNoOtherVisitThatDay(patient.getUserId(), requested.get(0).startTime(), replaced);
+        lockPractitioners(requested);
 
         Appointment appointment = new Appointment(patient, requested.get(0).startTime());
         currentUser.id().ifPresent(id -> appointment.setCreatedBy(users.getReferenceById(id)));
@@ -110,6 +111,15 @@ public class AppointmentService {
                 : ActivityAction.APPOINTMENT_RESCHEDULED, appointment);
 
         return AppointmentResponse.of(appointment, booked);
+    }
+
+    // Sorted by id, or two visits deadlock.
+    private void lockPractitioners(List<AddSessionRequest> requested) {
+        requested.stream()
+                .map(AddSessionRequest::practitionerUserId)
+                .distinct()
+                .sorted()
+                .forEach(doctors::lockForBooking);
     }
 
     // Locked first. Not found, not forbidden: ownership must not leak.
