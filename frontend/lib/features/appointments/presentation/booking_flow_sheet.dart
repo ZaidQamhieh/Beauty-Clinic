@@ -36,7 +36,7 @@ class BookingFlowSheet extends StatefulWidget {
 
   final String? replacesAppointmentId;
 
-  /// Kept as-is; picking a new day drops them.
+  /// Kept as-is; a new day drops them.
   final List<AppointmentSession> initialSessions;
   final ValueChanged<Appointment>? onBooked;
 
@@ -74,6 +74,9 @@ class _BookingFlowSheetState extends State<BookingFlowSheet> {
   /// Snapshot of reschedule's start, to detect edits.
   List<BookingCartItem> _keptCart = const [];
   String? _reviewError;
+
+  /// Why the last confirm failed.
+  String? _conflictMessage;
   bool _submitting = false;
 
   Appointment? _booked;
@@ -94,7 +97,7 @@ class _BookingFlowSheetState extends State<BookingFlowSheet> {
       _fatalMessage = '';
     });
     try {
-      // One wait; a failure can't orphan the rest.
+      // One wait; a failure can't orphan others.
       final results = await Future.wait([
         widget.appointmentApi.me(),
         widget.treatmentApi.list(),
@@ -127,7 +130,8 @@ class _BookingFlowSheetState extends State<BookingFlowSheet> {
       _cart.addAll(_keptCartItems(treatments));
       _keptCart = List.of(_cart);
       if (_cart.isNotEmpty) {
-        final day = _cart.first.slot.startTime;
+        // Clinic day, not UTC.
+        final day = ClinicTime.at(_cart.first.slot.startTime);
         _selectedDay = DateTime(day.year, day.month, day.day);
       }
 
@@ -144,7 +148,7 @@ class _BookingFlowSheetState extends State<BookingFlowSheet> {
     }
   }
 
-  // Rebuilds cart from prior visit; missing treatments dropped.
+  // Rebuilds cart; missing treatments are dropped.
   List<BookingCartItem> _keptCartItems(List<Treatment> treatments) {
     final byName = {for (final t in treatments) t.name: t};
     return [
@@ -170,7 +174,7 @@ class _BookingFlowSheetState extends State<BookingFlowSheet> {
     });
   }
 
-  // Consultation is shortest; best proxy for free time.
+  // Consultation is shortest; best free-time proxy.
   Treatment? get _probeTreatment {
     if (_treatments.isEmpty) return null;
     for (final treatment in _treatments) {
@@ -231,7 +235,7 @@ class _BookingFlowSheetState extends State<BookingFlowSheet> {
 
   // ─── Browse choices ───────────────────────────────────────────────────────
 
-  // One visit, one day — except on reschedule.
+  // One visit, one day; reschedule excepted.
   void _selectDay(DateTime day) {
     final newDay = DateTime(day.year, day.month, day.day);
     if (newDay == _selectedDay) return;
@@ -261,6 +265,7 @@ class _BookingFlowSheetState extends State<BookingFlowSheet> {
     setState(() {
       _cart.add(BookingCartItem(treatment: _selectedTreatment!, slot: slot));
       _reviewError = null;
+      _conflictMessage = null;
       _step = _Step.review;
     });
   }
@@ -283,7 +288,7 @@ class _BookingFlowSheetState extends State<BookingFlowSheet> {
       _cart.removeAt(index);
       if (_cart.isEmpty) _step = _Step.browse;
     });
-    // An empty cart releases its times, so refetch.
+    // Empty cart releases its times; refetch.
     if (_cart.isEmpty) _loadSlots();
   }
 
@@ -329,7 +334,7 @@ class _BookingFlowSheetState extends State<BookingFlowSheet> {
         _step = _Step.success;
       });
     } on BookingConflictException catch (error) {
-      _handleConflict(error.message);
+      _handleConflict(error.message, error.treatmentName);
     } on BookingValidationException catch (error) {
       _submitFail(error.message);
     } on ForbiddenException {
@@ -347,13 +352,37 @@ class _BookingFlowSheetState extends State<BookingFlowSheet> {
     });
   }
 
-  // Cart stands; patient decides. Add another refetches.
-  void _handleConflict(String message) {
+  // Drops the lost pick, then browses again.
+  void _handleConflict(String message, String? treatmentName) {
     if (!mounted) return;
+
+    final lost = _treatmentNamed(treatmentName);
+
+    // Visit-wide refusal: nothing to re-pick.
+    if (lost == null) {
+      _submitFail(message);
+      return;
+    }
+
     setState(() {
       _submitting = false;
-      _reviewError = message;
+      _reviewError = null;
+      _conflictMessage = message;
+      _cart.removeWhere((item) => item.treatment.name == lost.name);
+      // Preselected, so the next pick replaces it.
+      _selectedTreatment = lost;
+      _step = _Step.browse;
     });
+    _loadSlots();
+  }
+
+  Treatment? _treatmentNamed(String? name) {
+    if (name == null) return null;
+
+    for (final treatment in _treatments) {
+      if (treatment.name == name) return treatment;
+    }
+    return null;
   }
 
   // ─── Build ────────────────────────────────────────────────────────────────
@@ -378,7 +407,7 @@ class _BookingFlowSheetState extends State<BookingFlowSheet> {
           padding: const EdgeInsets.fromLTRB(28, 24, 28, 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            // Only browse needs full height; others hug content.
+            // Only browse needs full height.
             mainAxisSize: _fillsHeight ? MainAxisSize.max : MainAxisSize.min,
             children: [
               _header(),
@@ -426,6 +455,21 @@ class _BookingFlowSheetState extends State<BookingFlowSheet> {
     );
   }
 
+  // Names the lost slot above fresh times.
+  Widget _withConflictBanner(Widget browse) {
+    final message = _conflictMessage;
+    if (message == null) return browse;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        BookingErrorBanner(message: message),
+        const SizedBox(height: 12),
+        Expanded(child: browse),
+      ],
+    );
+  }
+
   Widget _body() {
     switch (_step) {
       case _Step.loading:
@@ -439,29 +483,31 @@ class _BookingFlowSheetState extends State<BookingFlowSheet> {
       case _Step.gateBlocked:
         return BookingGateStep(onClose: () => Navigator.of(context).pop());
       case _Step.browse:
-        return BookingBrowseStep(
-          today: _today,
-          selectedDay: _selectedDay,
-          maxHorizonDays: _rules?.maxHorizonDays ?? 180,
-          treatments: _treatments,
-          alreadyInVisit: _alreadyInVisit,
-          selectedTreatment: _selectedTreatment,
-          slots: _slots,
-          openSlots: _openSlots,
-          slotsLoading: _slotsLoading,
-          slotsError: _slotsError,
-          // Reschedule may change day; costs the kept cart.
-          dayLocked: !_isReschedule && _cart.isNotEmpty,
-          isReschedule: _isReschedule,
-          doctorsById: _doctorsById,
-          viewByDoctor: _viewByDoctor,
-          chosenDoctorId: _chosenDoctorId,
-          onDayChanged: _selectDay,
-          onTreatmentChanged: _selectTreatment,
-          onViewChanged: _selectView,
-          onDoctorChosen: _chooseDoctor,
-          onSlotChosen: _chooseSlot,
-          onRetrySlots: _loadSlots,
+        return _withConflictBanner(
+          BookingBrowseStep(
+            today: _today,
+            selectedDay: _selectedDay,
+            maxHorizonDays: _rules?.maxHorizonDays ?? 180,
+            treatments: _treatments,
+            alreadyInVisit: _alreadyInVisit,
+            selectedTreatment: _selectedTreatment,
+            slots: _slots,
+            openSlots: _openSlots,
+            slotsLoading: _slotsLoading,
+            slotsError: _slotsError,
+            // Reschedule may change day; costs kept cart.
+            dayLocked: !_isReschedule && _cart.isNotEmpty,
+            isReschedule: _isReschedule,
+            doctorsById: _doctorsById,
+            viewByDoctor: _viewByDoctor,
+            chosenDoctorId: _chosenDoctorId,
+            onDayChanged: _selectDay,
+            onTreatmentChanged: _selectTreatment,
+            onViewChanged: _selectView,
+            onDoctorChosen: _chooseDoctor,
+            onSlotChosen: _chooseSlot,
+            onRetrySlots: _loadSlots,
+          ),
         );
       case _Step.review:
         return BookingReviewStep(

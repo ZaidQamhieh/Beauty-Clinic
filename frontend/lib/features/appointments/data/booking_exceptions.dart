@@ -1,7 +1,11 @@
-/// A booking the backend refused, with its reason.
+/// A booking the backend refused, with reason.
 class BookingConflictException implements Exception {
-  const BookingConflictException(this.message);
+  const BookingConflictException(this.message, {this.treatmentName});
+
   final String message;
+
+  /// The pick that lost; null when visit-wide.
+  final String? treatmentName;
 
   @override
   String toString() => message;

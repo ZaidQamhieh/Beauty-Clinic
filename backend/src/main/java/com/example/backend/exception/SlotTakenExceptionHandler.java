@@ -17,6 +17,14 @@ class SlotTakenExceptionHandler {
         ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.CONFLICT);
         problem.setTitle("That time has gone");
         problem.setDetail(ex.getMessage());
+
+        // Named only when one pick lost; visit-wide refusals carry nothing to drop.
+        if (ex.getTreatmentName() != null) {
+            problem.setProperty("treatmentName", ex.getTreatmentName());
+            problem.setProperty("practitionerUserId", ex.getPractitionerUserId());
+            problem.setProperty("startTime", ex.getStartTime());
+        }
+
         return problem;
     }
 }

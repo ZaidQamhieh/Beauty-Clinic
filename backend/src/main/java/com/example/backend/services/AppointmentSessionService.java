@@ -102,7 +102,8 @@ public class AppointmentSessionService {
     // The only way a session exists. Caller holds the patient lock; the tariff never re-prices.
     @Transactional
     public AppointmentSession schedule(Appointment appointment, AddSessionRequest request, Tariff tariff) {
-        DoctorProfile practitioner = doctors.findById(request.practitionerUserId())
+        // Locked: assertFree's turnover has no constraint behind it.
+        DoctorProfile practitioner = doctors.lockForBooking(request.practitionerUserId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No such doctor"));
 
         TreatmentName treatment = request.treatmentName();
@@ -112,11 +113,17 @@ public class AppointmentSessionService {
 
         assertNotAlreadyInVisit(appointment, treatment);
         assertQualified(practitioner, treatment);
-        assertBookableWindow(startTime);
-        cancellation.assertLeavesRoomToCancel(startTime);
-        assertWithinWorkingHours(practitioner.getUserId(), startTime, endTime);
-        assertFree(practitioner.getUserId(), startTime, endTime);
-        assertPatientFree(appointment, startTime, endTime);
+
+        // One place names the pick, so every per-slot check below is identified.
+        try {
+            assertBookableWindow(startTime);
+            cancellation.assertLeavesRoomToCancel(startTime);
+            assertWithinWorkingHours(practitioner.getUserId(), startTime, endTime);
+            assertFree(practitioner.getUserId(), startTime, endTime);
+            assertPatientFree(appointment, startTime, endTime);
+        } catch (SlotTakenException lost) {
+            throw lost.forSlot(treatment.name(), practitioner.getUserId(), startTime);
+        }
 
         AppointmentSession saved = sessions.save(new AppointmentSession(
                 appointment, practitioner, treatment.category(), treatment,
@@ -127,7 +134,12 @@ public class AppointmentSessionService {
         try {
             sessions.flush();
         } catch (DataIntegrityViolationException race) {
-            throw slotTakenOrRethrow(race);
+            RuntimeException mapped = slotTakenOrRethrow(race);
+
+            if (mapped instanceof SlotTakenException lost) {
+                throw lost.forSlot(treatment.name(), practitioner.getUserId(), startTime);
+            }
+            throw mapped;
         }
 
         activityLogs.recordSession(
