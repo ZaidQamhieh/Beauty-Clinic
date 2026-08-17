@@ -1171,7 +1171,9 @@ class _TreatmentFieldState extends State<_TreatmentField> {
           const Divider(height: 1, color: AppColors.hairline),
           ConstrainedBox(
             constraints: const BoxConstraints(maxHeight: 260),
+            // Own scroll position, not the page's.
             child: SingleChildScrollView(
+              primary: false,
               padding: const EdgeInsets.symmetric(vertical: 4),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
