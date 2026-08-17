@@ -2,6 +2,7 @@ package com.example.backend.controllers;
 
 import com.example.backend.dtos.AppointmentResponse;
 import com.example.backend.dtos.BookAppointmentRequest;
+import com.example.backend.dtos.DayVersionResponse;
 import com.example.backend.dtos.FreeSlotQuery;
 import com.example.backend.dtos.FreeSlotResponse;
 import com.example.backend.security.access.AppointmentCreator;
@@ -101,6 +102,15 @@ public class AppointmentController {
     @Authenticated
     public List<FreeSlotResponse> freeSlots(@Valid @RequestBody FreeSlotQuery query) {
         return appointments.freeSlots(query);
+    }
+
+    // Polled, so it stays one aggregate read.
+    @GetMapping("/day-version")
+    @Authenticated
+    public DayVersionResponse dayVersion(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date
+    ) {
+        return appointments.dayVersion(date);
     }
 
     @GetMapping("/{id}")

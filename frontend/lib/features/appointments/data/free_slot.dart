@@ -1,4 +1,4 @@
-/// One offered slot: a doctor and a start.
+/// One offered slot: doctor and start.
 class FreeSlot {
   const FreeSlot({
     required this.practitionerUserId,
@@ -20,4 +20,14 @@ class FreeSlot {
       endTime: DateTime.parse(json['endTime'] as String),
     );
   }
+
+  // Doctor and start identify a slot.
+  @override
+  bool operator ==(Object other) =>
+      other is FreeSlot &&
+      other.practitionerUserId == practitionerUserId &&
+      other.startTime == startTime;
+
+  @override
+  int get hashCode => Object.hash(practitionerUserId, startTime);
 }

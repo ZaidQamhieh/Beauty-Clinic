@@ -43,6 +43,23 @@ public class CancellationPolicy {
         }
     }
 
+    // Changes near the start are the desk's.
+    public void assertEditable(Instant visitStart) {
+        if (currentUser.isClinicStaff()) {
+            return;
+        }
+
+        Duration cutoff = clinic.cancellationCutoff();
+
+        // Inclusive: the cutoff itself is in time.
+        if (clock.instant().isAfter(visitStart.minus(cutoff))) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Changes close " + cutoff.toMinutes()
+                            + " minutes before the appointment. Call the clinic to change it.");
+        }
+    }
+
     // A patient may not book what they would have no right to cancel. The desk still may.
     public void assertLeavesRoomToCancel(Instant startTime) {
         if (leavesRoomToCancel(startTime)) {

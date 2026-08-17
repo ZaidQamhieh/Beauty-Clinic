@@ -5,6 +5,7 @@ import com.example.backend.dtos.AddSessionRequest;
 import com.example.backend.dtos.AppointmentResponse;
 import com.example.backend.dtos.AppointmentSessionResponse;
 import com.example.backend.dtos.BookAppointmentRequest;
+import com.example.backend.dtos.DayVersionResponse;
 import com.example.backend.dtos.FreeSlotQuery;
 import com.example.backend.dtos.FreeSlotResponse;
 import com.example.backend.entities.ActivityAction;
@@ -41,6 +42,7 @@ import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -73,6 +75,9 @@ public class AppointmentService {
         // Appointment before patient, or the two orders deadlock.
         Appointment replaced = lockReplaced(request.replacesAppointmentId(), request.patientUserId());
 
+        // Appointment lock, taken before the patient's.
+        Appointment sameDay = lockVisitThatDay(request, replaced);
+
         // Locked next: the list the patient saw may be stale.
         PatientProfile patient = patients.lockForBooking(request.patientUserId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No such patient"));
@@ -82,6 +87,9 @@ public class AppointmentService {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT, "The patient's health form is not filled in");
         }
+
+        // Patient lock serialises, so re-read here.
+        assertDayUnchangedUnderLock(request, replaced, sameDay);
 
         // Reschedule is this call naming the visit it replaces, so both move or neither does.
         releaseReplaced(replaced);
@@ -94,23 +102,93 @@ public class AppointmentService {
         assertVisitFitsOneDay(requested);
         assertVisitDoesNotClashWithItself(requested);
         assertOneOfEachTreatment(requested);
-        assertNoOtherVisitThatDay(patient.getUserId(), requested.get(0).startTime(), replaced);
         lockPractitioners(requested);
 
-        Appointment appointment = new Appointment(patient, requested.get(0).startTime());
-        currentUser.id().ifPresent(id -> appointment.setCreatedBy(users.getReferenceById(id)));
-        appointment.setReplaces(replaced);
-        appointments.save(appointment);
+        // One day is one visit, so join.
+        boolean joining = sameDay != null;
+
+        // Joining edits a visit already held.
+        if (joining) {
+            cancellation.assertEditable(sameDay.getScheduledAt());
+        }
+
+        Appointment appointment = joining
+                ? sameDay
+                : newVisit(patient, requested.get(0).startTime(), replaced);
 
         List<AppointmentSessionResponse> booked = requested.stream()
                 .map(session -> AppointmentSessionResponse.of(sessionService.schedule(appointment, session)))
                 .toList();
 
-        record(replaced == null
-                ? ActivityAction.APPOINTMENT_BOOKED
-                : ActivityAction.APPOINTMENT_RESCHEDULED, appointment);
+        // Joined visit was already booked.
+        if (!joining) {
+            record(replaced == null
+                    ? ActivityAction.APPOINTMENT_BOOKED
+                    : ActivityAction.APPOINTMENT_RESCHEDULED, appointment);
+        }
 
-        return AppointmentResponse.of(appointment, booked);
+        // Whole day, so a join answers fully.
+        return AppointmentResponse.of(appointment, joining ? liveSessionsOf(appointment) : booked);
+    }
+
+    private Appointment newVisit(PatientProfile patient, Instant startTime, Appointment replaced) {
+        Appointment appointment = new Appointment(patient, startTime);
+        currentUser.id().ifPresent(id -> appointment.setCreatedBy(users.getReferenceById(id)));
+        appointment.setReplaces(replaced);
+        appointments.save(appointment);
+        return appointment;
+    }
+
+    private List<AppointmentSessionResponse> liveSessionsOf(Appointment appointment) {
+        return sessions.findByAppointmentId(appointment.getId()).stream()
+                .filter(session -> session.getStatus() != SessionStatus.CANCELLED)
+                .sorted(Comparator.comparing(AppointmentSession::getStartTime))
+                .map(AppointmentSessionResponse::of)
+                .toList();
+    }
+
+    // Null when day free; visit to join.
+    private Appointment lockVisitThatDay(BookAppointmentRequest request, Appointment replaced) {
+        List<UUID> ids = bookedIdsThatDay(request, replaced);
+
+        if (ids.isEmpty()) {
+            return null;
+        }
+
+        return appointments.findWithLockById(ids.get(0))
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "No such appointment"));
+    }
+
+    // Read before the lock may be stale.
+    private void assertDayUnchangedUnderLock(
+            BookAppointmentRequest request, Appointment replaced, Appointment locked) {
+        List<UUID> ids = bookedIdsThatDay(request, replaced);
+
+        UUID held = locked == null ? null : locked.getId();
+        UUID actual = ids.isEmpty() ? null : ids.get(0);
+
+        if (!Objects.equals(held, actual)) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "That day's visit changed while this booking was being made. Try again.");
+        }
+    }
+
+    private List<UUID> bookedIdsThatDay(BookAppointmentRequest request, Appointment replaced) {
+        Instant earliest = request.sessions().stream()
+                .map(AddSessionRequest::startTime)
+                .min(Comparator.naturalOrder())
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST, "A visit needs at least one treatment"));
+
+        LocalDate day = earliest.atZone(clinic.zone()).toLocalDate();
+
+        return appointments.findBookedIdsForPatientBetween(
+                request.patientUserId(),
+                startOfDay(day),
+                startOfDay(day.plusDays(1)),
+                replaced == null ? null : replaced.getId());
     }
 
     // Sorted by id, or two visits deadlock.
@@ -218,6 +296,21 @@ public class AppointmentService {
                 .toList());
     }
 
+    // Slots change only when sessions do.
+    @Transactional(readOnly = true)
+    public DayVersionResponse dayVersion(LocalDate date) {
+        LocalDate day = dayOrToday(date);
+        Object[] fingerprint = sessions.dayFingerprint(
+                startOfDay(day), startOfDay(day.plusDays(1)));
+
+        // Max is null on an empty day.
+        long count = fingerprint[0] == null ? 0L : ((Number) fingerprint[0]).longValue();
+        Instant changed = (Instant) fingerprint[1];
+
+        return new DayVersionResponse(
+                day, count + ":" + (changed == null ? "0" : changed.toEpochMilli()));
+    }
+
     // Asked per treatment, which carries its own length, and answered by every qualified doctor.
     @Transactional(readOnly = true)
     public List<FreeSlotResponse> freeSlots(FreeSlotQuery query) {
@@ -246,12 +339,20 @@ public class AppointmentService {
         Map<UUID, List<Instant[]>> doctorBusy = doctorBusyOn(qualified, query, dayStart, dayEnd);
         List<Instant[]> patientBusy = patientBusyOn(query, dayStart, dayEnd);
 
+        // Whole roster at once, not per doctor.
+        Map<UUID, List<TimeRange>> openWindows = availability.openWindowsOn(
+                qualified.stream().map(DoctorProfile::getUserId).toList(), date);
+
         Instant now = clock.instant();
         Instant latest = now.plus(clinic.horizon());
 
         return qualified.stream()
                 .flatMap(doctor -> slotsFor(
-                        doctor, date, duration, busyFor(doctor, query, doctorBusy, patientBusy)).stream())
+                        doctor,
+                        date,
+                        duration,
+                        busyFor(doctor, query, doctorBusy, patientBusy),
+                        openWindows.getOrDefault(doctor.getUserId(), List.of())).stream())
                 .filter(slot -> !slot.startTime().isBefore(now) && !slot.startTime().isAfter(latest))
                 // Never advertise what book() would reject.
                 .filter(slot -> cancellation.leavesRoomToCancel(slot.startTime(), now))
@@ -341,9 +442,10 @@ public class AppointmentService {
     }
 
     private List<FreeSlotResponse> slotsFor(
-            DoctorProfile doctor, LocalDate date, Duration duration, List<Instant[]> busy
+            DoctorProfile doctor, LocalDate date, Duration duration, List<Instant[]> busy,
+            List<TimeRange> openWindows
     ) {
-        return availability.openWindowsOn(doctor.getUserId(), date).stream()
+        return openWindows.stream()
                 .flatMap(window -> slotsWithin(doctor, date, window, duration, busy).stream())
                 .toList();
     }
@@ -364,24 +466,6 @@ public class AppointmentService {
                         HttpStatus.CONFLICT,
                         "That treatment is already in this visit");
             }
-        }
-    }
-
-    // Everything a patient has on one day belongs to one visit, so a second
-    // booking for that day is a mistake rather than a separate trip.
-    private void assertNoOtherVisitThatDay(UUID patientUserId, Instant startTime, Appointment replaced) {
-        LocalDate day = startTime.atZone(clinic.zone()).toLocalDate();
-
-        boolean taken = appointments.existsBookedForPatientBetween(
-                patientUserId,
-                startOfDay(day),
-                startOfDay(day.plusDays(1)),
-                replaced == null ? null : replaced.getId());
-
-        if (taken) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "That patient already has a visit booked that day");
         }
     }
 
