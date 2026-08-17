@@ -15,7 +15,7 @@ import 'appointment_card.dart';
 import 'booking_flow_sheet.dart';
 import 'booking_format.dart';
 import 'booking_result_steps.dart';
-import 'mini_calendar.dart';
+import 'history_filter_drawer.dart';
 
 /// The patient's own appointments: upcoming and history.
 class AppointmentsScreen extends StatefulWidget {
@@ -51,8 +51,19 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
   bool _loadingMore = false;
   int _loadRun = 0; // newest reload; older pages are dropped
 
-  /// null shows every history status.
-  String? _historyFilter;
+  /// Empty shows every history status.
+  final Set<String> _historyStatuses = {};
+
+  /// Day history narrows to; upcoming is exempt.
+  DateTime? _selectedDay;
+
+  /// Day under the pointer, previewed not filtered.
+  DateTime? _previewDay;
+
+  bool _filtersOpen = false;
+
+  /// Set during layout; decides drawer versus sheet.
+  bool _wideLayout = true;
 
   /// Booked while the first load ran.
   Appointment? _pendingBooked;
@@ -97,7 +108,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     super.dispose();
   }
 
-  // Quiet reloads keep what the screen already shows.
+  // Quiet reloads keep what screen already shows.
   Future<void> _load({bool quiet = false}) async {
     final run = ++_loadRun;
     setState(() {
@@ -127,7 +138,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
       });
     } catch (_) {
       if (!mounted || run != _loadRun) return;
-      // A quiet refresh must not blank the list.
+      // A quiet refresh must not blank list.
       if (quiet) return;
       setState(() {
         _loading = false;
@@ -136,7 +147,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     }
   }
 
-  // The next page, appended to whichever tab asked.
+  // Next page, appended to whichever tab asked.
   Future<void> _loadMore({required bool upcoming}) async {
     if (_loadingMore) return;
     final run = _loadRun;
@@ -254,7 +265,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     }
   }
 
-  // Drops one treatment; backend resyncs or closes visit.
+  // Drops one treatment; backend resyncs or closes.
   Future<void> _cancelSession(
     Appointment appointment,
     AppointmentSession session,
@@ -299,7 +310,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     }
   }
 
-  // A fresh visit; same sheet, nothing to replace.
+  // Fresh visit; same sheet, nothing to replace.
   Future<void> _book() async {
     Appointment? booked;
     final result = await showDialog<bool>(
@@ -361,14 +372,14 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                   style: AppTypography.displayTitle(),
                 ),
               ),
+              _filtersButton(),
+              const SizedBox(width: 10),
               // Booking button lives with its own list.
               ElevatedButton.icon(
                 onPressed: _book,
                 style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
+                  minimumSize: const Size(0, 40),
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
                   ),
@@ -381,9 +392,38 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           Expanded(child: _content()),
         ],
+      ),
+    );
+  }
+
+  // Carries its count, so shut still informs.
+  Widget _filtersButton() {
+    final active = (_selectedDay == null ? 0 : 1) + _historyStatuses.length;
+    return OutlinedButton.icon(
+      onPressed: _wideLayout
+          ? () => setState(() => _filtersOpen = !_filtersOpen)
+          : _openFilterSheet,
+      style: OutlinedButton.styleFrom(
+        backgroundColor: active > 0 ? AppColors.rosePale : null,
+        side: BorderSide(
+          color: active > 0 ? AppColors.borderRose : AppColors.border,
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      ),
+      icon: Icon(
+        Icons.tune_rounded,
+        size: 16,
+        color: active > 0 ? AppColors.roseDark : AppColors.textMuted,
+      ),
+      label: Text(
+        active > 0 ? 'Filters · $active' : 'Filters',
+        style: AppTypography.labelMedium(
+          color: active > 0 ? AppColors.roseDark : AppColors.textSub,
+        ),
       ),
     );
   }
@@ -399,16 +439,17 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
         onRetry: _load,
       );
     }
-    final allHistory = _history ?? const [];
-    final markedDates = {
-      for (final a in _upcoming ?? const <Appointment>[]) _dayOf(a.scheduledAt),
-      for (final a in allHistory) _dayOf(a.scheduledAt),
-    };
+    final allUpcoming = _upcoming ?? const <Appointment>[];
+    final allHistory = _history ?? const <Appointment>[];
+    final day = _selectedDay;
+    final dayLabel = day == null ? null : BookingFormat.calendarDay(day);
 
-    final upcoming = _column(
+    // Filters touch history; next visit always shows.
+    final upcoming = _section(
       'UPCOMING',
+      allUpcoming.isEmpty ? null : '${allUpcoming.length}',
       _list(
-        _upcoming ?? const [],
+        allUpcoming,
         'No upcoming appointments.',
         (appointment) => UpcomingCard(
           appointment: appointment,
@@ -421,33 +462,29 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
         onLoadMore: () => _loadMore(upcoming: true),
       ),
     );
-    // Shows every outcome, not just current ones.
-    const historyStatuses = ['Completed', 'Pending', 'Missed', 'Cancelled'];
-    final filter = _historyFilter;
-    final filteredHistory = filter == null
-        ? allHistory
-        : allHistory
-              .where((a) => HistoryCard.historyStatus(a) == filter)
-              .toList();
 
-    final history = _column(
+    final filteredHistory = _filterHistory(allHistory);
+    final unfiltered = day == null && _historyStatuses.isEmpty;
+
+    final history = _section(
       'HISTORY',
+      unfiltered
+          ? '${allHistory.length}'
+          : '${filteredHistory.length} of ${allHistory.length}',
       Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          MiniCalendar(markedDates: markedDates),
-          const SizedBox(height: 16),
-          _historyFilterRow(historyStatuses),
-          const SizedBox(height: 12),
+          if (!unfiltered) ...[
+            _summaryChips(dayLabel),
+            const SizedBox(height: 10),
+          ],
           Expanded(
             child: _list(
               filteredHistory,
-              filter == null
-                  ? 'No past appointments yet.'
-                  : 'No $filter appointments.',
+              _historyEmptyText(dayLabel),
               (appointment) => HistoryCard(appointment: appointment),
-              // Load more only works when unfiltered.
-              hasMore: filter == null && _historyHasMore,
+              // Load more would page past active filters.
+              hasMore: unfiltered && _historyHasMore,
               onLoadMore: () => _loadMore(upcoming: false),
             ),
           ),
@@ -457,26 +494,135 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Side by side when there's room.
-        if (constraints.maxWidth < 900) {
+        // The drawer needs width it can borrow.
+        final wide = constraints.maxWidth >= 900;
+        _wideLayout = wide;
+        if (!wide) {
+          // Too narrow to push; sheet instead.
           return ListView(
             children: [
               SizedBox(height: 320, child: upcoming),
               const SizedBox(height: 24),
-              SizedBox(height: 320, child: history),
+              SizedBox(height: 420, child: history),
             ],
           );
         }
+        // Third column, so all rules line up.
         return Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(flex: 3, child: upcoming),
-            const SizedBox(width: 32),
-            Expanded(flex: 2, child: history),
+            // Even width now the calendar left.
+            Expanded(child: upcoming),
+            const SizedBox(width: 28),
+            Expanded(child: history),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOut,
+              width: _filtersOpen ? 284 : 0,
+              child: _filtersOpen
+                  ? Padding(
+                      padding: const EdgeInsets.only(left: 24),
+                      child: _section('FILTERS', null, _drawer()),
+                    )
+                  : const SizedBox.shrink(),
+            ),
           ],
         );
       },
     );
+  }
+
+  // Echo rebuilds the sheet, which owns itself.
+  Widget _drawer({VoidCallback? echo, VoidCallback? onClose}) {
+    final allUpcoming = _upcoming ?? const <Appointment>[];
+    final allHistory = _history ?? const <Appointment>[];
+    final preview = _previewDay ?? _selectedDay;
+    void change(VoidCallback mutate) {
+      setState(mutate);
+      echo?.call();
+    }
+
+    return HistoryFilterDrawer(
+      markedDates: {
+        for (final a in allUpcoming) _dayOf(a.scheduledAt),
+        for (final a in allHistory) _dayOf(a.scheduledAt),
+      },
+      selectedDay: _selectedDay,
+      previewDay: preview,
+      previewAppointments: _visitsOn(allHistory, preview),
+      statuses: _historyStatusNames,
+      selectedStatuses: _historyStatuses,
+      statusCounts: _statusCounts(allHistory),
+      shown: _filterHistory(allHistory).length,
+      total: allHistory.length,
+      onDaySelected: (picked) => change(() => _selectedDay = picked),
+      onDayHovered: (hovered) => change(() => _previewDay = hovered),
+      onStatusToggled: (status) => change(() {
+        if (!_historyStatuses.remove(status)) _historyStatuses.add(status);
+      }),
+      onClose: onClose ?? () => setState(() => _filtersOpen = false),
+    );
+  }
+
+  // Too narrow for a panel; sheet instead.
+  Future<void> _openFilterSheet() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.bgCard,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) => SizedBox(
+          height: MediaQuery.sizeOf(context).height * 0.78,
+          child: _drawer(
+            echo: () => setSheetState(() {}),
+            onClose: () => Navigator.of(sheetContext).pop(),
+          ),
+        ),
+      ),
+    );
+    // Pointer left with the sheet.
+    if (mounted) setState(() => _previewDay = null);
+  }
+
+  // Filters stack, each narrowing the last.
+  List<Appointment> _filterHistory(List<Appointment> items) {
+    final day = _selectedDay;
+    return items.where((a) {
+      if (day != null && _dayOf(a.scheduledAt) != day) return false;
+      if (_historyStatuses.isNotEmpty &&
+          !_historyStatuses.contains(HistoryCard.historyStatus(a))) {
+        return false;
+      }
+      return true;
+    }).toList();
+  }
+
+  // Faceted: a status ignores its own selection.
+  Map<String, int> _statusCounts(List<Appointment> items) {
+    final day = _selectedDay;
+    final pool = day == null
+        ? items
+        : items.where((a) => _dayOf(a.scheduledAt) == day);
+    final counts = {for (final name in _historyStatusNames) name: 0};
+    for (final appointment in pool) {
+      final status = HistoryCard.historyStatus(appointment);
+      counts[status] = (counts[status] ?? 0) + 1;
+    }
+    return counts;
+  }
+
+  static List<Appointment> _visitsOn(List<Appointment> items, DateTime? day) {
+    if (day == null) return const [];
+    return items.where((a) => _dayOf(a.scheduledAt) == day).toList();
+  }
+
+  void _toggleStatus(String status) {
+    setState(() {
+      if (!_historyStatuses.remove(status)) _historyStatuses.add(status);
+    });
   }
 
   // Clinic-local day, time stripped, for grid matching.
@@ -485,14 +631,95 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     return DateTime(local.year, local.month, local.day);
   }
 
-  Widget _column(String title, Widget body) {
+  // Every outcome, not only the current ones.
+  static const _historyStatusNames = [
+    'Completed',
+    'Pending',
+    'Missed',
+    'Cancelled',
+  ];
+
+  String _historyEmptyText(String? dayLabel) {
+    final statuses = _historyStatuses.toList()..sort();
+    final named = statuses.isEmpty ? 'past' : statuses.join(' or ');
+    if (dayLabel == null) {
+      return statuses.isEmpty
+          ? 'No past appointments yet.'
+          : 'No $named appointments.';
+    }
+    return 'No $named appointments on $dayLabel.';
+  }
+
+  // Each active filter, removable where it shows.
+  Widget _summaryChips(String? dayLabel) {
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        if (dayLabel != null)
+          _summaryChip(dayLabel, () => setState(() => _selectedDay = null)),
+        for (final status in _historyStatuses.toList()..sort())
+          _summaryChip(status, () => _toggleStatus(status)),
+        GestureDetector(
+          onTap: () => setState(() {
+            _selectedDay = null;
+            _historyStatuses.clear();
+          }),
+          child: Text(
+            'Clear all',
+            style: AppTypography.labelSmall(color: AppColors.textMuted),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _summaryChip(String label, VoidCallback onRemove) {
+    return GestureDetector(
+      onTap: onRemove,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(10, 3, 6, 3),
+        decoration: BoxDecoration(
+          color: AppColors.rosePale,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppColors.borderRose),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: AppTypography.labelSmall(color: AppColors.roseDark),
+            ),
+            const SizedBox(width: 4),
+            const Icon(Icons.close, size: 12, color: AppColors.rose),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Rule runs from label to column edge.
+  Widget _section(String label, String? count, Widget body) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: AppTypography.labelSmall()),
-        const SizedBox(height: 4),
-        const Divider(),
-        const SizedBox(height: 8),
+        Row(
+          children: [
+            Text(label, style: AppTypography.labelSmall()),
+            if (count != null) ...[
+              const SizedBox(width: 8),
+              Text(
+                count,
+                style: AppTypography.labelSmall(color: AppColors.textSub),
+              ),
+            ],
+            const SizedBox(width: 12),
+            Expanded(child: Container(height: 1, color: AppColors.hairline)),
+          ],
+        ),
+        const SizedBox(height: 14),
         Expanded(child: body),
       ],
     );
@@ -518,50 +745,6 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
       itemBuilder: (context, index) => index == items.length
           ? _loadMoreButton(onLoadMore)
           : card(items[index]),
-    );
-  }
-
-  Widget _historyFilterRow(List<String> statuses) {
-    final labels = ['All', ...statuses];
-    return Row(
-      children: [
-        for (var i = 0; i < labels.length; i++) ...[
-          if (i > 0) const SizedBox(width: 6),
-          Expanded(
-            child: _historyFilterChip(
-              labels[i],
-              selected:
-                  _historyFilter == (labels[i] == 'All' ? null : labels[i]),
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-
-  Widget _historyFilterChip(String label, {required bool selected}) {
-    return GestureDetector(
-      onTap: () =>
-          setState(() => _historyFilter = label == 'All' ? null : label),
-      child: Container(
-        alignment: Alignment.center,
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        decoration: BoxDecoration(
-          color: selected ? AppColors.rosePale : AppColors.bgAlt,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: selected ? AppColors.borderRose : AppColors.border,
-          ),
-        ),
-        child: Text(
-          label,
-          overflow: TextOverflow.ellipsis,
-          maxLines: 1,
-          style: AppTypography.labelSmall(
-            color: selected ? AppColors.rose : AppColors.textMuted,
-          ),
-        ),
-      ),
     );
   }
 
