@@ -23,8 +23,15 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import com.example.backend.entities.ActivityAction;
+import com.example.backend.entities.ActivityLog;
+import com.example.backend.dtos.ClinicalHistoryResponse;
+import com.example.backend.repositories.ActivityLogRepository;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Service
 @RequiredArgsConstructor
@@ -34,6 +41,10 @@ public class PatientProfileService {
     private final UserAccountRepository users;
     private final PasswordEncoder passwordEncoder;
     private final CurrentUser currentUser;
+    private final ActivityLogRepository activityLogs;
+    // Spring Boot 4's web stack uses Jackson 3, while the JSONB mapping below
+    // deliberately uses Jackson 2 for Hibernate's stable JsonNode support.
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Transactional
     public PatientDetailResponse register(PatientDetailsRequest request) {
@@ -84,6 +95,12 @@ public class PatientProfileService {
 
         return patients.search(needle, pageable)
                 .map(PatientDetailResponse::of);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<PatientRecordResponse> searchClinical(String term, Pageable pageable) {
+        String needle = term == null ? "" : term;
+        return patients.search(needle, pageable).map(PatientRecordResponse::of);
     }
 
     @Transactional(readOnly = true)
@@ -141,8 +158,38 @@ public class PatientProfileService {
     @Transactional
     public PatientRecordResponse updateClinicalProfile(UUID userId, EditClinicalProfileRequest request) {
         PatientProfile profile = require(userId);
+        JsonNode before = objectMapper.valueToTree(PatientRecordResponse.of(profile));
         applyClinical(profile, request);
+        JsonNode after = objectMapper.valueToTree(PatientRecordResponse.of(profile));
+        activityLogs.save(ActivityLog.clinicalProfileUpdated(currentUser.requireId(), userId, before, after));
         return PatientRecordResponse.of(profile);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<ClinicalHistoryResponse> clinicalHistory(UUID userId, Pageable pageable) {
+        require(userId);
+        var page = activityLogs.findByPatientUserIdAndActionOrderByCreatedAtDesc(
+                userId, ActivityAction.CLINICAL_PROFILE_UPDATED, pageable
+        );
+
+        List<ActivityLog> logs = page.getContent();
+        var actorIds = logs.stream()
+                .map(ActivityLog::getUserId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+
+        var actorsById = users.findAllById(actorIds).stream()
+                .collect(Collectors.toMap(UserAccount::getId, UserAccount::fullName));
+
+        var dto = logs.stream()
+                .map(log -> ClinicalHistoryResponse.of(
+                        log,
+                        actorsById.getOrDefault(log.getUserId(), "Unknown")
+                ))
+                .toList();
+
+        return new org.springframework.data.domain.PageImpl<>(dto, pageable, page.getTotalElements());
     }
 
     // Shared with register: one way to write the form.

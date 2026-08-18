@@ -285,6 +285,7 @@ class _SessionRow extends StatelessWidget {
     if (isNext) {
       // Text stays aligned; tint runs wider.
       return Container(
+        margin: const EdgeInsets.symmetric(vertical: 2),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
           color: AppColors.rosePale,
