@@ -7,6 +7,7 @@ import 'package:beauty_clinic_app/features/shell/presentation/app_shell.dart';
 import 'package:beauty_clinic_app/features/dashboard/presentation/dashboard_screen.dart';
 import 'package:beauty_clinic_app/features/doctor_profile/presentation/doctor_profile_screen.dart';
 import 'package:beauty_clinic_app/features/patient_profile/presentation/patient_profile_screen.dart';
+import 'package:beauty_clinic_app/features/user_profile/presentation/user_profile_screen.dart';
 import 'package:beauty_clinic_app/features/landing/presentation/landing_screen.dart';
 import 'package:beauty_clinic_app/features/appointments/data/appointment.dart';
 import 'package:beauty_clinic_app/features/appointments/data/appointment_api.dart';
@@ -187,14 +188,22 @@ class _MainRootControllerState extends State<MainRootController> {
   Set<String> get _allowedViews => switch (_activeRole) {
     'doctor' => {
       'dashboard',
+      'my_profile',
       'patients',
       'doctor_profile',
       'consultations',
       'products',
     },
-    'patient' => {'patient_profile', 'dashboard', 'products', 'landing'},
+    'patient' => {
+      'my_profile',
+      'patient_profile',
+      'dashboard',
+      'products',
+      'landing',
+    },
     'receptionist' => {
       'dashboard',
+      'my_profile',
       'appointments',
       'patients',
       'doctors',
@@ -206,6 +215,7 @@ class _MainRootControllerState extends State<MainRootController> {
       'patients',
       'doctors',
       'staff_management',
+      'my_profile',
       'patient_profile',
       'doctor_profile',
       'products',
@@ -244,6 +254,7 @@ class _MainRootControllerState extends State<MainRootController> {
       activeRole: _activeRole,
       activeView: _activeView,
       onViewChanged: _onViewChanged,
+      onProfileTap: () => _onViewChanged('my_profile'),
       // No onBookClick: booking belongs to the appointments page, which carries
       // its own button, rather than following the user onto every screen.
       onLogout: _logout,
@@ -304,6 +315,13 @@ class _MainRootControllerState extends State<MainRootController> {
       case 'patient_profile':
         return PatientProfileScreen(
           key: const ValueKey('patient_profile'),
+          onBack: () => setState(() => _activeView = 'dashboard'),
+        );
+      case 'my_profile':
+        return UserProfileScreen(
+          key: const ValueKey('my_profile'),
+          role: widget.authSession.role ?? Role.patient,
+          apiClient: _apiClient,
           onBack: () => setState(() => _activeView = 'dashboard'),
         );
       case 'landing':
