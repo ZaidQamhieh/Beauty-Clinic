@@ -469,7 +469,7 @@ class ChangedRulesTest {
             tariff.put(treatment, new Tariff(new BigDecimal("100.00"), 30));
         }
 
-        return new ClinicProperties("UTC", tariff, 180, 15, 10, 60);
+        return new ClinicProperties("UTC", "ILS", tariff, 180, 15, 10, 60);
     }
 
     // Keeps the unused-import check honest: PatientProfile is referenced by the service under test.
