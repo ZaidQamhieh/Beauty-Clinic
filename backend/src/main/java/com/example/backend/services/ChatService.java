@@ -11,6 +11,7 @@ import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 
 import java.time.Clock;
@@ -48,9 +49,11 @@ public class ChatService {
     private final ClinicProperties clinic;
     private final Clock clock;
 
-    public ChatService(ChatModel model, ClinicTools tools, MedicalGate medicalGate,
+    public ChatService(ObjectProvider<ChatModel> model, ClinicTools tools, MedicalGate medicalGate,
                        ChatOutcome outcome, ClinicProperties clinic, Clock clock) {
-        this.chat = ChatClient.create(model);
+        // No key means no chat, not death.
+        ChatModel configured = model.getIfAvailable();
+        this.chat = configured == null ? null : ChatClient.create(configured);
         this.tools = tools;
         this.medicalGate = medicalGate;
         this.outcome = outcome;
@@ -60,6 +63,10 @@ public class ChatService {
 
     public ChatReply reply(ChatRequest request) {
         ChatLanguage language = ChatLanguage.of(request.message());
+
+        if (chat == null) {
+            return ChatReply.of(unavailable(language));
+        }
 
         // Never answered by a model, ever.
         if (medicalGate.isMedical(request.message())) {
