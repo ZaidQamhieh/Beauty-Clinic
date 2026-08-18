@@ -18,25 +18,33 @@ import 'widgets/form_single_select_field.dart';
 /// a field there (as a form-builder edit does) and this widget picks it up
 /// with no change of its own.
 class DynamicFormRenderer extends StatelessWidget {
-  const DynamicFormRenderer({super.key, required this.controller});
+  const DynamicFormRenderer({
+    super.key,
+    required this.controller,
+    this.readOnly = false,
+  });
 
   final DynamicFormController controller;
+  final bool readOnly;
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: controller,
-      builder: (context, _) {
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            for (final field in controller.schema.fields) ...[
-              _FieldCard(child: _buildField(field)),
-              const SizedBox(height: 16),
+    return IgnorePointer(
+      ignoring: readOnly,
+      child: AnimatedBuilder(
+        animation: controller,
+        builder: (context, _) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (final field in controller.schema.fields) ...[
+                _FieldCard(child: _buildField(field)),
+                const SizedBox(height: 16),
+              ],
             ],
-          ],
-        );
-      },
+          );
+        },
+      ),
     );
   }
 

@@ -21,6 +21,7 @@ import 'package:beauty_clinic_app/features/forms/data/clinical_intake_schema.dar
 import 'package:beauty_clinic_app/features/forms/data/dynamic_form_api.dart';
 import 'package:beauty_clinic_app/features/forms/presentation/admin_clinical_intake_screen.dart';
 import 'package:beauty_clinic_app/features/forms/presentation/form_builder_admin_screen.dart';
+import 'package:beauty_clinic_app/features/patients/presentation/patients_directory_screen.dart';
 import 'package:beauty_clinic_app/features/products/data/product_api.dart';
 import 'package:beauty_clinic_app/features/products/presentation/product_catalog_screen.dart';
 import 'package:beauty_clinic_app/features/staff_management/staff_management_screen.dart';
@@ -182,6 +183,10 @@ class _MainRootControllerState extends State<MainRootController> {
     }
   }
 
+  String? _selectedPatientId;
+  int _patientProfileTabIndex = 0;
+  bool _fromBookingFlow = false;
+
   void _onViewChanged(String newView) {
     // "Book" opens the sheet, not a view.
     if (newView == 'book') {
@@ -192,6 +197,9 @@ class _MainRootControllerState extends State<MainRootController> {
     setState(() {
       _fromBookingFlow = false;
       _activeView = newView;
+      if (newView != 'patients') {
+        _selectedPatientId = null;
+      }
     });
   }
 
@@ -220,21 +228,17 @@ class _MainRootControllerState extends State<MainRootController> {
       'patients',
       'doctors',
       'staff_management',
-      'patient_profile',
-      'doctor_profile',
       'products',
       'landing',
     },
   };
 
-  void _onViewPatient(String patientName) {
+  void _onViewPatient(String patientId) {
     setState(() {
-      _activeView = 'patient_profile';
+      _selectedPatientId = patientId;
+      _activeView = 'patients';
     });
   }
-
-  int _patientProfileTabIndex = 0;
-  bool _fromBookingFlow = false;
 
   void _onViewDoctor(String doctorName) {
     setState(() {
@@ -454,7 +458,6 @@ class _MainRootControllerState extends State<MainRootController> {
     switch (_activeView) {
       case 'dashboard':
       case 'appointments':
-      case 'patients':
       case 'doctors':
         return DashboardScreen(
           key: ValueKey('dashboard_$_activeRole'),
@@ -462,6 +465,26 @@ class _MainRootControllerState extends State<MainRootController> {
           onViewPatient: _onViewPatient,
           onViewDoctor: _onViewDoctor,
           apiClient: _apiClient,
+        );
+      case 'patients':
+        if (_selectedPatientId != null) {
+          return PatientProfileScreen(
+            key: ValueKey('admin_patient_$_selectedPatientId'),
+            patientId: _selectedPatientId,
+            clinicalApi: _clinicalApi,
+            dynamicApi: _dynamicApi,
+            appointmentApi: _appointmentApi,
+            productApi: _products,
+            apiClient: _apiClient,
+            onBack: () => setState(() => _selectedPatientId = null),
+          );
+        }
+        return PatientsDirectoryScreen(
+          key: const ValueKey('patients_directory'),
+          clinicalApi: _clinicalApi,
+          onSelectPatient: (patientId) => setState(() {
+            _selectedPatientId = patientId;
+          }),
         );
       case 'clinical_forms':
         return AdminClinicalIntakeScreen(api: _clinicalApi);

@@ -59,13 +59,16 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
   bool _loadingProducts = false;
   String? _productsError;
 
+  bool get _isOwnProfile => widget.patientId == null;
+
   @override
   void initState() {
     super.initState();
+    final tabCount = _isOwnProfile ? 4 : 3;
     _tabController = TabController(
-      length: 4,
+      length: tabCount,
       vsync: this,
-      initialIndex: widget.initialTabIndex.clamp(0, 3),
+      initialIndex: widget.initialTabIndex.clamp(0, tabCount - 1),
     );
     _loadPatientData();
     _loadTreatmentHistory();
@@ -198,10 +201,21 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
           if (widget.onBack != null)
             Padding(
               padding: const EdgeInsets.only(bottom: 16),
-              child: TextButton.icon(
+              child: OutlinedButton.icon(
                 onPressed: widget.onBack,
-                icon: const Icon(Icons.arrow_back, size: 16),
-                label: const Text('Back'),
+                icon: const Icon(Icons.arrow_back_rounded, size: 16),
+                label: const Text('Back to Patients Directory'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.rose,
+                  side: const BorderSide(color: AppColors.borderRose),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
+                ),
               ),
             ),
 
@@ -219,11 +233,11 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
             indicatorColor: AppColors.rose,
             labelStyle: AppTypography.labelMedium(),
             unselectedLabelStyle: AppTypography.labelMedium(),
-            tabs: const [
-              Tab(text: 'Overview & Info'),
-              Tab(text: 'Treatment History'),
-              Tab(text: 'Prescriptions & Products'),
-              Tab(text: 'Clinic Forms'),
+            tabs: [
+              const Tab(text: 'Overview & Info'),
+              const Tab(text: 'Treatment History'),
+              const Tab(text: 'Prescriptions & Products'),
+              if (_isOwnProfile) const Tab(text: 'Clinic Forms'),
             ],
           ),
 
@@ -238,16 +252,17 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
                 _buildOverviewTab(),
                 _buildHistoryTab(),
                 _buildProductsTab(),
-                ClinicalIntakeTab(
-                  clinicalApi: widget.clinicalApi,
-                  dynamicApi: widget.dynamicApi,
-                  patientId: widget.patientId,
-                  onBackToAppointments: widget.onBackToAppointments,
-                  onSaved: () {
-                    _loadPatientData();
-                    _loadProducts();
-                  },
-                ),
+                if (_isOwnProfile)
+                  ClinicalIntakeTab(
+                    clinicalApi: widget.clinicalApi,
+                    dynamicApi: widget.dynamicApi,
+                    patientId: widget.patientId,
+                    onBackToAppointments: widget.onBackToAppointments,
+                    onSaved: () {
+                      _loadPatientData();
+                      _loadProducts();
+                    },
+                  ),
               ],
             ),
           ),
