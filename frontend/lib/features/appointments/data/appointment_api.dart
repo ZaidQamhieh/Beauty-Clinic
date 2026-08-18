@@ -65,7 +65,7 @@ class AppointmentApi {
   /// Times the booking endpoint will accept.
   Future<List<FreeSlot>> freeSlots({
     required String treatmentName,
-    required DateTime date,
+    DateTime? date,
     String? patientUserId,
     List<HeldSlot> held = const [],
     String? replacesAppointmentId,
@@ -75,7 +75,8 @@ class AppointmentApi {
         '/api/appointments/free-slots',
         data: {
           'treatmentName': treatmentName,
-          'date': _isoDate(date),
+          // Omitted means today, and the caller.
+          'date': date == null ? null : _isoDate(date),
           'patientUserId': patientUserId,
           'held': held.map((h) => h.toJson()).toList(),
           'replacesAppointmentId': replacesAppointmentId,

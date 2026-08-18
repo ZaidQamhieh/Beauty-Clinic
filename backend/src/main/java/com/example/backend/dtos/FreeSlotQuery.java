@@ -11,18 +11,18 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
-// A body, not a query string: it carries picks made for a visit that is not stored yet.
+// A body: carries picks not yet stored.
 public record FreeSlotQuery(
         @NotNull TreatmentName treatmentName,
-        @NotNull LocalDate date,
-        // Null asks every doctor qualified for the treatment.
+        // Null means today, clinic zone.
+        LocalDate date,
+        // Null asks every qualified doctor.
         UUID doctorId,
-        // Null skips the patient's own clashes; naming them keeps unbookable times off the list.
+        // Null means caller; staff must name.
         UUID patientUserId,
-        // Earlier picks in the same visit. They hold their doctor and the patient alike.
-        // Capped like sessions: each pick widens the gap walk.
+        // Earlier picks; hold doctor and patient.
         @Size(max = 10) List<@Valid HeldSlot> held,
-        // While rescheduling: the visit being replaced, whose times are offered, not held.
+        // Replaced visit; its times are offered.
         UUID replacesAppointmentId
 ) {
 
@@ -39,7 +39,7 @@ public record FreeSlotQuery(
             @NotNull Instant endTime
     ) {
 
-        // A backwards or empty pick would silently widen the search instead of narrowing it.
+        // Backwards picks would widen the search.
         @AssertTrue(message = "endTime must be after startTime")
         private boolean isSpanOrdered() {
             return startTime == null || endTime == null || endTime.isAfter(startTime);
