@@ -9,6 +9,7 @@ import 'package:beauty_clinic_app/features/dashboard/presentation/dashboard_scre
 import 'package:beauty_clinic_app/features/doctor_profile/presentation/doctor_profile_screen.dart';
 import 'package:beauty_clinic_app/features/patient_profile/presentation/patient_profile_screen.dart';
 import 'package:beauty_clinic_app/features/landing/presentation/landing_screen.dart';
+import 'package:beauty_clinic_app/features/activity_log/presentation/activity_log_screen.dart';
 import 'package:beauty_clinic_app/screens/login_screen.dart';
 import 'package:beauty_clinic_app/screens/register_screen.dart';
 
@@ -147,7 +148,7 @@ class _MainRootControllerState extends State<MainRootController> {
     'doctor' => {'dashboard', 'patients', 'doctor_profile', 'consultations', 'landing'},
     'patient' => {'patient_profile', 'dashboard', 'book', 'landing'},
     'receptionist' => {'dashboard', 'appointments', 'patients', 'doctors', 'landing'},
-    _ => {'dashboard', 'appointments', 'patients', 'doctors', 'patient_profile', 'doctor_profile', 'landing'},
+    _ => {'dashboard', 'appointments', 'patients', 'doctors', 'patient_profile', 'doctor_profile', 'activity_log', 'landing'},
   };
 
   void _onViewPatient(String patientName) {
@@ -209,6 +210,8 @@ class _MainRootControllerState extends State<MainRootController> {
           onBack: () => setState(() => _activeView = 'dashboard'),
           onPatientClick: _onViewPatient,
         );
+      case 'activity_log':
+        return ActivityLogScreen(key: const ValueKey('activity_log'), authSession: widget.authSession);
       case 'patient_profile':
         return PatientProfileScreen(
           key: const ValueKey('patient_profile'),

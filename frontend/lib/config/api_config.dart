@@ -11,7 +11,8 @@ abstract final class ApiConfig {
     if (_configuredBaseUrl.isNotEmpty) {
       return _configuredBaseUrl;
     }
-    return kDebugMode ? 'http://localhost:8081' : '';
+    // Always use the local dev backend when running on a developer machine.
+    return 'http://localhost:8081';
   }
 
   static Dio createDio({String? baseUrl}) {

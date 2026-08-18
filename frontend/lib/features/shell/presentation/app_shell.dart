@@ -368,6 +368,11 @@ class _AppShellState extends State<AppShell> {
             'icon': Icons.badge_outlined,
           },
           {
+            'id': 'activity_log',
+            'label': 'Activity Log',
+            'icon': Icons.history_rounded,
+          },
+          {
             'id': 'landing',
             'label': 'Clinic Landing Page',
             'icon': Icons.space_dashboard_outlined,
