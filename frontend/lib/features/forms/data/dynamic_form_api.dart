@@ -1,6 +1,7 @@
 import '../../../network/api_client.dart';
 import '../domain/form_field_schema.dart';
 import '../domain/form_schema.dart';
+import 'clinical_intake_schema.dart';
 
 /// Talks to [DynamicFormController] at `/api/forms/clinical-intake/...`.
 class DynamicFormApi {
@@ -75,11 +76,18 @@ class DynamicFormApi {
   }
 
   static FormSchema _schemaFromQuestions(List<dynamic> questions) {
+    final baselineFieldMap = {
+      for (final f in ClinicalIntakeSchema.schema.fields) f.id: f,
+    };
+
     final fields = <FormFieldSchema>[];
     for (final raw in questions) {
       final question = Map<String, dynamic>.from(raw as Map);
+      final fieldKey = question['fieldKey'] as String;
       final type = FormFieldTypeWire.fromWire(question['fieldType'] as String);
-      final options = (question['options'] as List<dynamic>? ?? const [])
+      final baselineField = baselineFieldMap[fieldKey];
+
+      final rawOptions = (question['options'] as List<dynamic>? ?? const [])
           .cast<Map<String, dynamic>>()
           .map(
             (option) => FormOption(
@@ -89,14 +97,24 @@ class DynamicFormApi {
           )
           .toList();
 
+      final optionMap = <String, FormOption>{};
+      if (baselineField != null) {
+        for (final opt in baselineField.options) {
+          optionMap[opt.value] = opt;
+        }
+      }
+      for (final opt in rawOptions) {
+        optionMap[opt.value] = opt;
+      }
+
       fields.add(
         FormFieldSchema(
-          id: question['fieldKey'] as String,
+          id: fieldKey,
           label: question['label'] as String,
           type: type,
           required: question['required'] == true,
           helpText: question['helpText'] as String?,
-          options: options,
+          options: optionMap.values.toList(),
           maxSelections: type == FormFieldType.multiSelect ? 20 : null,
         ),
       );
@@ -107,7 +125,7 @@ class DynamicFormApi {
       title: 'Clinic Forms',
       description:
           'Your clinic health form. Required questions must be answered before saving.',
-      fields: fields,
+      fields: fields.isNotEmpty ? fields : ClinicalIntakeSchema.schema.fields,
     );
   }
 

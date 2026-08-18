@@ -308,7 +308,8 @@ class _MainRootControllerState extends State<MainRootController> {
                     Navigator.of(ctx).pop();
                     setState(() {
                       _fromBookingFlow = true;
-                      _patientProfileTabIndex = 3;
+                      _patientProfileTabIndex =
+                          PatientProfileScreen.clinicFormsTabIndex;
                       _activeView = 'patient_profile';
                     });
                   },
@@ -368,7 +369,8 @@ class _MainRootControllerState extends State<MainRootController> {
                     Navigator.of(ctx).pop('modify');
                     setState(() {
                       _fromBookingFlow = true;
-                      _patientProfileTabIndex = 3;
+                      _patientProfileTabIndex =
+                          PatientProfileScreen.clinicFormsTabIndex;
                       _activeView = 'patient_profile';
                     });
                   },
@@ -442,7 +444,8 @@ class _MainRootControllerState extends State<MainRootController> {
         clinicalApi: _clinicalApi,
         onNavigateToForms: () => setState(() {
           _fromBookingFlow = true;
-          _patientProfileTabIndex = 3;
+          _patientProfileTabIndex =
+              PatientProfileScreen.clinicFormsTabIndex;
           _activeView = 'patient_profile';
         }),
       );
@@ -487,6 +490,9 @@ class _MainRootControllerState extends State<MainRootController> {
           key: ValueKey('patient_profile_${_patientProfileTabIndex}_$_fromBookingFlow'),
           clinicalApi: _clinicalApi,
           dynamicApi: _dynamicApi,
+          appointmentApi: _appointmentApi,
+          productApi: _products,
+          apiClient: _apiClient,
           initialTabIndex: _patientProfileTabIndex,
           onBackToAppointments: _fromBookingFlow
               ? () => setState(() {

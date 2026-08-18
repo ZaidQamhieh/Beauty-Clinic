@@ -61,8 +61,21 @@ class _ClinicalIntakeTabState extends State<ClinicalIntakeTab> {
   Future<void> _loadForm() async {
     try {
       if (widget.patientId == null) {
-        final schema = await widget.dynamicApi!.fetchPublishedSchema();
-        final answers = await widget.dynamicApi!.fetchOwnAnswers();
+        final schema = widget.dynamicApi != null
+            ? await widget.dynamicApi!.fetchPublishedSchema()
+            : ClinicalIntakeSchema.schema;
+        Map<String, dynamic> answers = {};
+        if (widget.clinicalApi != null) {
+          try {
+            answers = await widget.clinicalApi!.fetchOwn();
+          } catch (_) {}
+        }
+        if (widget.dynamicApi != null) {
+          try {
+            final dynamicAnswers = await widget.dynamicApi!.fetchOwnAnswers();
+            answers = {...answers, ...dynamicAnswers};
+          } catch (_) {}
+        }
         final initialValues = {...schema.defaultValues(), ...answers};
 
         if (!mounted) return;
@@ -109,12 +122,21 @@ class _ClinicalIntakeTabState extends State<ClinicalIntakeTab> {
     setState(() => _isSaving = true);
 
     try {
+      final fieldKeys = _controller.schema.fields.map((f) => f.id).toSet();
+      final cleanValues = Map<String, dynamic>.fromEntries(
+        _controller.values.entries.where((e) => fieldKeys.contains(e.key)),
+      );
+
       if (widget.patientId == null) {
-        await widget.dynamicApi!.saveOwnAnswers(_controller.values);
+        if (widget.dynamicApi != null) {
+          await widget.dynamicApi!.saveOwnAnswers(cleanValues);
+        } else if (widget.clinicalApi != null) {
+          await widget.clinicalApi!.saveOwn(cleanValues);
+        }
       } else {
         await widget.clinicalApi!.saveForPatient(
           widget.patientId!,
-          _controller.values,
+          cleanValues,
         );
       }
 

@@ -2,11 +2,14 @@ package com.example.backend.services;
 
 import com.example.backend.dtos.FormQuestionRequest;
 import com.example.backend.dtos.FormQuestionResponse;
+import com.example.backend.dtos.PatientRecordResponse;
 import com.example.backend.entities.FormQuestion;
 import com.example.backend.entities.FormQuestionOption;
 import com.example.backend.entities.PatientFormResponse;
+import com.example.backend.entities.PatientProfile;
 import com.example.backend.repositories.FormQuestionRepository;
 import com.example.backend.repositories.PatientFormResponseRepository;
+import com.example.backend.repositories.PatientProfileRepository;
 import com.example.backend.services.ActivityLogService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -20,6 +23,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
@@ -32,6 +36,7 @@ public class DynamicFormService {
     private final FormQuestionRepository questions;
     private final PatientFormResponseRepository responses;
     private final ActivityLogService activityLogs;
+    private final PatientProfileRepository patientProfiles;
     // Spring Boot 4's web stack uses Jackson 3; Hibernate JSONB mapping still
     // uses Jackson 2, so we keep a local mapper like PatientProfileService.
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -83,6 +88,7 @@ public class DynamicFormService {
     }
 
     @Transactional(readOnly = true)
+    @SuppressWarnings("unchecked")
     public Map<String, Object> answers(UUID patientUserId) {
         PatientFormResponse stored = responses.findById(
                 new PatientFormResponse.Id(patientUserId, CLINICAL_INTAKE)
@@ -114,17 +120,58 @@ public class DynamicFormService {
         );
 
         for (FormQuestion question : activeQuestions) {
-            merged.put(question.getFieldKey(), submitted.get(question.getFieldKey()));
+            if (submitted.containsKey(question.getFieldKey())) {
+                merged.put(question.getFieldKey(), submitted.get(question.getFieldKey()));
+            }
         }
 
-        JsonNode oldValues = stored.getAnswers() == null
-                ? objectMapper.createObjectNode()
-                : stored.getAnswers().deepCopy();
+        JsonNode oldValues = stored.getAnswers();
+        if (oldValues == null || oldValues.isEmpty() || oldValues.size() == 0) {
+            oldValues = patientProfiles.findById(patientUserId)
+                    .map(p -> (JsonNode) objectMapper.valueToTree(PatientRecordResponse.of(p)))
+                    .orElseGet(objectMapper::createObjectNode);
+        } else {
+            oldValues = oldValues.deepCopy();
+        }
 
         stored.setAnswers(objectMapper.valueToTree(merged));
         JsonNode newValues = stored.getAnswers();
         responses.save(stored);
         activityLogs.recordClinicalProfileUpdate(actorId, patientUserId, oldValues, newValues);
+
+        // Synchronize with PatientProfile table if this is a clinical intake form
+        patientProfiles.findById(patientUserId).ifPresent(profile -> {
+            if (submitted.get("skinType") instanceof String st && !st.isBlank()) {
+                try {
+                    profile.setSkinType(PatientProfile.SkinType.valueOf(st.toUpperCase()));
+                } catch (Exception ignored) {}
+            }
+            if (submitted.get("smokingStatus") instanceof String ss && !ss.isBlank()) {
+                try {
+                    profile.setSmokingStatus(PatientProfile.SmokingStatus.valueOf(ss.toUpperCase()));
+                } catch (Exception ignored) {}
+            }
+            if (submitted.get("pregnantBreastfeeding") instanceof Boolean pb) {
+                profile.setPregnantBreastfeeding(pb);
+            }
+            if (submitted.get("allergies") instanceof List<?> list) {
+                profile.setAllergies(list.stream().filter(String.class::isInstance).map(s -> {
+                    try { return PatientProfile.Allergy.valueOf(((String) s).toUpperCase()); } catch (Exception e) { return null; }
+                }).filter(Objects::nonNull).distinct().toList());
+            }
+            if (submitted.get("medications") instanceof List<?> list) {
+                profile.setMedications(list.stream().filter(String.class::isInstance).map(s -> {
+                    try { return PatientProfile.Medication.valueOf(((String) s).toUpperCase()); } catch (Exception e) { return null; }
+                }).filter(Objects::nonNull).distinct().toList());
+            }
+            if (submitted.get("chronicConditions") instanceof List<?> list) {
+                profile.setChronicConditions(list.stream().filter(String.class::isInstance).map(s -> {
+                    try { return PatientProfile.ChronicCondition.valueOf(((String) s).toUpperCase()); } catch (Exception e) { return null; }
+                }).filter(Objects::nonNull).distinct().toList());
+            }
+            patientProfiles.save(profile);
+        });
+
         return merged;
     }
 
@@ -173,14 +220,6 @@ public class DynamicFormService {
     }
 
     private void validate(List<FormQuestion> activeQuestions, Map<String, Object> submitted) {
-        Set<String> allowedKeys = activeQuestions.stream()
-                .map(FormQuestion::getFieldKey)
-                .collect(java.util.stream.Collectors.toSet());
-
-        if (!allowedKeys.containsAll(submitted.keySet())) {
-            throw bad("The submitted form contains an inactive or unknown question");
-        }
-
         for (FormQuestion question : activeQuestions) {
             Object value = submitted.get(question.getFieldKey());
 
@@ -204,16 +243,18 @@ public class DynamicFormService {
                     .collect(java.util.stream.Collectors.toSet());
 
             if (question.getFieldType() == FormQuestion.FieldType.SINGLE_SELECT) {
-                if (!(value instanceof String selected) || !allowedValues.contains(selected)) {
+                if (!(value instanceof String selected) || (!allowedValues.isEmpty() && !allowedValues.contains(selected))) {
                     throw bad(question.getLabel() + " must be one of the listed options");
                 }
                 continue;
             }
 
-            if (!(value instanceof List<?> selected) || selected.stream().anyMatch(
-                    item -> !(item instanceof String chosen) || !allowedValues.contains(chosen)
-            )) {
-                throw bad(question.getLabel() + " must be one of the listed options");
+            if (value instanceof List<?> selected) {
+                if (!allowedValues.isEmpty() && selected.stream().anyMatch(
+                        item -> !(item instanceof String chosen) || !allowedValues.contains(chosen)
+                )) {
+                    throw bad(question.getLabel() + " contains an unrecognised option");
+                }
             }
         }
     }
