@@ -418,6 +418,11 @@ class _AppShellState extends State<AppShell> {
             'label': 'Staff Management',
             'icon': Icons.groups_rounded,
           },
+          {
+            'id': 'activity_log',
+            'label': 'Activity Log',
+            'icon': Icons.history_rounded,
+          },
         ];
     }
   }

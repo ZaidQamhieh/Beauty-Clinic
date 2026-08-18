@@ -4,10 +4,13 @@ import com.example.backend.entities.ActivityAction;
 import com.example.backend.entities.ActivityLog;
 import com.example.backend.repositories.ActivityLogRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -69,6 +72,12 @@ public class ActivityLogService {
         activityLogs.save(
                 ActivityLog.permissionDenied(userId.orElse(null))
         );
+    }
+
+    @Transactional(readOnly = true)
+    public Page<ActivityLog> search(ActivityAction action, Instant from, Instant to, String search, Pageable pageable) {
+        String query = search == null || search.isBlank() ? null : search.trim();
+        return activityLogs.search(action, from, to, query, pageable);
     }
 
     private void recordUserEvent(
