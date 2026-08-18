@@ -9,6 +9,7 @@ import 'package:beauty_clinic_app/features/dashboard/presentation/dashboard_scre
 import 'package:beauty_clinic_app/features/doctor_profile/presentation/doctor_profile_screen.dart';
 import 'package:beauty_clinic_app/features/patient_profile/presentation/patient_profile_screen.dart';
 import 'package:beauty_clinic_app/features/user_profile/presentation/user_profile_screen.dart';
+import 'package:beauty_clinic_app/features/activity_log/presentation/activity_log_screen.dart';
 import 'package:beauty_clinic_app/features/landing/presentation/landing_screen.dart';
 import 'package:beauty_clinic_app/features/appointments/data/appointment.dart';
 import 'package:beauty_clinic_app/features/appointments/data/appointment_api.dart';
@@ -237,6 +238,7 @@ class _MainRootControllerState extends State<MainRootController> {
       'patients',
       'doctors',
       'staff_management',
+      'activity_log',
       'my_profile',
       'patient_profile',
       'doctor_profile',
@@ -518,6 +520,11 @@ class _MainRootControllerState extends State<MainRootController> {
         return StaffManagementScreen(
           key: const ValueKey('staff_management'),
           apiClient: _apiClient,
+          authSession: widget.authSession,
+        );
+      case 'activity_log':
+        return ActivityLogScreen(
+          key: const ValueKey('activity_log'),
           authSession: widget.authSession,
         );
       case 'doctor_profile':
