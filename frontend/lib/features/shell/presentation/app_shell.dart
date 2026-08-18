@@ -268,9 +268,9 @@ class _AppShellState extends State<AppShell> {
         return [
           {
             'id': 'dashboard',
-            'label': 'Today\'s Schedule',
-            'icon': Icons.calendar_today_outlined,
-            'badge': '8',
+            'label': 'Doctor Portal',
+            'icon': Icons.dashboard_outlined,
+            'badge': null,
           },
           {
             'id': 'patients',

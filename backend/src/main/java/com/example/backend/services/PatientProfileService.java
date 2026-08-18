@@ -88,9 +88,11 @@ public class PatientProfileService {
 
     @Transactional(readOnly = true)
     public Page<PatientDetailResponse> search(String term, Pageable pageable) {
-        String needle = term;
-        if (needle == null) {
-            needle = "";
+        String needle = term == null ? "" : term;
+        if (currentUser.hasRole(Role.DOCTOR)) {
+            UUID doctorId = currentUser.requireId();
+            return patients.searchForDoctor(doctorId, needle, pageable)
+                    .map(PatientDetailResponse::of);
         }
 
         return patients.search(needle, pageable)
@@ -100,6 +102,12 @@ public class PatientProfileService {
     @Transactional(readOnly = true)
     public Page<PatientRecordResponse> searchClinical(String term, Pageable pageable) {
         String needle = term == null ? "" : term;
+        if (currentUser.hasRole(Role.DOCTOR)) {
+            UUID doctorId = currentUser.requireId();
+            return patients.searchForDoctor(doctorId, needle, pageable)
+                    .map(PatientRecordResponse::of);
+        }
+
         return patients.search(needle, pageable).map(PatientRecordResponse::of);
     }
 

@@ -14,9 +14,9 @@ import 'widgets/clinical_intake_tab.dart';
 /// Patient EHR & Profile View Screen (100% Database-Driven)
 class PatientProfileScreen extends StatefulWidget {
   static const int overviewTabIndex = 0;
-  static const int treatmentHistoryTabIndex = 1;
-  static const int productsTabIndex = 2;
-  static const int clinicFormsTabIndex = 3;
+  static const int treatmentHistoryTabIndex = 0;
+  static const int productsTabIndex = 1;
+  static const int clinicFormsTabIndex = 2;
 
   final VoidCallback? onBack;
   final VoidCallback? onBackToAppointments;
@@ -38,7 +38,7 @@ class PatientProfileScreen extends StatefulWidget {
     this.productApi,
     this.apiClient,
     this.patientId,
-    this.initialTabIndex = overviewTabIndex,
+    this.initialTabIndex = 0,
   });
 
   @override
@@ -64,11 +64,15 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
   @override
   void initState() {
     super.initState();
-    final tabCount = _isOwnProfile ? 4 : 3;
+    const tabCount = 3;
+    final resolvedInitialIndex = _isOwnProfile && (widget.initialTabIndex == 2 || widget.initialTabIndex == 3)
+        ? 2
+        : widget.initialTabIndex.clamp(0, tabCount - 1);
+
     _tabController = TabController(
       length: tabCount,
       vsync: this,
-      initialIndex: widget.initialTabIndex.clamp(0, tabCount - 1),
+      initialIndex: resolvedInitialIndex,
     );
     _loadPatientData();
     _loadTreatmentHistory();
@@ -198,7 +202,7 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (widget.onBack != null)
+          if (widget.onBack != null && widget.patientId != null)
             Padding(
               padding: const EdgeInsets.only(bottom: 16),
               child: OutlinedButton.icon(
@@ -233,12 +237,17 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
             indicatorColor: AppColors.rose,
             labelStyle: AppTypography.labelMedium(),
             unselectedLabelStyle: AppTypography.labelMedium(),
-            tabs: [
-              const Tab(text: 'Overview & Info'),
-              const Tab(text: 'Treatment History'),
-              const Tab(text: 'Prescriptions & Products'),
-              if (_isOwnProfile) const Tab(text: 'Clinic Forms'),
-            ],
+            tabs: _isOwnProfile
+                ? const [
+                    Tab(text: 'Treatment History'),
+                    Tab(text: 'Prescriptions & Products'),
+                    Tab(text: 'Clinic Forms'),
+                  ]
+                : const [
+                    Tab(text: 'Overview & Info'),
+                    Tab(text: 'Treatment History'),
+                    Tab(text: 'Prescriptions & Products'),
+                  ],
           ),
 
           const SizedBox(height: 20),
@@ -248,22 +257,26 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
             height: 520,
             child: TabBarView(
               controller: _tabController,
-              children: [
-                _buildOverviewTab(),
-                _buildHistoryTab(),
-                _buildProductsTab(),
-                if (_isOwnProfile)
-                  ClinicalIntakeTab(
-                    clinicalApi: widget.clinicalApi,
-                    dynamicApi: widget.dynamicApi,
-                    patientId: widget.patientId,
-                    onBackToAppointments: widget.onBackToAppointments,
-                    onSaved: () {
-                      _loadPatientData();
-                      _loadProducts();
-                    },
-                  ),
-              ],
+              children: _isOwnProfile
+                  ? [
+                      _buildHistoryTab(),
+                      _buildProductsTab(),
+                      ClinicalIntakeTab(
+                        clinicalApi: widget.clinicalApi,
+                        dynamicApi: widget.dynamicApi,
+                        patientId: widget.patientId,
+                        onBackToAppointments: widget.onBackToAppointments,
+                        onSaved: () {
+                          _loadPatientData();
+                          _loadProducts();
+                        },
+                      ),
+                    ]
+                  : [
+                      _buildOverviewTab(),
+                      _buildHistoryTab(),
+                      _buildProductsTab(),
+                    ],
             ),
           ),
         ],

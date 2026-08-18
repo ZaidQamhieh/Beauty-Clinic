@@ -29,16 +29,13 @@ public interface AppointmentSessionRepository extends JpaRepository<AppointmentS
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<AppointmentSession> findWithLockByIdAndAppointmentId(UUID id, UUID appointmentId);
 
-    // Lets a doctor reach patients they treat. Cancelled does not count, or access never ends.
-    // A visit the practitioner booked themselves grants nothing: that is self-issued access.
+    // Lets a doctor reach patients they treat. Cancelled does not count.
     @Query("""
             select count(s) > 0
             from AppointmentSession s
             where s.practitioner.userId = :doctorUserId
-              and s.appointment.patient.userId = :patientUserId
+              and s.patientUserId = :patientUserId
               and s.status <> CANCELLED
-              and (s.appointment.createdBy is null
-                   or s.appointment.createdBy.id <> :doctorUserId)
             """)
     boolean existsByPractitionerAndPatient(
             @Param("doctorUserId") UUID doctorUserId,
@@ -139,4 +136,38 @@ public interface AppointmentSessionRepository extends JpaRepository<AppointmentS
             order by s.startTime asc
             """)
     List<AppointmentSession> findBetweenWithDetails(@Param("from") Instant from, @Param("to") Instant to);
+
+    @EntityGraph(attributePaths = {"appointment", "appointment.patient", "appointment.patient.user", "practitioner", "practitioner.user"})
+    @Query("""
+            select s from AppointmentSession s
+            where s.practitioner.userId = :doctorUserId
+              and s.startTime >= :from and s.startTime < :to
+            order by s.startTime asc
+            """)
+    List<AppointmentSession> findForPractitionerBetweenWithDetails(
+            @Param("doctorUserId") UUID doctorUserId,
+            @Param("from") Instant from,
+            @Param("to") Instant to
+    );
+
+    @Query("""
+            select count(distinct s.patientUserId)
+            from AppointmentSession s
+            where s.practitioner.userId = :doctorUserId
+              and s.status <> com.example.backend.entities.AppointmentSession.SessionStatus.CANCELLED
+            """)
+    int countActivePatients(@Param("doctorUserId") UUID doctorUserId);
+
+    @Query("""
+            select count(distinct s.patientUserId)
+            from AppointmentSession s
+            where s.practitioner.userId = :doctorUserId
+              and s.startTime >= :from and s.startTime < :to
+              and s.status <> com.example.backend.entities.AppointmentSession.SessionStatus.CANCELLED
+            """)
+    int countActivePatientsBetween(
+            @Param("doctorUserId") UUID doctorUserId,
+            @Param("from") Instant from,
+            @Param("to") Instant to
+    );
 }

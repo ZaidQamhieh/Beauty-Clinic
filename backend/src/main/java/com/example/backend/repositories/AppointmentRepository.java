@@ -80,6 +80,40 @@ public interface AppointmentRepository extends JpaRepository<Appointment, UUID> 
             @Param("now") Instant now,
             Pageable pageable);
 
+    @EntityGraph(attributePaths = {"patient", "patient.user"})
+    @Query(
+            value = """
+                    select a from Appointment a
+                    where a.patient.userId = :patientUserId
+                      and exists (
+                          select 1 from AppointmentSession s
+                          where s.appointment = a
+                            and s.practitioner.userId = :doctorUserId
+                      )
+                      and a.status = BOOKED
+                      and a.scheduledAt >= :now
+                      and not exists (select 1 from Appointment r where r.replaces = a)
+                    order by a.scheduledAt asc, a.id asc
+                    """,
+            countQuery = """
+                    select count(a) from Appointment a
+                    where a.patient.userId = :patientUserId
+                      and exists (
+                          select 1 from AppointmentSession s
+                          where s.appointment = a
+                            and s.practitioner.userId = :doctorUserId
+                      )
+                      and a.status = BOOKED
+                      and a.scheduledAt >= :now
+                      and not exists (select 1 from Appointment r where r.replaces = a)
+                    """
+    )
+    Page<Appointment> findUpcomingForPatientAndDoctor(
+            @Param("patientUserId") UUID patientUserId,
+            @Param("doctorUserId") UUID doctorUserId,
+            @Param("now") Instant now,
+            Pageable pageable);
+
     // Begun or cancelled, most recent first.
     @EntityGraph(attributePaths = {"patient", "patient.user"})
     @Query("""
@@ -91,6 +125,38 @@ public interface AppointmentRepository extends JpaRepository<Appointment, UUID> 
             """)
     Page<Appointment> findHistoryForPatient(
             @Param("patientUserId") UUID patientUserId,
+            @Param("now") Instant now,
+            Pageable pageable);
+
+    @EntityGraph(attributePaths = {"patient", "patient.user"})
+    @Query(
+            value = """
+                    select a from Appointment a
+                    where a.patient.userId = :patientUserId
+                      and exists (
+                          select 1 from AppointmentSession s
+                          where s.appointment = a
+                            and s.practitioner.userId = :doctorUserId
+                      )
+                      and (a.status = CANCELLED or a.scheduledAt < :now)
+                      and not exists (select 1 from Appointment r where r.replaces = a)
+                    order by a.scheduledAt desc, a.id desc
+                    """,
+            countQuery = """
+                    select count(a) from Appointment a
+                    where a.patient.userId = :patientUserId
+                      and exists (
+                          select 1 from AppointmentSession s
+                          where s.appointment = a
+                            and s.practitioner.userId = :doctorUserId
+                      )
+                      and (a.status = CANCELLED or a.scheduledAt < :now)
+                      and not exists (select 1 from Appointment r where r.replaces = a)
+                    """
+    )
+    Page<Appointment> findHistoryForPatientAndDoctor(
+            @Param("patientUserId") UUID patientUserId,
+            @Param("doctorUserId") UUID doctorUserId,
             @Param("now") Instant now,
             Pageable pageable);
 }

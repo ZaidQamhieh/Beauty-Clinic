@@ -1072,17 +1072,28 @@ class NewVsReturningDonut extends StatelessWidget {
 /// Patient Growth Over Time Line Chart
 class PatientGrowthLineChart extends StatelessWidget {
   final List<PatientGrowthPoint> data;
+  final String? title;
+  final String? subtitle;
+  final String? badgeText;
+  final Color? badgeColor;
 
-  const PatientGrowthLineChart({super.key, required this.data});
+  const PatientGrowthLineChart({
+    super.key,
+    required this.data,
+    this.title,
+    this.subtitle,
+    this.badgeText,
+    this.badgeColor,
+  });
 
   @override
   Widget build(BuildContext context) {
     return _AnalyticsCard(
-      title: 'Patient Growth',
-      subtitle: 'Cumulative patient database expansion over selected window',
+      title: title ?? 'Patient Growth',
+      subtitle: subtitle ?? 'Cumulative patient database expansion over selected window',
       icon: Icons.trending_up_rounded,
-      badgeText: '+12% Database Growth',
-      badgeColor: AppColors.sage,
+      badgeText: badgeText ?? '+12% Database Growth',
+      badgeColor: badgeColor ?? AppColors.sage,
       child: Column(
         children: [
           SizedBox(

@@ -268,6 +268,12 @@ public class AppointmentService {
     // Booked, not yet started, soonest first.
     @Transactional(readOnly = true)
     public Page<AppointmentResponse> readUpcomingFor(UUID patientUserId, Pageable pageable) {
+        if (currentUser.hasRole(Role.DOCTOR)) {
+            UUID doctorId = currentUser.requireId();
+            return withSessions(appointments.findUpcomingForPatientAndDoctor(
+                    patientUserId, doctorId, clock.instant(), pageable));
+        }
+
         return withSessions(appointments.findUpcomingForPatient(
                 patientUserId, clock.instant(), pageable));
     }
@@ -275,6 +281,12 @@ public class AppointmentService {
     // Started or cancelled, most recent first.
     @Transactional(readOnly = true)
     public Page<AppointmentResponse> readHistoryFor(UUID patientUserId, Pageable pageable) {
+        if (currentUser.hasRole(Role.DOCTOR)) {
+            UUID doctorId = currentUser.requireId();
+            return withSessions(appointments.findHistoryForPatientAndDoctor(
+                    patientUserId, doctorId, clock.instant(), pageable));
+        }
+
         return withSessions(appointments.findHistoryForPatient(
                 patientUserId, clock.instant(), pageable));
     }

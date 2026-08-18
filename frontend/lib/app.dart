@@ -480,8 +480,12 @@ class _MainRootControllerState extends State<MainRootController> {
           );
         }
         return PatientsDirectoryScreen(
-          key: const ValueKey('patients_directory'),
+          key: ValueKey('patients_directory_$_activeRole'),
           clinicalApi: _clinicalApi,
+          title: _activeRole == 'doctor' ? 'My Patients Directory' : 'Patients Directory',
+          subtitle: _activeRole == 'doctor'
+              ? 'View and manage medical files and treatment history for your patients.'
+              : 'Browse registered clinic patients, inspect medical histories, and review clinical intake records.',
           onSelectPatient: (patientId) => setState(() {
             _selectedPatientId = patientId;
           }),
@@ -525,11 +529,6 @@ class _MainRootControllerState extends State<MainRootController> {
                       _activeRole == 'patient' ? 'appointments' : 'dashboard';
                 })
               : null,
-          onBack: () => setState(() {
-            _fromBookingFlow = false;
-            _patientProfileTabIndex = 0;
-            _activeView = 'dashboard';
-          }),
         );
       case 'landing':
       default:

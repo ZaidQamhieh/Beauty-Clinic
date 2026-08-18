@@ -536,4 +536,149 @@ public class AnalyticsService {
             case CONSULTATION -> "#2563EB"; // Blue
         };
     }
+
+    @Transactional(readOnly = true)
+    public com.example.backend.dtos.DoctorAnalyticsResponse calculateDoctorAnalytics(UUID doctorId, Instant from, Instant to) {
+        Instant now = clock.instant();
+        Instant effectiveTo = to != null ? to : now;
+        Instant effectiveFrom = from != null ? from : effectiveTo.minus(30, ChronoUnit.DAYS);
+
+        // Date bounds for "today"
+        ZonedDateTime todayStart = now.atZone(CLINIC_ZONE).truncatedTo(ChronoUnit.DAYS);
+        Instant todayFrom = todayStart.toInstant();
+        Instant todayTo = todayStart.plusDays(1).toInstant();
+
+        // 1. Active Patients Counts (related to doctor)
+        int activePatientsCount = sessions.countActivePatients(doctorId);
+        int todayPatientsCount = sessions.countActivePatientsBetween(doctorId, todayFrom, todayTo);
+
+        // Fetch sessions for this doctor in date range
+        List<AppointmentSession> doctorSessions = sessions.findForPractitionerBetweenWithDetails(doctorId, effectiveFrom, effectiveTo);
+
+        // 2. Appointments Over Time
+        // Group doctorSessions by day in window
+        long daysBetween = Math.max(1, ChronoUnit.DAYS.between(effectiveFrom, effectiveTo));
+        Map<String, Integer> dateCounts = new LinkedHashMap<>();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("d MMM").withZone(CLINIC_ZONE);
+        
+        for (long i = 0; i <= daysBetween; i++) {
+            String label = formatter.format(effectiveFrom.plus(i, ChronoUnit.DAYS));
+            dateCounts.put(label, 0);
+        }
+        for (AppointmentSession s : doctorSessions) {
+            if (s.getStatus() != SessionStatus.COMPLETED) continue;
+            String label = formatter.format(s.getStartTime());
+            dateCounts.merge(label, 1, Integer::sum);
+        }
+        List<com.example.backend.dtos.DoctorAnalyticsResponse.AppointmentTrendPointDto> appointmentsOverTime = dateCounts.entrySet().stream()
+                .map(e -> new com.example.backend.dtos.DoctorAnalyticsResponse.AppointmentTrendPointDto(e.getKey(), e.getValue()))
+                .toList();
+
+        // 3. Appointment Outcomes (Completed / Cancelled / No-show / Rescheduled) for doctor's sessions
+        int completedCount = (int) doctorSessions.stream().filter(s -> s.getStatus() == SessionStatus.COMPLETED).count();
+        int cancelledCount = (int) doctorSessions.stream().filter(s -> s.getStatus() == SessionStatus.CANCELLED).count();
+        int noShowCount = (int) doctorSessions.stream().filter(s -> s.getStatus() == SessionStatus.NO_SHOW).count();
+        
+        // Rescheduled is where parent appointment has replacements
+        int rescheduledCount = (int) doctorSessions.stream()
+                .map(AppointmentSession::getAppointment)
+                .distinct()
+                .filter(a -> a.getReplaces() != null)
+                .count();
+                
+        int outcomeTotal = Math.max(1, completedCount + cancelledCount + noShowCount + rescheduledCount);
+        
+        com.example.backend.dtos.DoctorAnalyticsResponse.AppointmentOutcomesDto outcomes = 
+            new com.example.backend.dtos.DoctorAnalyticsResponse.AppointmentOutcomesDto(
+                completedCount,
+                cancelledCount,
+                noShowCount,
+                rescheduledCount,
+                Math.round((completedCount * 100.0 / outcomeTotal) * 10.0) / 10.0,
+                Math.round((cancelledCount * 100.0 / outcomeTotal) * 10.0) / 10.0,
+                Math.round((noShowCount * 100.0 / outcomeTotal) * 10.0) / 10.0,
+                Math.round((rescheduledCount * 100.0 / outcomeTotal) * 10.0) / 10.0
+            );
+
+        // 4. Treatments Performed
+        // Group by treatment name
+        Map<TreatmentName, List<AppointmentSession>> byTreatment = doctorSessions.stream()
+                .collect(Collectors.groupingBy(AppointmentSession::getTreatmentName));
+                
+        int totalBookings = Math.max(1, doctorSessions.size());
+        
+        List<com.example.backend.dtos.DoctorAnalyticsResponse.ServiceBookingDto> treatmentsPerformed = byTreatment.entrySet().stream()
+                .map(e -> {
+                    TreatmentName tName = e.getKey();
+                    List<AppointmentSession> list = e.getValue();
+                    int count = list.size();
+                    BigDecimal totalRev = list.stream()
+                            .map(AppointmentSession::getPriceCharged)
+                            .reduce(BigDecimal.ZERO, BigDecimal::add);
+                            
+                    double pct = Math.round((count * 100.0 / totalBookings) * 10.0) / 10.0;
+                    String revenueStr = "₪" + String.format("%,d", totalRev.intValue());
+                    
+                    return new com.example.backend.dtos.DoctorAnalyticsResponse.ServiceBookingDto(
+                            humanize(tName.name()),
+                            tName.category().name(),
+                            count,
+                            pct,
+                            revenueStr,
+                            iconKeyForCategory(tName.category()),
+                            colorHexForCategory(tName.category())
+                    );
+                })
+                .sorted(Comparator.comparingInt(com.example.backend.dtos.DoctorAnalyticsResponse.ServiceBookingDto::bookingsCount).reversed())
+                .toList();
+
+        // 5. Today's Appointments with status (using doctorSessions for today)
+        List<AppointmentSession> todaySessions = sessions.findForPractitionerBetweenWithDetails(doctorId, todayFrom, todayTo);
+        DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm").withZone(CLINIC_ZONE);
+        DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("EEEE, d MMM").withZone(CLINIC_ZONE);
+
+        List<com.example.backend.dtos.DoctorAnalyticsResponse.DoctorAppointmentDto> todayAppointments = todaySessions.stream()
+                .map(s -> {
+                    Appointment appt = s.getAppointment();
+                    String patName = appt.getPatient().getUser().getFirstName() + " " + appt.getPatient().getUser().getLastName();
+                    return new com.example.backend.dtos.DoctorAnalyticsResponse.DoctorAppointmentDto(
+                            appt.getId().toString(),
+                            timeFormatter.format(s.getStartTime()),
+                            patName,
+                            humanize(s.getTreatmentName().name()),
+                            s.getPractitioner().getUser().getFirstName() + " " + s.getPractitioner().getUser().getLastName(),
+                            s.getStatus().name(),
+                            dateFormatter.format(s.getStartTime())
+                    );
+                })
+                .toList();
+
+        // 6. Upcoming Appointments (using doctorSessions from now onwards)
+        List<AppointmentSession> upcomingSessions = sessions.findForPractitionerBetweenWithDetails(doctorId, now, now.plus(30, ChronoUnit.DAYS));
+        List<com.example.backend.dtos.DoctorAnalyticsResponse.DoctorAppointmentDto> upcomingAppointments = upcomingSessions.stream()
+                .map(s -> {
+                    Appointment appt = s.getAppointment();
+                    String patName = appt.getPatient().getUser().getFirstName() + " " + appt.getPatient().getUser().getLastName();
+                    return new com.example.backend.dtos.DoctorAnalyticsResponse.DoctorAppointmentDto(
+                            appt.getId().toString(),
+                            timeFormatter.format(s.getStartTime()),
+                            patName,
+                            humanize(s.getTreatmentName().name()),
+                            s.getPractitioner().getUser().getFirstName() + " " + s.getPractitioner().getUser().getLastName(),
+                            s.getStatus().name(),
+                            dateFormatter.format(s.getStartTime())
+                    );
+                })
+                .toList();
+
+        return new com.example.backend.dtos.DoctorAnalyticsResponse(
+                activePatientsCount,
+                todayPatientsCount,
+                appointmentsOverTime,
+                outcomes,
+                treatmentsPerformed,
+                todayAppointments,
+                upcomingAppointments
+        );
+    }
 }

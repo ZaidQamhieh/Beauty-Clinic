@@ -54,7 +54,7 @@ public class PatientController {
     }
 
     @GetMapping("/clinical")
-    @AdminOnly
+    @ClinicStaffOnly
     public Page<PatientRecordResponse> searchClinical(
             @RequestParam(name = "q", required = false) String term, Pageable pageable
     ) {

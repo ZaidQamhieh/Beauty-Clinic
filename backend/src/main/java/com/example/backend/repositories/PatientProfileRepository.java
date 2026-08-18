@@ -23,6 +23,40 @@ public interface PatientProfileRepository extends JpaRepository<PatientProfile, 
             """)
     Page<PatientProfile> search(@Param("term") String term, Pageable pageable);
 
+    @Query(
+            value = """
+                    select p from PatientProfile p
+                    where exists (
+                        select 1 from AppointmentSession s
+                        where s.patientUserId = p.userId
+                          and s.practitioner.userId = :doctorUserId
+                          and s.status <> com.example.backend.entities.AppointmentSession.SessionStatus.CANCELLED
+                    )
+                    and (lower(p.user.firstName) like lower(concat('%', :term, '%'))
+                      or lower(p.user.lastName) like lower(concat('%', :term, '%'))
+                      or lower(p.user.email) like lower(concat('%', :term, '%'))
+                      or p.user.phone like concat('%', :term, '%'))
+                    """,
+            countQuery = """
+                    select count(p) from PatientProfile p
+                    where exists (
+                        select 1 from AppointmentSession s
+                        where s.patientUserId = p.userId
+                          and s.practitioner.userId = :doctorUserId
+                          and s.status <> com.example.backend.entities.AppointmentSession.SessionStatus.CANCELLED
+                    )
+                    and (lower(p.user.firstName) like lower(concat('%', :term, '%'))
+                      or lower(p.user.lastName) like lower(concat('%', :term, '%'))
+                      or lower(p.user.email) like lower(concat('%', :term, '%'))
+                      or p.user.phone like concat('%', :term, '%'))
+                    """
+    )
+    Page<PatientProfile> searchForDoctor(
+            @Param("doctorUserId") UUID doctorUserId,
+            @Param("term") String term,
+            Pageable pageable
+    );
+
     // One row, held for the booking transaction, so two bookings cannot both read "no clash".
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select p from PatientProfile p where p.userId = :userId")
