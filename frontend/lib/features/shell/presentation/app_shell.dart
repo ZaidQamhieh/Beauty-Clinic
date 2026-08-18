@@ -16,6 +16,7 @@ class AppShell extends StatefulWidget {
   /// Null on pages that own their own booking action, which is most of them.
   final VoidCallback? onBookClick;
   final VoidCallback? onLogout;
+  final VoidCallback? onProfileTap;
 
   const AppShell({
     super.key,
@@ -25,6 +26,7 @@ class AppShell extends StatefulWidget {
     required this.onViewChanged,
     this.onBookClick,
     this.onLogout,
+    this.onProfileTap,
   });
 
   @override
@@ -45,6 +47,7 @@ class _AppShellState extends State<AppShell> {
         activeRole: widget.activeRole,
         onBookClick: widget.onBookClick,
         onLogout: widget.onLogout,
+        onProfileTap: widget.onProfileTap,
         isMobile: isMobile,
       ),
       drawer: isMobile ? _buildDrawer(context) : null,
@@ -267,6 +270,11 @@ class _AppShellState extends State<AppShell> {
       case 'doctor':
         return [
           {
+            'id': 'my_profile',
+            'label': 'My Profile',
+            'icon': Icons.person_outline,
+          },
+          {
             'id': 'dashboard',
             'label': 'Today\'s Schedule',
             'icon': Icons.calendar_today_outlined,
@@ -307,8 +315,8 @@ class _AppShellState extends State<AppShell> {
             'icon': Icons.home_outlined,
           },
           {
-            'id': 'patient_profile',
-            'label': 'My Medical Profile',
+            'id': 'my_profile',
+            'label': 'My Profile',
             'icon': Icons.person_outline,
           },
           {
@@ -324,6 +332,11 @@ class _AppShellState extends State<AppShell> {
         ];
       case 'receptionist':
         return [
+          {
+            'id': 'my_profile',
+            'label': 'My Profile',
+            'icon': Icons.person_outline,
+          },
           {
             'id': 'dashboard',
             'label': 'Front Desk Desk',
@@ -354,6 +367,11 @@ class _AppShellState extends State<AppShell> {
       case 'admin':
       default:
         return [
+          {
+            'id': 'my_profile',
+            'label': 'My Profile',
+            'icon': Icons.person_outline,
+          },
           {
             'id': 'landing',
             'label': 'Clinic Landing Page',

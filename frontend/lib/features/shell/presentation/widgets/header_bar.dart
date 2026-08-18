@@ -9,6 +9,7 @@ class HeaderBar extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback? onBookClick;
   final VoidCallback? onNotificationClick;
   final VoidCallback? onLogout;
+  final VoidCallback? onProfileTap;
   final bool isMobile;
 
   const HeaderBar({
@@ -17,6 +18,7 @@ class HeaderBar extends StatelessWidget implements PreferredSizeWidget {
     this.onBookClick,
     this.onNotificationClick,
     this.onLogout,
+    this.onProfileTap,
     this.isMobile = false,
   });
 
@@ -235,21 +237,29 @@ class HeaderBar extends StatelessWidget implements PreferredSizeWidget {
   }
 
   Widget _buildUserAvatar() {
-    return Container(
-      padding: const EdgeInsets.all(1.5),
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: AppColors.roseLight, width: 1.2),
-      ),
-      child: const CircleAvatar(
-        radius: 14,
-        backgroundColor: AppColors.bgLavender,
-        child: Text(
-          'YA',
-          style: TextStyle(
-            color: AppColors.lavDark,
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
+    return Semantics(
+      button: true,
+      label: 'Open my profile',
+      child: InkWell(
+        onTap: onProfileTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.all(1.5),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: AppColors.roseLight, width: 1.2),
+          ),
+          child: const CircleAvatar(
+            radius: 14,
+            backgroundColor: AppColors.bgLavender,
+            child: Text(
+              'YA',
+              style: TextStyle(
+                color: AppColors.lavDark,
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ),
       ),
