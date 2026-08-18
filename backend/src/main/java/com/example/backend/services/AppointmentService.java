@@ -47,7 +47,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-// The visit. Treatments belong to AppointmentSessionService, never built here.
+// Visits only; sessions live elsewhere.
 @Service
 @RequiredArgsConstructor
 public class AppointmentService {
@@ -67,22 +67,22 @@ public class AppointmentService {
 
     @Transactional
     public AppointmentResponse book(BookAppointmentRequest request) {
-        // Tag admits doctor, admin and patient. Patient limited to themselves.
+        // Doctor, admin, patient; patient self only.
         if (currentUser.hasRole(Role.PATIENT) && !currentUser.is(request.patientUserId())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Patients may only book for themselves");
         }
 
-        // Appointment before patient, or the two orders deadlock.
+        // Appointment before patient, or deadlock.
         Appointment replaced = lockReplaced(request.replacesAppointmentId(), request.patientUserId());
 
         // Appointment lock, taken before the patient's.
         Appointment sameDay = lockVisitThatDay(request, replaced);
 
-        // Locked next: the list the patient saw may be stale.
+        // Locked next; the seen list ages.
         PatientProfile patient = patients.lockForBooking(request.patientUserId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No such patient"));
 
-        // Read by the doctor before treating; the patient fills it at /api/patients/me/clinical.
+        // Doctor reads it before treating.
         if (!patient.hasCompletedHealthForm()) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT, "The patient's health form is not filled in");
@@ -91,10 +91,10 @@ public class AppointmentService {
         // Patient lock serialises, so re-read here.
         assertDayUnchangedUnderLock(request, replaced, sameDay);
 
-        // Reschedule is this call naming the visit it replaces, so both move or neither does.
+        // Both visits move, or neither.
         releaseReplaced(replaced);
 
-        // Earliest first, so each treatment is checked against the ones already placed.
+        // Earliest first, checked against placed.
         List<AddSessionRequest> requested = request.sessions().stream()
                 .sorted(Comparator.comparing(AddSessionRequest::startTime))
                 .toList();
@@ -200,7 +200,7 @@ public class AppointmentService {
                 .forEach(doctors::lockForBooking);
     }
 
-    // Locked first. Not found, not forbidden: ownership must not leak.
+    // Not found, not forbidden; ownership hides.
     private Appointment lockReplaced(UUID replacedId, UUID patientUserId) {
         if (replacedId == null) {
             return null;
@@ -215,7 +215,7 @@ public class AppointmentService {
         return replaced;
     }
 
-    // Flushed, or the old slots still block the new rows.
+    // Flushed, or old slots still block.
     private void releaseReplaced(Appointment replaced) {
         if (replaced == null) {
             return;
@@ -233,7 +233,7 @@ public class AppointmentService {
         return withSessions(appointment);
     }
 
-    // Drops the visit and every treatment still to come. Finished work is left as it stands.
+    // Drops the visit and pending treatments.
     private void cancelVisit(Appointment appointment) {
         assertBooked(appointment);
         cancellation.assertCancellable(appointment.getScheduledAt());
@@ -311,9 +311,11 @@ public class AppointmentService {
                 day, count + ":" + (changed == null ? "0" : changed.toEpochMilli()));
     }
 
-    // Asked per treatment, which carries its own length, and answered by every qualified doctor.
+    // Per treatment, across qualified doctors.
     @Transactional(readOnly = true)
-    public List<FreeSlotResponse> freeSlots(FreeSlotQuery query) {
+    public List<FreeSlotResponse> freeSlots(FreeSlotQuery request) {
+        FreeSlotQuery query = withDefaults(request);
+
         if (currentUser.hasRole(Role.PATIENT)
                 && query.patientUserId() != null
                 && !currentUser.is(query.patientUserId())) {
@@ -321,7 +323,7 @@ public class AppointmentService {
                     HttpStatus.FORBIDDEN, "Patients may only search their own diary");
         }
 
-        // Freeing a visit's times in the answer means it must be one the caller may free.
+        // Only a visit the caller may free.
         if (query.replacesAppointmentId() != null) {
             requireOwnAppointment(query.replacesAppointmentId());
         }
@@ -361,7 +363,23 @@ public class AppointmentService {
                 .toList();
     }
 
-    // A named doctor who cannot perform the treatment has nothing to offer, which is not an error.
+    // Omitted date means today, patient means caller.
+    private FreeSlotQuery withDefaults(FreeSlotQuery query) {
+        UUID patientUserId = query.patientUserId();
+        if (patientUserId == null && currentUser.hasRole(Role.PATIENT)) {
+            patientUserId = currentUser.requireId();
+        }
+
+        return new FreeSlotQuery(
+                query.treatmentName(),
+                dayOrToday(query.date()),
+                query.doctorId(),
+                patientUserId,
+                query.held(),
+                query.replacesAppointmentId());
+    }
+
+    // Unqualified named doctor offers nothing.
     private List<DoctorProfile> qualifiedDoctors(UUID doctorId, TreatmentName treatment) {
         if (doctorId != null) {
             DoctorProfile named = doctors.findById(doctorId)
@@ -378,13 +396,13 @@ public class AppointmentService {
                 .toList();
     }
 
-    // One read for the whole day across every candidate, not one query per doctor.
+    // Whole day, one read, every candidate.
     private Map<UUID, List<Instant[]>> doctorBusyOn(
             List<DoctorProfile> qualified, FreeSlotQuery query, Instant dayStart, Instant dayEnd
     ) {
         List<UUID> doctorIds = qualified.stream().map(DoctorProfile::getUserId).toList();
 
-        // Every status but CANCELLED holds its slot, matching the constraint.
+        // Every status but CANCELLED holds.
         return sessions.findForPractitionersBetween(doctorIds, dayStart, dayEnd).stream()
                 .filter(s -> s.getStatus() != SessionStatus.CANCELLED)
                 .filter(s -> stillHolds(s, query))
@@ -395,8 +413,7 @@ public class AppointmentService {
                                 Collectors.toList())));
     }
 
-    // The visit being replaced releases its times, so it cannot block its own replacement.
-    // Only what is still to come: work already carried out keeps its slot whatever happens next.
+    // Replaced visit releases its own times.
     private boolean stillHolds(AppointmentSession session, FreeSlotQuery query) {
         if (query.replacesAppointmentId() == null
                 || !query.replacesAppointmentId().equals(session.getAppointment().getId())) {
@@ -406,7 +423,7 @@ public class AppointmentService {
         return session.getStatus() != SessionStatus.PLANNED;
     }
 
-    // What the patient holds blocks every doctor. No turnover: that gap is per practitioner.
+    // Patient holds block every doctor.
     private List<Instant[]> patientBusyOn(FreeSlotQuery query, Instant dayStart, Instant dayEnd) {
         List<Instant[]> busy = query.held().stream()
                 .map(held -> new Instant[]{held.startTime(), held.endTime()})
@@ -431,7 +448,7 @@ public class AppointmentService {
     ) {
         List<Instant[]> busy = new ArrayList<>(doctorBusy.getOrDefault(doctor.getUserId(), List.of()));
 
-        // A pick already made of this doctor holds their chair with the turnover round it.
+        // An earlier pick holds this chair.
         query.held().stream()
                 .filter(held -> doctor.getUserId().equals(held.practitionerUserId()))
                 .map(held -> withTurnover(held.startTime(), held.endTime()))
@@ -455,8 +472,7 @@ public class AppointmentService {
         return new Instant[]{startTime.minus(turnover), endTime.plus(turnover)};
     }
 
-    // A treatment is done once a visit. Repeating one in a single trip is a
-    // mistake in the booking, not a clinical plan.
+    // One treatment per visit; repeats are mistakes.
     private void assertOneOfEachTreatment(List<AddSessionRequest> requested) {
         Set<TreatmentName> seen = EnumSet.noneOf(TreatmentName.class);
 
@@ -469,7 +485,7 @@ public class AppointmentService {
         }
     }
 
-    // One visit is one trip, so its treatments share a day and one cancellation cutoff.
+    // One trip; treatments share a day.
     private void assertVisitFitsOneDay(List<AddSessionRequest> requested) {
         LocalDate day = requested.get(0).startTime().atZone(clinic.zone()).toLocalDate();
 
@@ -482,7 +498,7 @@ public class AppointmentService {
         }
     }
 
-    // Checked here so a visit clashing with itself names the problem, not a constraint.
+    // Named here, not by a constraint.
     private void assertVisitDoesNotClashWithItself(List<AddSessionRequest> requested) {
         Duration turnover = clinic.turnover();
 
@@ -493,7 +509,7 @@ public class AppointmentService {
             for (int second = first + 1; second < requested.size(); second++) {
                 AddSessionRequest later = requested.get(second);
 
-                // Sorted by start, so the later one clashes exactly when it begins too soon.
+                // Sorted by start; later one clashes.
                 boolean sameDoctor = earlier.practitionerUserId().equals(later.practitionerUserId());
                 Instant freeFrom = sameDoctor ? earlierEnd.plus(turnover) : earlierEnd;
 
@@ -510,7 +526,7 @@ public class AppointmentService {
         return Duration.ofMinutes(clinic.tariffFor(request.treatmentName()).durationMinutes());
     }
 
-    // Who changed which visit, for whom. The actor is absent for work with no caller.
+    // Who changed which visit, for whom.
     private void record(ActivityAction action, Appointment appointment) {
         activityLogs.recordAppointment(
                 currentUser.id().orElse(null),
@@ -519,7 +535,7 @@ public class AppointmentService {
                 appointment.getId());
     }
 
-    // Walks each free stretch on the grid, so an off-grid booking blanks only what it holds.
+    // Walks free stretches on the grid.
     private List<FreeSlotResponse> slotsWithin(
             DoctorProfile doctor, LocalDate date, TimeRange window, Duration duration, List<Instant[]> busy
     ) {
@@ -544,7 +560,7 @@ public class AppointmentService {
         return free;
     }
 
-    // Forward to the next grid mark, measured from clinic midnight rather than the window.
+    // Next grid mark from clinic midnight.
     private Instant onGrid(Instant candidate, Duration stride) {
         ZonedDateTime local = candidate.atZone(clinic.zone());
         ZonedDateTime midnight = local.toLocalDate().atStartOfDay(clinic.zone());
@@ -555,7 +571,7 @@ public class AppointmentService {
 
         Instant aligned = midnight.plusMinutes(marks * strideMinutes).toInstant();
 
-        // Rounding down is never allowed: the gap starts where it starts.
+        // Never round down past the gap.
         if (aligned.isBefore(candidate)) {
             return candidate;
         }
@@ -563,7 +579,7 @@ public class AppointmentService {
         return aligned;
     }
 
-    // Window minus what holds it, as [start, end) pairs. Callers widen by turnover first.
+    // Window minus what holds it.
     private List<Instant[]> gapsIn(Instant windowStart, Instant windowEnd, List<Instant[]> busy) {
         List<Instant[]> held = busy.stream()
                 .filter(h -> h[0].isBefore(windowEnd) && h[1].isAfter(windowStart))
@@ -577,7 +593,7 @@ public class AppointmentService {
             if (taken[0].isAfter(cursor)) {
                 gaps.add(new Instant[]{cursor, taken[0]});
             }
-            // Bookings can overlap each other across doctors, so never walk backwards.
+            // Bookings overlap; never walk backwards.
             if (taken[1].isAfter(cursor)) {
                 cursor = taken[1];
             }
@@ -590,7 +606,7 @@ public class AppointmentService {
         return gaps;
     }
 
-    // Deduped by id, and carrying only this practitioner's own work: it is their day.
+    // Deduped; only this practitioner's work.
     private List<AppointmentResponse> scheduleFor(UUID doctorUserId, LocalDate date) {
         Map<UUID, List<AppointmentSessionResponse>> byVisit = new LinkedHashMap<>();
         Map<UUID, Appointment> visits = new LinkedHashMap<>();
@@ -646,14 +662,14 @@ public class AppointmentService {
                 .toList();
     }
 
-    // Already ordered by the query, so the page keeps its own sequence.
+    // Query ordered it; keep the sequence.
     private Page<AppointmentResponse> withSessions(Page<Appointment> page) {
         Map<UUID, List<AppointmentSessionResponse>> byAppointment = sessionsFor(page.getContent());
 
         return page.map(a -> AppointmentResponse.of(a, byAppointment.getOrDefault(a.getId(), List.of())));
     }
 
-    // Sessions for the whole page in one query, not one query per appointment.
+    // Whole page of sessions, one query.
     private Map<UUID, List<AppointmentSessionResponse>> sessionsFor(List<Appointment> found) {
         if (found.isEmpty()) {
             return Map.of();
@@ -670,13 +686,13 @@ public class AppointmentService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No such appointment"));
     }
 
-    // For paths that change the visit; read-only ones use require().
+    // For writes; reads use require().
     private Appointment requireLocked(UUID id) {
         return appointments.findWithLockById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No such appointment"));
     }
 
-    // Staff reach any visit; a patient only their own, and a stranger's reads as missing.
+    // Staff reach any; patients only theirs.
     private void requireOwnAppointment(UUID id) {
         Appointment appointment = require(id);
 

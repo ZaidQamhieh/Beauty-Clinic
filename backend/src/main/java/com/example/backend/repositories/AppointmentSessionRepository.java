@@ -18,19 +18,18 @@ public interface AppointmentSessionRepository extends JpaRepository<AppointmentS
 
     List<AppointmentSession> findByAppointmentId(UUID appointmentId);
 
-    // The response reads the practitioner's name, so fetch it with the row.
+    // Response reads the name; fetch it.
     @EntityGraph(attributePaths = {"practitioner", "practitioner.user"})
     List<AppointmentSession> findByAppointmentIdIn(Collection<UUID> appointmentIds);
 
-    // Matched in SQL: the parent is a @SoftDelete to-one and would read as null.
+    // Matched in SQL; parent is soft-deleted.
     Optional<AppointmentSession> findByIdAndAppointmentId(UUID id, UUID appointmentId);
 
-    // Held for the transaction, so two status changes queue instead of overwriting.
+    // Held so status changes queue.
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<AppointmentSession> findWithLockByIdAndAppointmentId(UUID id, UUID appointmentId);
 
-    // Lets a doctor reach patients they treat. Cancelled does not count, or access never ends.
-    // A visit the practitioner booked themselves grants nothing: that is self-issued access.
+    // Doctors reach patients they treat.
     @Query("""
             select count(s) > 0
             from AppointmentSession s
@@ -45,7 +44,7 @@ public interface AppointmentSessionRepository extends JpaRepository<AppointmentS
             @Param("patientUserId") UUID patientUserId
     );
 
-    // Overlap, not start time: a session running past midnight still holds the room next day.
+    // Overlap, not start; midnight spans count.
     @Query("""
             select s from AppointmentSession s
             where s.practitioner.userId = :doctorUserId
@@ -58,7 +57,7 @@ public interface AppointmentSessionRepository extends JpaRepository<AppointmentS
             @Param("to") Instant to
     );
 
-    // Every candidate doctor's day in one read, so a slot search is not one query per doctor.
+    // Whole roster in one read.
     @EntityGraph(attributePaths = {"appointment", "practitioner"})
     @Query("""
             select s from AppointmentSession s
@@ -72,11 +71,11 @@ public interface AppointmentSessionRepository extends JpaRepository<AppointmentS
             @Param("to") Instant to
     );
 
-    // The patient is one body: what they already hold blocks every doctor, not just one.
+    // Own patient column; blocks every doctor.
     @EntityGraph(attributePaths = {"appointment", "practitioner"})
     @Query("""
             select s from AppointmentSession s
-            where s.appointment.patient.userId = :patientUserId
+            where s.patientUserId = :patientUserId
               and s.startTime < :to
               and s.endTime > :from
             """)
@@ -93,7 +92,7 @@ public interface AppointmentSessionRepository extends JpaRepository<AppointmentS
             """)
     boolean existsByPractitioner(@Param("doctorUserId") UUID doctorUserId);
 
-    // Mirrors session_no_practitioner_overlap: every status but CANCELLED holds the slot.
+    // Mirrors the practitioner overlap constraint.
     @Query("""
             select count(s) > 0
             from AppointmentSession s
@@ -108,11 +107,11 @@ public interface AppointmentSessionRepository extends JpaRepository<AppointmentS
             @Param("endTime") Instant endTime
     );
 
-    // The named error for what session_no_patient_overlap would otherwise reject as a raw violation.
+    // Names what the constraint would reject.
     @Query("""
             select count(s) > 0
             from AppointmentSession s
-            where s.appointment.patient.userId = :patientUserId
+            where s.patientUserId = :patientUserId
               and s.status <> CANCELLED
               and s.startTime < :endTime
               and s.endTime > :startTime
