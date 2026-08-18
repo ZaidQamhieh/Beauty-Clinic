@@ -1,19 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/widgets/status_pill.dart';
+import '../../../../network/api_client.dart';
+import '../data/admin_analytics_models.dart';
+import 'widgets/admin_analytics_charts.dart';
+import 'widgets/admin_date_filter_bar.dart';
 
 /// Comprehensive Dashboard Screen supporting Admin, Doctor, Receptionist, and Patient views
 class DashboardScreen extends StatefulWidget {
   final String activeRole;
   final ValueChanged<String> onViewPatient;
   final ValueChanged<String> onViewDoctor;
+  final ApiClient? apiClient;
 
   const DashboardScreen({
     super.key,
     required this.activeRole,
     required this.onViewPatient,
     required this.onViewDoctor,
+    this.apiClient,
   });
 
   @override
@@ -23,6 +30,34 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   String _selectedPatientQueue = 'Nour Al-Khalil';
   final Set<String> _approvedProducts = {'NovaClear Enzyme Peel'};
+
+  // Admin Dashboard Date Filter State
+  AdminDateRangeType _adminDateRange = AdminDateRangeType.days30;
+  DateTimeRange? _customDateRange;
+  AdminDashboardData? _adminDashboardData;
+  bool _isLoadingAnalytics = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.activeRole == 'admin') {
+      _loadAnalytics();
+    }
+  }
+
+  Future<void> _loadAnalytics() async {
+    setState(() => _isLoadingAnalytics = true);
+    final data = await AdminAnalyticsRepository.fetchDashboardDataAsync(
+      rangeType: _adminDateRange,
+      customRange: _customDateRange,
+      apiClient: widget.apiClient,
+    );
+    if (!mounted) return;
+    setState(() {
+      _adminDashboardData = data;
+      _isLoadingAnalytics = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -51,17 +86,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildWelcomeBanner() {
     final Map<String, String> titles = {
       'admin': 'Overview Dashboard',
-      'doctor': 'Doctor Portal — Dr. Hana Nasser',
+      'doctor': 'Doctor Portal',
       'receptionist': 'Front Desk & Reception',
       'patient': 'My Health & Beauty Portal',
     };
 
     final Map<String, String> subtitles = {
-      'admin': 'Real-time clinic analytics, appointments, and AI optimization.',
-      'doctor':
-          '8 appointments today · 4 remaining · 5 product approvals pending.',
+      'admin': 'Real-time clinic analytics, appointments, and operations.',
+      'doctor': 'Today\'s clinical schedule, appointments, and patient care.',
       'receptionist':
-          'Manage today\'s patient check-ins, queue, and practitioner schedules.',
+          'Manage patient check-ins, queue status, and practitioner schedules.',
       'patient':
           'View upcoming appointments, treatment history, and skin progress.',
     };
@@ -116,10 +150,49 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // ADMIN DASHBOARD
   // ───────────────────────────────────────────────────────────────────────────
   Widget _buildAdminDashboard() {
+    final adminData =
+        _adminDashboardData ??
+        AdminAnalyticsRepository.fetchDashboardData(
+          rangeType: _adminDateRange,
+          customRange: _customDateRange,
+        );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 4 Stat Cards
+        // 1. DATE RANGE FILTER BAR
+        AdminDateFilterBar(
+          selectedRangeType: _adminDateRange,
+          customDateRange: _customDateRange,
+          formattedRange: adminData.formattedDateRange,
+          onRangeSelected: (type, customRange) {
+            setState(() {
+              _adminDateRange = type;
+              _customDateRange = customRange;
+            });
+            _loadAnalytics();
+          },
+        ),
+
+        if (_isLoadingAnalytics) ...[
+          const SizedBox(height: 8),
+          const LinearProgressIndicator(
+            color: AppColors.rose,
+            backgroundColor: AppColors.bgRose,
+            minHeight: 2,
+          ),
+        ],
+
+        const SizedBox(height: 28),
+
+        // 2. CLINIC OVERVIEW SECTION
+        _buildSectionHeader(
+          title: 'Clinic Overview',
+          subtitle: 'Key clinic performance indicators and real-time activity',
+          icon: Icons.dashboard_outlined,
+          color: AppColors.rose,
+        ),
+        const SizedBox(height: 16),
         LayoutBuilder(
           builder: (context, constraints) {
             final int crossAxisCount = constraints.maxWidth > 900
@@ -132,197 +205,81 @@ class _DashboardScreenState extends State<DashboardScreen> {
               crossAxisSpacing: 16,
               mainAxisSpacing: 16,
               childAspectRatio: constraints.maxWidth > 900 ? 1.6 : 2.1,
-              children: const [
+              children: [
                 _StatCard(
                   label: "Total Patients",
-                  value: "1,284",
-                  sub: "48 new this month",
+                  value: NumberFormat(
+                    '#,###',
+                  ).format(adminData.overview.totalPatients),
+                  sub: adminData.overview.patientTrendSub,
                   icon: Icons.people_outline,
                   color: AppColors.rose,
-                  trend: "+12%",
+                  trend: adminData.overview.patientTrend,
                 ),
                 _StatCard(
-                  label: "Today's Appts",
-                  value: "24",
-                  sub: "3 pending confirmation",
-                  icon: Icons.calendar_today_outlined,
-                  color: AppColors.lav,
-                  trend: "+3",
-                ),
-                _StatCard(
-                  label: "Monthly Revenue",
-                  value: "£29.8k",
-                  sub: "vs £24.0k last month",
-                  icon: Icons.payments_outlined,
-                  color: AppColors.gold,
-                  trend: "+24%",
-                ),
-                _StatCard(
-                  label: "Active Doctors",
-                  value: "3",
-                  sub: "1 currently in session",
+                  label: "Total Doctors",
+                  value: "${adminData.overview.totalDoctors}",
+                  sub: adminData.overview.doctorSub,
                   icon: Icons.medical_services_outlined,
                   color: AppColors.sage,
+                  trend: "${adminData.overview.activeDoctorsNow} Active",
+                ),
+                _StatCard(
+                  label: "Today's Appointments",
+                  value: "${adminData.overview.todayAppointments}",
+                  sub:
+                      "${adminData.overview.confirmedAppointments} confirmed · ${adminData.overview.inRoomAppointments} in room",
+                  icon: Icons.calendar_today_outlined,
+                  color: AppColors.lav,
+                  trend: "+${adminData.overview.pendingAppointments} new",
+                ),
+                _StatCard(
+                  label: "Today's Sessions",
+                  value: "${adminData.overview.todaySessions}",
+                  sub:
+                      "${adminData.overview.completedSessions} completed · ${adminData.overview.ongoingSessions} ongoing",
+                  icon: Icons.spa_outlined,
+                  color: AppColors.gold,
+                  trend:
+                      "${adminData.overview.completedSessions}/${adminData.overview.todaySessions}",
                 ),
               ],
             );
           },
         ),
 
-        const SizedBox(height: 24),
+        const SizedBox(height: 36),
 
-        // Revenue Chart & AI Suggestions Row
+        // 3. SERVICE ANALYTICS SECTION
+        _buildSectionHeader(
+          title: 'Service Analytics',
+          subtitle:
+              'Treatment popularity, procedure breakdown, and growth trajectory',
+          icon: Icons.spa_outlined,
+          color: AppColors.roseDark,
+        ),
+        const SizedBox(height: 16),
         LayoutBuilder(
           builder: (context, constraints) {
-            final bool isDesktop = constraints.maxWidth > 900;
+            final bool isDesktop = constraints.maxWidth > 960;
             return Flex(
               direction: isDesktop ? Axis.horizontal : Axis.vertical,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Revenue Bar Chart
                 Expanded(
-                  flex: isDesktop ? 2 : 0,
-                  child: Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: AppColors.bgCard,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: AppColors.border),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Revenue Overview',
-                                  style: AppTypography.labelLarge(),
-                                ),
-                                Text(
-                                  'Feb – Aug 2026',
-                                  style: AppTypography.bodySmall(),
-                                ),
-                              ],
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AppColors.bgRose,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(
-                                'Monthly',
-                                style: AppTypography.labelSmall(
-                                  color: AppColors.rose,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 24),
-                        SizedBox(
-                          height: 140,
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: const [
-                              _BarItem(
-                                month: 'Feb',
-                                heightFactor: 0.55,
-                                amount: '£18.2k',
-                              ),
-                              _BarItem(
-                                month: 'Mar',
-                                heightFactor: 0.72,
-                                amount: '£23.4k',
-                              ),
-                              _BarItem(
-                                month: 'Apr',
-                                heightFactor: 0.62,
-                                amount: '£20.1k',
-                              ),
-                              _BarItem(
-                                month: 'May',
-                                heightFactor: 0.81,
-                                amount: '£26.3k',
-                              ),
-                              _BarItem(
-                                month: 'Jun',
-                                heightFactor: 0.74,
-                                amount: '£24.0k',
-                              ),
-                              _BarItem(
-                                month: 'Jul',
-                                heightFactor: 0.92,
-                                amount: '£29.8k',
-                              ),
-                              _BarItem(
-                                month: 'Aug',
-                                heightFactor: 0.68,
-                                amount: '£21.9k',
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
+                  flex: isDesktop ? 1 : 0,
+                  child: ServiceBookingsBarChart(
+                    data: adminData.serviceAnalytics,
                   ),
                 ),
-
                 if (isDesktop)
                   const SizedBox(width: 20)
                 else
                   const SizedBox(height: 20),
-
-                // AI Scheduling Card
                 Expanded(
                   flex: isDesktop ? 1 : 0,
-                  child: Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: AppColors.bgLavender,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: AppColors.borderLav),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.auto_awesome,
-                              color: AppColors.lavDark,
-                              size: 18,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'AI Scheduling Insights',
-                              style: AppTypography.labelLarge(
-                                color: AppColors.lavDark,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        _buildAISuggestionItem(
-                          tag: 'Efficiency',
-                          message:
-                              'Move Nour 09:15 → 10:00 to reduce Dr. Hana\'s gap.',
-                        ),
-                        const SizedBox(height: 12),
-                        _buildAISuggestionItem(
-                          tag: 'Opportunity',
-                          message:
-                              'Dr. Reem has 45-min slot at 14:30 — 2 patients waiting.',
-                        ),
-                      ],
-                    ),
+                  child: ServiceGrowthLineChart(
+                    data: adminData.serviceAnalytics,
                   ),
                 ),
               ],
@@ -330,9 +287,104 @@ class _DashboardScreenState extends State<DashboardScreen> {
           },
         ),
 
-        const SizedBox(height: 24),
+        const SizedBox(height: 36),
 
-        // Appointments & Staff Roster
+        // 4. DOCTOR ANALYTICS SECTION
+        _buildSectionHeader(
+          title: 'Doctor Analytics',
+          subtitle: 'Practitioner capacity utilization and schedule occupancy',
+          icon: Icons.medical_services_outlined,
+          color: AppColors.lavDark,
+        ),
+        const SizedBox(height: 16),
+        DoctorUtilizationChart(data: adminData.doctorAnalytics),
+
+        const SizedBox(height: 36),
+
+        // 5. APPOINTMENT ANALYTICS SECTION
+        _buildSectionHeader(
+          title: 'Appointment Analytics',
+          subtitle: 'Fulfillment outcomes, peak times, and reschedule reasons',
+          icon: Icons.event_note_outlined,
+          color: AppColors.sageDark,
+        ),
+        const SizedBox(height: 16),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final bool isDesktop = constraints.maxWidth > 960;
+            return Flex(
+              direction: isDesktop ? Axis.horizontal : Axis.vertical,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  flex: isDesktop ? 1 : 0,
+                  child: AppointmentOutcomesDonut(
+                    data: adminData.appointmentAnalytics.outcomes,
+                  ),
+                ),
+                if (isDesktop)
+                  const SizedBox(width: 20)
+                else
+                  const SizedBox(height: 20),
+                Expanded(
+                  flex: isDesktop ? 1 : 0,
+                  child: PeakTimesAndRescheduledWidget(
+                    data: adminData.appointmentAnalytics,
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+
+        const SizedBox(height: 36),
+
+        // 6. PATIENT ANALYTICS SECTION
+        _buildSectionHeader(
+          title: 'Patient Analytics',
+          subtitle: 'Acquisition ratio and database growth curve',
+          icon: Icons.people_alt_outlined,
+          color: AppColors.gold,
+        ),
+        const SizedBox(height: 16),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final bool isDesktop = constraints.maxWidth > 960;
+            return Flex(
+              direction: isDesktop ? Axis.horizontal : Axis.vertical,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  flex: isDesktop ? 1 : 0,
+                  child: NewVsReturningDonut(
+                    data: adminData.patientAnalytics.newVsReturning,
+                  ),
+                ),
+                if (isDesktop)
+                  const SizedBox(width: 20)
+                else
+                  const SizedBox(height: 20),
+                Expanded(
+                  flex: isDesktop ? 1 : 0,
+                  child: PatientGrowthLineChart(
+                    data: adminData.patientAnalytics.growthTimeline,
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+
+        const SizedBox(height: 36),
+
+        // 7. DAILY LIVE OPERATIONS & STAFF SCHEDULE
+        _buildSectionHeader(
+          title: 'Live Clinic Operations',
+          subtitle: 'Today\'s active patient queue and staff duty list',
+          icon: Icons.access_time_filled_outlined,
+          color: AppColors.text,
+        ),
+        const SizedBox(height: 16),
         LayoutBuilder(
           builder: (context, constraints) {
             final bool isDesktop = constraints.maxWidth > 900;
@@ -360,49 +412,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               'Today\'s Appointments',
                               style: AppTypography.labelLarge(),
                             ),
-                            TextButton(
-                              onPressed: () {},
-                              child: const Text('View All'),
+                            Text(
+                              '${adminData.operations.todayAppointments.length} Scheduled',
+                              style: AppTypography.bodySmall(
+                                color: AppColors.textMuted,
+                              ),
                             ),
                           ],
                         ),
                         const SizedBox(height: 12),
-                        _buildAppointmentRow(
-                          time: '09:15',
-                          patient: 'Nour Al-Khalil',
-                          treatment: 'Laser Resurfacing',
-                          doctor: 'Dr. Hana',
-                          status: 'In Room',
-                          isClickable: true,
-                        ),
-                        _buildAppointmentRow(
-                          time: '10:00',
-                          patient: 'Layla Mansour',
-                          treatment: 'HydroGlow Facial',
-                          doctor: 'Dr. Reem',
-                          status: 'Confirmed',
-                        ),
-                        _buildAppointmentRow(
-                          time: '10:30',
-                          patient: 'Samia Barakat',
-                          treatment: 'Body Contour',
-                          doctor: 'Dr. Sana',
-                          status: 'Confirmed',
-                        ),
-                        _buildAppointmentRow(
-                          time: '11:15',
-                          patient: 'Rania Jaber',
-                          treatment: 'Chemical Peel',
-                          doctor: 'Dr. Hana',
-                          status: 'Pending',
-                        ),
-                        _buildAppointmentRow(
-                          time: '13:00',
-                          patient: 'Maya Al-Hassan',
-                          treatment: 'Microneedling',
-                          doctor: 'Dr. Reem',
-                          status: 'Confirmed',
-                        ),
+                        if (adminData.operations.todayAppointments.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 24),
+                            child: Center(
+                              child: Text(
+                                'No appointments scheduled for today.',
+                                style: AppTypography.bodySmall(
+                                  color: AppColors.textMuted,
+                                ),
+                              ),
+                            ),
+                          )
+                        else
+                          ...adminData.operations.todayAppointments.map(
+                            (appt) => _buildAppointmentRow(
+                              time: appt.time,
+                              patient: appt.patientName,
+                              treatment: appt.treatmentName,
+                              doctor: appt.doctorName,
+                              status: appt.status,
+                              isClickable: true,
+                            ),
+                          ),
                       ],
                     ),
                   ),
@@ -416,89 +457,96 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 // Staff On Duty
                 Expanded(
                   flex: isDesktop ? 1 : 0,
-                  child: Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: AppColors.bgCard,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: AppColors.border),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Staff Today', style: AppTypography.labelLarge()),
-                        const SizedBox(height: 16),
-                        _buildStaffTile(
-                          'Dr. Hana Nasser',
-                          'Dermatologist',
-                          '8 appts',
-                          'Available',
-                          isDoctor: true,
+                  child: Column(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: AppColors.bgCard,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: AppColors.border),
                         ),
-                        _buildStaffTile(
-                          'Dr. Reem Khalil',
-                          'Aesthetic Med',
-                          '6 appts',
-                          'In Session',
-                          isDoctor: true,
-                        ),
-                        _buildStaffTile(
-                          'Dr. Sana Al-Farsi',
-                          'Laser Spec.',
-                          '10 appts',
-                          'Available',
-                          isDoctor: true,
-                        ),
-                        _buildStaffTile(
-                          'Laila (Reception)',
-                          'Front Desk',
-                          '24 check-ins',
-                          'On Duty',
-                          isDoctor: false,
-                        ),
-                        const SizedBox(height: 16),
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: AppColors.bgRose,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: AppColors.borderRose),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Today\'s Billing',
-                                    style: AppTypography.labelSmall(
-                                      color: AppColors.rose,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Staff Today',
+                              style: AppTypography.labelLarge(),
+                            ),
+                            const SizedBox(height: 16),
+                            if (adminData.operations.staffList.isEmpty)
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 24,
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    'No specialists registered yet.',
+                                    style: AppTypography.bodySmall(
+                                      color: AppColors.textMuted,
                                     ),
                                   ),
-                                  Text(
-                                    '£2,840',
-                                    style: AppTypography.displayTitle(
-                                      color: AppColors.text,
-                                    ).copyWith(fontSize: 22),
-                                  ),
-                                ],
+                                ),
+                              )
+                            else
+                              ...adminData.operations.staffList.map(
+                                (staff) => _buildStaffTile(
+                                  staff.name,
+                                  staff.role,
+                                  '${staff.appointmentsCount} appts',
+                                  staff.status,
+                                  isDoctor: staff.isDoctor,
+                                ),
                               ),
-                              const Icon(
-                                Icons.account_balance_wallet_outlined,
-                                color: AppColors.rose,
-                                size: 28,
-                              ),
-                            ],
-                          ),
+                          ],
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             );
           },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSectionHeader({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+  }) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, size: 20, color: color),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: AppTypography.displaySubtitle(
+                  color: AppColors.text,
+                ).copyWith(fontSize: 18, fontWeight: FontWeight.w700),
+              ),
+              Text(
+                subtitle,
+                style: AppTypography.bodySmall(
+                  color: AppColors.textMuted,
+                ).copyWith(fontSize: 12),
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -702,19 +750,44 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   activePatient['name']!,
                                   style: AppTypography.displaySubtitle(),
                                 ),
-                                Text(
-                                  'Skin Type: ${activePatient['skin']}',
-                                  style: AppTypography.bodySmall(
-                                    color: AppColors.rose,
-                                  ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    Text(
+                                      'Skin Type: ${activePatient['skin']}',
+                                      style: AppTypography.bodySmall(
+                                        color: AppColors.rose,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.bgSage,
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Text(
+                                        '✓ Clinic Forms Verified',
+                                        style: AppTypography.labelSmall(
+                                          color: AppColors.sage,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
                             ElevatedButton.icon(
                               onPressed: () =>
                                   widget.onViewPatient(activePatient['name']!),
-                              icon: const Icon(Icons.assignment_ind, size: 16),
-                              label: const Text('Open Full EHR'),
+                              icon: const Icon(
+                                Icons.description_outlined,
+                                size: 16,
+                              ),
+                              label: const Text('Open Clinic Forms & EHR'),
                             ),
                           ],
                         ),
@@ -871,79 +944,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ),
       ],
-    );
-  }
-
-  // Helper widgets
-  Widget _buildAISuggestionItem({
-    required String tag,
-    required String message,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.bgCard,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: AppColors.lavPale,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              tag,
-              style: AppTypography.labelSmall(color: AppColors.lavDark),
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            message,
-            style: AppTypography.bodySmall(color: AppColors.textSub),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              ElevatedButton(
-                onPressed: () {},
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.sage,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                child: Text(
-                  'Apply',
-                  style: AppTypography.labelSmall(color: AppColors.white),
-                ),
-              ),
-              const SizedBox(width: 8),
-              OutlinedButton(
-                onPressed: () {},
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                child: Text(
-                  'Dismiss',
-                  style: AppTypography.labelSmall(color: AppColors.textMuted),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
     );
   }
 
@@ -1138,7 +1138,9 @@ class _StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      // Grid cells can be fractionally shorter in a browser. Slightly smaller
+      // vertical padding keeps the four text rows inside at every zoom level.
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         color: AppColors.bgCard,
         borderRadius: BorderRadius.circular(20),
@@ -1192,47 +1194,6 @@ class _StatCard extends StatelessWidget {
             style: AppTypography.labelSmall(
               color: color,
             ).copyWith(fontSize: 10),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _BarItem extends StatelessWidget {
-  final String month;
-  final double heightFactor;
-  final String amount;
-
-  const _BarItem({
-    required this.month,
-    required this.heightFactor,
-    required this.amount,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          Tooltip(
-            message: amount,
-            child: Container(
-              height: 100 * heightFactor,
-              width: 18,
-              decoration: BoxDecoration(
-                color: AppColors.rose,
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(6),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            month,
-            style: AppTypography.labelSmall(color: AppColors.textMuted),
           ),
         ],
       ),

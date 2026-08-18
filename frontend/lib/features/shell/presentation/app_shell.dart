@@ -287,6 +287,11 @@ class _AppShellState extends State<AppShell> {
             'badge': '24',
           },
           {
+            'id': 'clinical_forms',
+            'label': 'Patient Forms History',
+            'icon': Icons.assignment_outlined,
+          },
+          {
             'id': 'doctor_profile',
             'label': 'Doctor Profile',
             'icon': Icons.badge_outlined,
@@ -378,6 +383,16 @@ class _AppShellState extends State<AppShell> {
             'icon': Icons.grid_view_rounded,
           },
           {
+            'id': 'clinical_forms',
+            'label': 'Patient Forms History',
+            'icon': Icons.assignment_outlined,
+          },
+          {
+            'id': 'form_builder',
+            'label': 'Form Builder',
+            'icon': Icons.dynamic_form_outlined,
+          },
+          {
             'id': 'products',
             'label': 'Products',
             'icon': Icons.inventory_2_outlined,
@@ -402,16 +417,6 @@ class _AppShellState extends State<AppShell> {
             'id': 'staff_management',
             'label': 'Staff Management',
             'icon': Icons.groups_rounded,
-          },
-          {
-            'id': 'patient_profile',
-            'label': 'Patient Details',
-            'icon': Icons.assignment_ind_outlined,
-          },
-          {
-            'id': 'doctor_profile',
-            'label': 'Doctor Profile View',
-            'icon': Icons.badge_outlined,
           },
         ];
     }

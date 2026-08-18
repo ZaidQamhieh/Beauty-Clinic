@@ -18,6 +18,7 @@ import com.example.backend.entities.PatientProfile.SkinType;
 import com.example.backend.entities.PatientProfile.SmokingStatus;
 import com.example.backend.entities.UserAccount;
 import com.example.backend.entities.UserAccount.AccountStatus;
+import com.example.backend.repositories.ActivityLogRepository;
 import com.example.backend.repositories.AppointmentRepository;
 import com.example.backend.repositories.AppointmentSessionRepository;
 import com.example.backend.repositories.DoctorAvailabilityRepository;
@@ -244,7 +245,7 @@ class ChangedRulesTest {
         when(patients.save(any())).thenAnswer(saved -> saved.getArgument(0));
 
         return new Registration(
-                new PatientProfileService(patients, users, new BCryptPasswordEncoder(), mock(CurrentUser.class)),
+                new PatientProfileService(patients, users, new BCryptPasswordEncoder(), mock(CurrentUser.class), mock(ActivityLogRepository.class)),
                 users,
                 patients);
     }

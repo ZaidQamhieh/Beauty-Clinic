@@ -27,4 +27,8 @@ public interface PatientProfileRepository extends JpaRepository<PatientProfile, 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select p from PatientProfile p where p.userId = :userId")
     Optional<PatientProfile> lockForBooking(@Param("userId") UUID userId);
+
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"user"})
+    @Query("select p from PatientProfile p")
+    java.util.List<PatientProfile> findAllWithUser();
 }

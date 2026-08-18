@@ -5,7 +5,9 @@ import com.example.backend.dtos.EditOwnProfileRequest;
 import com.example.backend.dtos.PatientDetailsRequest;
 import com.example.backend.dtos.PatientDetailResponse;
 import com.example.backend.dtos.PatientRecordResponse;
+import com.example.backend.dtos.ClinicalHistoryResponse;
 import com.example.backend.services.PatientProfileService;
+import com.example.backend.security.access.AdminOnly;
 import com.example.backend.security.access.ClinicStaffOnly;
 import com.example.backend.security.access.ClinicalReader;
 import com.example.backend.security.access.ClinicalWriter;
@@ -51,6 +53,14 @@ public class PatientController {
         return patients.search(term, pageable);
     }
 
+    @GetMapping("/clinical")
+    @AdminOnly
+    public Page<PatientRecordResponse> searchClinical(
+            @RequestParam(name = "q", required = false) String term, Pageable pageable
+    ) {
+        return patients.searchClinical(term, pageable);
+    }
+
     @GetMapping("/{id}")
     @StaffOrSelf
     public PatientDetailResponse read(@PathVariable UUID id) {
@@ -93,6 +103,12 @@ public class PatientController {
     @ClinicalReader
     public PatientRecordResponse readClinical(@PathVariable UUID id) {
         return patients.readClinical(id);
+    }
+
+    @GetMapping("/{id}/clinical/history")
+    @ClinicalReader
+    public Page<ClinicalHistoryResponse> clinicalHistory(@PathVariable UUID id, Pageable pageable) {
+        return patients.clinicalHistory(id, pageable);
     }
 
     @PutMapping("/{id}/clinical")

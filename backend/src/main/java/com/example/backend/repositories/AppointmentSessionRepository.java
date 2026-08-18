@@ -130,4 +130,12 @@ public interface AppointmentSessionRepository extends JpaRepository<AppointmentS
               and s.startTime < :to
             """)
     Object[] dayFingerprint(@Param("from") Instant from, @Param("to") Instant to);
+
+    @EntityGraph(attributePaths = {"appointment", "appointment.patient", "appointment.patient.user", "practitioner", "practitioner.user"})
+    @Query("""
+            select s from AppointmentSession s
+            where s.startTime >= :from and s.startTime < :to
+            order by s.startTime asc
+            """)
+    List<AppointmentSession> findBetweenWithDetails(@Param("from") Instant from, @Param("to") Instant to);
 }

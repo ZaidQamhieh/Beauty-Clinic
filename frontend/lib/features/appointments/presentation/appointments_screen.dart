@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../network/api_client.dart';
+import '../../forms/data/clinical_intake_api.dart';
+import '../../forms/data/clinical_intake_schema.dart';
 import '../data/appointment.dart';
 import '../data/appointment_api.dart';
 import '../data/booking_exceptions.dart';
@@ -25,11 +27,15 @@ class AppointmentsScreen extends StatefulWidget {
     required this.treatmentApi,
     required this.doctorApi,
     required this.bookedSignal,
+    this.clinicalApi,
+    this.onNavigateToForms,
   });
 
   final AppointmentApi appointmentApi;
   final TreatmentApi treatmentApi;
   final DoctorApi doctorApi;
+  final ClinicalIntakeApi? clinicalApi;
+  final VoidCallback? onNavigateToForms;
 
   /// Fires when booked elsewhere; cleared once read.
   final ValueNotifier<Appointment?> bookedSignal;
@@ -310,8 +316,164 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     }
   }
 
+  /// Verifies clinical form completion before opening the booking flow.
+  /// If incomplete, prompts the patient to fill it first and navigates to the form.
+  /// If complete, shows a reminder dialog with options to continue or review/modify.
+  Future<bool> _verifyClinicalFormBeforeBooking() async {
+    if (widget.clinicalApi == null) return true;
+
+    try {
+      final data = await widget.clinicalApi!.fetchOwn();
+      final isComplete = ClinicalIntakeSchema.isComplete(data);
+
+      if (!mounted) return false;
+
+      if (!isComplete) {
+        // Case A: Form is incomplete -> Must fill first
+        await showDialog<void>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.rose.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.assignment_late_outlined,
+                    color: AppColors.rose,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    'Clinical Form Required',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ],
+            ),
+            content: const Text(
+              'Please complete your clinical health & intake form before booking an appointment. '
+              'Our medical team requires this information to ensure your treatment is safe and tailored to you.',
+              style: TextStyle(
+                fontSize: 14,
+                color: AppColors.textSub,
+                height: 1.4,
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text(
+                  'Cancel',
+                  style: TextStyle(color: AppColors.textMuted),
+                ),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.rose,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                  widget.onNavigateToForms?.call();
+                },
+                child: const Text('Fill Clinical Form'),
+              ),
+            ],
+          ),
+        );
+        return false;
+      } else {
+        // Case B: Form is complete -> Remind and offer Review/Modify or Continue
+        final action = await showDialog<String>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.sage.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.assignment_turned_in_outlined,
+                    color: AppColors.sage,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    'Clinical Form Verified',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ],
+            ),
+            content: const Text(
+              'Your clinical intake form has been completed and verified. Would you like to continue with booking, or review and update your health details first?',
+              style: TextStyle(
+                fontSize: 14,
+                color: AppColors.textSub,
+                height: 1.4,
+              ),
+            ),
+            actions: [
+              OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.text,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                onPressed: () {
+                  Navigator.of(ctx).pop('modify');
+                  widget.onNavigateToForms?.call();
+                },
+                child: const Text('Review / Modify Form'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.rose,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                onPressed: () => Navigator.of(ctx).pop('proceed'),
+                child: const Text('Continue to Booking'),
+              ),
+            ],
+          ),
+        );
+        return action == 'proceed';
+      }
+    } catch (_) {
+      // Fallback gracefully on network error so booking is not completely blocked
+      return true;
+    }
+  }
+
   // Fresh visit; same sheet, nothing to replace.
   Future<void> _book() async {
+    final canProceed = await _verifyClinicalFormBeforeBooking();
+    if (!canProceed || !mounted) return;
+
     Appointment? booked;
     final result = await showDialog<bool>(
       context: context,
@@ -330,6 +492,9 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
   }
 
   Future<void> _reschedule(Appointment appointment) async {
+    final canProceed = await _verifyClinicalFormBeforeBooking();
+    if (!canProceed || !mounted) return;
+
     Appointment? booked;
     final result = await showDialog<bool>(
       context: context,
