@@ -103,14 +103,20 @@ jobs:
 
       # Pushing with GITHUB_TOKEN starts no new run, so this cannot loop.
       - name: Commit whatever changed
+        env:
+          AUTHOR_LOGIN: ${{ github.event.pull_request.user.login }}
+          AUTHOR_ID: ${{ github.event.pull_request.user.id }}
         run: |
           if [[ -z "$(git status --porcelain)" ]]; then
             echo "Already clean."
             exit 0
           fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -am "Apply dart fix and dart format"
+          # Committing as the author leaves no bot to co-author the squash.
+          git config user.name "$AUTHOR_LOGIN"
+          git config user.email "$AUTHOR_ID+$AUTHOR_LOGIN@users.noreply.github.com"
+          # dart fix can add files, which -a alone would leave behind.
+          git add -A
+          git commit -m "Apply dart fix and dart format"
           git push
 
   frontend:
