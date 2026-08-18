@@ -9,7 +9,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'helpers/auth_test_fakes.dart';
 
 void main() {
-  testWidgets('PatientsDirectoryScreen lists patients and handles selection', (tester) async {
+  testWidgets('PatientsDirectoryScreen lists patients and handles selection', (
+    tester,
+  ) async {
     final session = testSession(
       QueueAdapter(const []),
       MemoryTokenStore()
@@ -24,35 +26,35 @@ void main() {
 
     final adapter = QueueAdapter([
       (_) => jsonResponse(200, {
-            'content': [
-              {
-                'id': '11111111-1111-1111-1111-111111111111',
-                'firstName': 'Lina',
-                'lastName': 'Haddad',
-                'email': 'lina@example.com',
-                'phone': '+970599111222',
-                'skinType': 'OILY',
-                'smokingStatus': 'NEVER',
-                'pregnantBreastfeeding': false,
-                'allergies': ['NUTS'],
-                'medications': [],
-                'chronicConditions': [],
-              },
-              {
-                'id': '22222222-2222-2222-2222-222222222222',
-                'firstName': 'Yara',
-                'lastName': 'Saleh',
-                'email': 'yara@example.com',
-                'phone': '+970599333444',
-                'skinType': null,
-                'smokingStatus': null,
-                'pregnantBreastfeeding': false,
-                'allergies': [],
-                'medications': [],
-                'chronicConditions': [],
-              },
-            ],
-          }),
+        'content': [
+          {
+            'id': '11111111-1111-1111-1111-111111111111',
+            'firstName': 'Lina',
+            'lastName': 'Haddad',
+            'email': 'lina@example.com',
+            'phone': '+970599111222',
+            'skinType': 'OILY',
+            'smokingStatus': 'NEVER',
+            'pregnantBreastfeeding': false,
+            'allergies': ['NUTS'],
+            'medications': [],
+            'chronicConditions': [],
+          },
+          {
+            'id': '22222222-2222-2222-2222-222222222222',
+            'firstName': 'Yara',
+            'lastName': 'Saleh',
+            'email': 'yara@example.com',
+            'phone': '+970599333444',
+            'skinType': null,
+            'smokingStatus': null,
+            'pregnantBreastfeeding': false,
+            'allergies': [],
+            'medications': [],
+            'chronicConditions': [],
+          },
+        ],
+      }),
     ]);
 
     final client = ApiClient(session, dio: testDio(adapter));

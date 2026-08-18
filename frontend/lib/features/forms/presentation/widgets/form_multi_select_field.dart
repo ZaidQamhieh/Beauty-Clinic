@@ -79,10 +79,7 @@ class _Footer extends StatelessWidget {
     final cap = field.maxSelections;
     final helpText = field.helpText;
     final capNote = cap != null ? '$count / $cap selected' : null;
-    final text = [
-      ?helpText,
-      ?capNote,
-    ].join(' · ');
+    final text = [?helpText, ?capNote].join(' · ');
     if (text.isEmpty) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.only(top: 6),

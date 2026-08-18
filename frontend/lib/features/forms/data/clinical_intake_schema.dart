@@ -15,7 +15,7 @@ abstract final class ClinicalIntakeSchema {
     id: 'patient-clinical-intake',
     title: 'Clinic Forms',
     description:
-    'The clinic health form. Skin type is the one answer that marks it '
+        'The clinic health form. Skin type is the one answer that marks it '
         'filled — everything else may truthfully be left empty.',
     fields: [
       FormFieldSchema(
@@ -76,10 +76,7 @@ abstract final class ClinicalIntakeSchema {
         options: [
           FormOption(value: 'ISOTRETINOIN', label: 'Isotretinoin'),
           FormOption(value: 'ANTICOAGULANTS', label: 'Anticoagulants'),
-          FormOption(
-            value: 'IMMUNOSUPPRESSANTS',
-            label: 'Immunosuppressants',
-          ),
+          FormOption(value: 'IMMUNOSUPPRESSANTS', label: 'Immunosuppressants'),
           FormOption(value: 'ORAL_STEROIDS', label: 'Oral steroids'),
           FormOption(
             value: 'HORMONAL_CONTRACEPTIVES',
@@ -130,7 +127,8 @@ abstract final class ClinicalIntakeSchema {
   /// re-check required fields itself.
   static Map<String, dynamic> toRequestJson(Map<String, dynamic> values) {
     return {
-      'pregnantBreastfeeding': values['pregnantBreastfeeding'] as bool? ?? false,
+      'pregnantBreastfeeding':
+          values['pregnantBreastfeeding'] as bool? ?? false,
       'skinType': values['skinType'],
       'smokingStatus': values['smokingStatus'],
       'allergies': values['allergies'] ?? <String>[],

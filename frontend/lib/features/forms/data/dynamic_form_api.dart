@@ -26,7 +26,9 @@ class DynamicFormApi {
   }
 
   /// `PUT /api/forms/clinical-intake/answers/me`.
-  Future<Map<String, dynamic>> saveOwnAnswers(Map<String, dynamic> values) async {
+  Future<Map<String, dynamic>> saveOwnAnswers(
+    Map<String, dynamic> values,
+  ) async {
     final response = await _client.put<Map<String, dynamic>>(
       '/api/forms/clinical-intake/answers/me',
       data: {'answers': values},

@@ -42,9 +42,9 @@ class ClinicalIntakeApi {
 
   /// `PUT /api/patients/{id}/clinical` — staff editing a patient's intake.
   Future<Map<String, dynamic>> saveForPatient(
-      String patientId,
-      Map<String, dynamic> values,
-      ) async {
+    String patientId,
+    Map<String, dynamic> values,
+  ) async {
     final response = await _client.put<Map<String, dynamic>>(
       '/api/patients/$patientId/clinical',
       data: ClinicalIntakeSchema.toRequestJson(values),

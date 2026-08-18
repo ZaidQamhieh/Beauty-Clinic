@@ -278,7 +278,10 @@ class _MainRootControllerState extends State<MainRootController> {
                   const Expanded(
                     child: Text(
                       'Clinical Form Required',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                 ],
@@ -348,7 +351,10 @@ class _MainRootControllerState extends State<MainRootController> {
                   const Expanded(
                     child: Text(
                       'Clinical Form Verified',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                 ],
@@ -448,8 +454,7 @@ class _MainRootControllerState extends State<MainRootController> {
         clinicalApi: _clinicalApi,
         onNavigateToForms: () => setState(() {
           _fromBookingFlow = true;
-          _patientProfileTabIndex =
-              PatientProfileScreen.clinicFormsTabIndex;
+          _patientProfileTabIndex = PatientProfileScreen.clinicFormsTabIndex;
           _activeView = 'patient_profile';
         }),
       );
@@ -510,7 +515,9 @@ class _MainRootControllerState extends State<MainRootController> {
         );
       case 'patient_profile':
         return PatientProfileScreen(
-          key: ValueKey('patient_profile_${_patientProfileTabIndex}_$_fromBookingFlow'),
+          key: ValueKey(
+            'patient_profile_${_patientProfileTabIndex}_$_fromBookingFlow',
+          ),
           clinicalApi: _clinicalApi,
           dynamicApi: _dynamicApi,
           appointmentApi: _appointmentApi,
@@ -521,8 +528,9 @@ class _MainRootControllerState extends State<MainRootController> {
               ? () => setState(() {
                   _fromBookingFlow = false;
                   _patientProfileTabIndex = 0;
-                  _activeView =
-                      _activeRole == 'patient' ? 'appointments' : 'dashboard';
+                  _activeView = _activeRole == 'patient'
+                      ? 'appointments'
+                      : 'dashboard';
                 })
               : null,
           onBack: () => setState(() {

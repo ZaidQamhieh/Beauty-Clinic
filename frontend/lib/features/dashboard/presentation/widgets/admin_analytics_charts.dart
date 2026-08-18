@@ -59,8 +59,9 @@ class ServiceBookingsBarChart extends StatelessWidget {
                     ),
                     Text(
                       item.category,
-                      style: AppTypography.bodySmall(color: AppColors.textMuted)
-                          .copyWith(fontSize: 11),
+                      style: AppTypography.bodySmall(
+                        color: AppColors.textMuted,
+                      ).copyWith(fontSize: 11),
                     ),
                   ],
                 ),
@@ -70,13 +71,15 @@ class ServiceBookingsBarChart extends StatelessWidget {
                 children: [
                   Text(
                     '${item.bookingsCount} appts',
-                    style: AppTypography.labelMedium(color: AppColors.text)
-                        .copyWith(fontWeight: FontWeight.w700),
+                    style: AppTypography.labelMedium(
+                      color: AppColors.text,
+                    ).copyWith(fontWeight: FontWeight.w700),
                   ),
                   Text(
                     '${item.percentage.toStringAsFixed(1)}% · ${item.revenue}',
-                    style: AppTypography.bodySmall(color: item.accentColor)
-                        .copyWith(fontSize: 11, fontWeight: FontWeight.w600),
+                    style: AppTypography.bodySmall(
+                      color: item.accentColor,
+                    ).copyWith(fontSize: 11, fontWeight: FontWeight.w600),
                   ),
                 ],
               ),
@@ -137,10 +140,8 @@ class ServiceGrowthLineChart extends StatelessWidget {
                   show: true,
                   drawVerticalLine: false,
                   horizontalInterval: 10,
-                  getDrawingHorizontalLine: (value) => FlLine(
-                    color: AppColors.hairline,
-                    strokeWidth: 1,
-                  ),
+                  getDrawingHorizontalLine: (value) =>
+                      FlLine(color: AppColors.hairline, strokeWidth: 1),
                 ),
                 titlesData: FlTitlesData(
                   rightTitles: const AxisTitles(
@@ -191,7 +192,9 @@ class ServiceGrowthLineChart extends StatelessWidget {
                     spots: data.growthOverTime
                         .asMap()
                         .entries
-                        .map((e) => FlSpot(e.key.toDouble(), e.value.laserCount))
+                        .map(
+                          (e) => FlSpot(e.key.toDouble(), e.value.laserCount),
+                        )
                         .toList(),
                     color: AppColors.rose,
                   ),
@@ -199,7 +202,9 @@ class ServiceGrowthLineChart extends StatelessWidget {
                     spots: data.growthOverTime
                         .asMap()
                         .entries
-                        .map((e) => FlSpot(e.key.toDouble(), e.value.facialCount))
+                        .map(
+                          (e) => FlSpot(e.key.toDouble(), e.value.facialCount),
+                        )
                         .toList(),
                     color: AppColors.lav,
                   ),
@@ -207,7 +212,9 @@ class ServiceGrowthLineChart extends StatelessWidget {
                     spots: data.growthOverTime
                         .asMap()
                         .entries
-                        .map((e) => FlSpot(e.key.toDouble(), e.value.contourCount))
+                        .map(
+                          (e) => FlSpot(e.key.toDouble(), e.value.contourCount),
+                        )
                         .toList(),
                     color: AppColors.sage,
                   ),
@@ -215,7 +222,10 @@ class ServiceGrowthLineChart extends StatelessWidget {
                     spots: data.growthOverTime
                         .asMap()
                         .entries
-                        .map((e) => FlSpot(e.key.toDouble(), e.value.injectableCount))
+                        .map(
+                          (e) =>
+                              FlSpot(e.key.toDouble(), e.value.injectableCount),
+                        )
                         .toList(),
                     color: AppColors.gold,
                   ),
@@ -241,8 +251,7 @@ class ServiceGrowthLineChart extends StatelessWidget {
       isStrokeCapRound: true,
       dotData: FlDotData(
         show: true,
-        getDotPainter: (spot, percent, barData, index) =>
-            FlDotCirclePainter(
+        getDotPainter: (spot, percent, barData, index) => FlDotCirclePainter(
           radius: 3.5,
           color: color,
           strokeWidth: 2,
@@ -273,7 +282,8 @@ class DoctorUtilizationChart extends StatelessWidget {
       title: 'Doctor Utilization',
       subtitle: 'Booked hours vs total clinical capacity per practitioner',
       icon: Icons.medical_information_outlined,
-      badgeText: '${data.averageUtilization.toStringAsFixed(1)}% Avg Utilization',
+      badgeText:
+          '${data.averageUtilization.toStringAsFixed(1)}% Avg Utilization',
       badgeColor: AppColors.lavDark,
       child: Column(
         children: data.utilizationList.map((item) {
@@ -303,7 +313,11 @@ class DoctorUtilizationChart extends StatelessWidget {
                             ),
                             child: Center(
                               child: Text(
-                                item.doctorName.split(' ').map((s) => s.isNotEmpty ? s[0] : '').take(2).join(),
+                                item.doctorName
+                                    .split(' ')
+                                    .map((s) => s.isNotEmpty ? s[0] : '')
+                                    .take(2)
+                                    .join(),
                                 style: AppTypography.labelSmall(
                                   color: item.statusColor,
                                 ).copyWith(fontWeight: FontWeight.w700),
@@ -316,28 +330,37 @@ class DoctorUtilizationChart extends StatelessWidget {
                             children: [
                               Text(
                                 item.doctorName,
-                                style: AppTypography.labelLarge(color: AppColors.text),
+                                style: AppTypography.labelLarge(
+                                  color: AppColors.text,
+                                ),
                               ),
                               Text(
                                 item.specialty,
-                                style: AppTypography.bodySmall(color: AppColors.textMuted)
-                                    .copyWith(fontSize: 11),
+                                style: AppTypography.bodySmall(
+                                  color: AppColors.textMuted,
+                                ).copyWith(fontSize: 11),
                               ),
                             ],
                           ),
                         ],
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: item.statusColor.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: item.statusColor.withValues(alpha: 0.3)),
+                          border: Border.all(
+                            color: item.statusColor.withValues(alpha: 0.3),
+                          ),
                         ),
                         child: Text(
                           item.status,
-                          style: AppTypography.labelSmall(color: item.statusColor)
-                              .copyWith(fontWeight: FontWeight.w700),
+                          style: AppTypography.labelSmall(
+                            color: item.statusColor,
+                          ).copyWith(fontWeight: FontWeight.w700),
                         ),
                       ),
                     ],
@@ -348,13 +371,15 @@ class DoctorUtilizationChart extends StatelessWidget {
                     children: [
                       Text(
                         '${item.bookedHours}h booked / ${item.totalAvailableHours}h capacity',
-                        style: AppTypography.bodySmall(color: AppColors.textSub)
-                            .copyWith(fontSize: 12),
+                        style: AppTypography.bodySmall(
+                          color: AppColors.textSub,
+                        ).copyWith(fontSize: 12),
                       ),
                       Text(
                         '${item.utilizationPercentage.toStringAsFixed(1)}%',
-                        style: AppTypography.labelLarge(color: item.statusColor)
-                            .copyWith(fontWeight: FontWeight.w800),
+                        style: AppTypography.labelLarge(
+                          color: item.statusColor,
+                        ).copyWith(fontWeight: FontWeight.w800),
                       ),
                     ],
                   ),
@@ -365,7 +390,9 @@ class DoctorUtilizationChart extends StatelessWidget {
                       value: (item.utilizationPercentage / 100).clamp(0.0, 1.0),
                       minHeight: 10,
                       backgroundColor: AppColors.white,
-                      valueColor: AlwaysStoppedAnimation<Color>(item.statusColor),
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        item.statusColor,
+                      ),
                     ),
                   ),
                 ],
@@ -423,8 +450,9 @@ class AvailableSlotsWidget extends StatelessWidget {
                             backgroundColor: AppColors.bgLavender,
                             child: Text(
                               item.avatarInitials,
-                              style: AppTypography.labelSmall(color: AppColors.lavDark)
-                                  .copyWith(fontWeight: FontWeight.w700),
+                              style: AppTypography.labelSmall(
+                                color: AppColors.lavDark,
+                              ).copyWith(fontWeight: FontWeight.w700),
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -433,28 +461,37 @@ class AvailableSlotsWidget extends StatelessWidget {
                             children: [
                               Text(
                                 item.doctorName,
-                                style: AppTypography.labelMedium(color: AppColors.text),
+                                style: AppTypography.labelMedium(
+                                  color: AppColors.text,
+                                ),
                               ),
                               Text(
                                 '${item.specialty} · ${item.room}',
-                                style: AppTypography.bodySmall(color: AppColors.textMuted)
-                                    .copyWith(fontSize: 11),
+                                style: AppTypography.bodySmall(
+                                  color: AppColors.textMuted,
+                                ).copyWith(fontSize: 11),
                               ),
                             ],
                           ),
                         ],
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: AppColors.bgSage,
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppColors.sage.withValues(alpha: 0.3)),
+                          border: Border.all(
+                            color: AppColors.sage.withValues(alpha: 0.3),
+                          ),
                         ),
                         child: Text(
                           '${item.availableSlotsCount} free slots',
-                          style: AppTypography.labelSmall(color: AppColors.sageDark)
-                              .copyWith(fontWeight: FontWeight.w700),
+                          style: AppTypography.labelSmall(
+                            color: AppColors.sageDark,
+                          ).copyWith(fontWeight: FontWeight.w700),
                         ),
                       ),
                     ],
@@ -465,7 +502,10 @@ class AvailableSlotsWidget extends StatelessWidget {
                     runSpacing: 8,
                     children: item.slots.map((slot) {
                       return Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
                           color: AppColors.bgLavender,
                           borderRadius: BorderRadius.circular(10),
@@ -474,12 +514,17 @@ class AvailableSlotsWidget extends StatelessWidget {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.schedule, size: 12, color: AppColors.lavDark),
+                            const Icon(
+                              Icons.schedule,
+                              size: 12,
+                              color: AppColors.lavDark,
+                            ),
                             const SizedBox(width: 6),
                             Text(
                               slot,
-                              style: AppTypography.labelSmall(color: AppColors.lavDark)
-                                  .copyWith(fontWeight: FontWeight.w600),
+                              style: AppTypography.labelSmall(
+                                color: AppColors.lavDark,
+                              ).copyWith(fontWeight: FontWeight.w600),
                             ),
                           ],
                         ),
@@ -534,10 +579,8 @@ class BookingsOverTimeChart extends StatelessWidget {
                   show: true,
                   drawVerticalLine: false,
                   horizontalInterval: 20,
-                  getDrawingHorizontalLine: (value) => FlLine(
-                    color: AppColors.hairline,
-                    strokeWidth: 1,
-                  ),
+                  getDrawingHorizontalLine: (value) =>
+                      FlLine(color: AppColors.hairline, strokeWidth: 1),
                 ),
                 titlesData: FlTitlesData(
                   rightTitles: const AxisTitles(
@@ -566,7 +609,8 @@ class BookingsOverTimeChart extends StatelessWidget {
                       interval: 1,
                       getTitlesWidget: (value, meta) {
                         final int index = value.toInt();
-                        if (index >= 0 && index < data.bookingsOverTime.length) {
+                        if (index >= 0 &&
+                            index < data.bookingsOverTime.length) {
                           return Padding(
                             padding: const EdgeInsets.only(top: 8),
                             child: Text(
@@ -687,13 +731,15 @@ class AppointmentOutcomesDonut extends StatelessWidget {
                   children: [
                     Text(
                       '$total',
-                      style: AppTypography.displayTitle(color: AppColors.text)
-                          .copyWith(fontSize: 22, fontWeight: FontWeight.w800),
+                      style: AppTypography.displayTitle(
+                        color: AppColors.text,
+                      ).copyWith(fontSize: 22, fontWeight: FontWeight.w800),
                     ),
                     Text(
                       'Total Appts',
-                      style: AppTypography.bodySmall(color: AppColors.textMuted)
-                          .copyWith(fontSize: 10),
+                      style: AppTypography.bodySmall(
+                        color: AppColors.textMuted,
+                      ).copyWith(fontSize: 10),
                     ),
                   ],
                 ),
@@ -758,15 +804,19 @@ class AppointmentOutcomesDonut extends StatelessWidget {
             children: [
               Icon(icon, size: 16, color: color),
               const SizedBox(width: 8),
-              Text(label, style: AppTypography.labelMedium(color: AppColors.text)),
+              Text(
+                label,
+                style: AppTypography.labelMedium(color: AppColors.text),
+              ),
             ],
           ),
           Row(
             children: [
               Text(
                 '$count',
-                style: AppTypography.labelMedium(color: AppColors.text)
-                    .copyWith(fontWeight: FontWeight.w700),
+                style: AppTypography.labelMedium(
+                  color: AppColors.text,
+                ).copyWith(fontWeight: FontWeight.w700),
               ),
               const SizedBox(width: 8),
               Container(
@@ -821,7 +871,10 @@ class PeakTimesAndRescheduledWidget extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: data.peakBookingTimes.map((slot) {
-                final double factor = (slot.bookingVolume / 80).clamp(0.15, 1.0);
+                final double factor = (slot.bookingVolume / 80).clamp(
+                  0.15,
+                  1.0,
+                );
                 return Expanded(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 3),
@@ -830,17 +883,28 @@ class PeakTimesAndRescheduledWidget extends StatelessWidget {
                       children: [
                         Text(
                           '${slot.bookingVolume}',
-                          style: AppTypography.bodySmall(
-                            color: slot.isPeak ? AppColors.rose : AppColors.textMuted,
-                          ).copyWith(fontSize: 10, fontWeight: slot.isPeak ? FontWeight.w700 : FontWeight.normal),
+                          style:
+                              AppTypography.bodySmall(
+                                color: slot.isPeak
+                                    ? AppColors.rose
+                                    : AppColors.textMuted,
+                              ).copyWith(
+                                fontSize: 10,
+                                fontWeight: slot.isPeak
+                                    ? FontWeight.w700
+                                    : FontWeight.normal,
+                              ),
                         ),
                         const SizedBox(height: 4),
                         Tooltip(
-                          message: '${slot.timeSlot}: ${slot.bookingVolume} bookings',
+                          message:
+                              '${slot.timeSlot}: ${slot.bookingVolume} bookings',
                           child: Container(
                             height: 70 * factor,
                             decoration: BoxDecoration(
-                              color: slot.isPeak ? AppColors.rose : AppColors.lav,
+                              color: slot.isPeak
+                                  ? AppColors.rose
+                                  : AppColors.lav,
                               borderRadius: const BorderRadius.vertical(
                                 top: Radius.circular(6),
                               ),
@@ -850,9 +914,17 @@ class PeakTimesAndRescheduledWidget extends StatelessWidget {
                         const SizedBox(height: 6),
                         Text(
                           slot.timeSlot,
-                          style: AppTypography.labelSmall(
-                            color: slot.isPeak ? AppColors.roseDark : AppColors.textMuted,
-                          ).copyWith(fontSize: 9, fontWeight: slot.isPeak ? FontWeight.w700 : FontWeight.normal),
+                          style:
+                              AppTypography.labelSmall(
+                                color: slot.isPeak
+                                    ? AppColors.roseDark
+                                    : AppColors.textMuted,
+                              ).copyWith(
+                                fontSize: 9,
+                                fontWeight: slot.isPeak
+                                    ? FontWeight.w700
+                                    : FontWeight.normal,
+                              ),
                         ),
                       ],
                     ),
@@ -880,8 +952,9 @@ class PeakTimesAndRescheduledWidget extends StatelessWidget {
                 ),
                 child: Text(
                   'Avg notice: ${data.rescheduled.avgNoticeTime}',
-                  style: AppTypography.labelSmall(color: AppColors.rose)
-                      .copyWith(fontSize: 10),
+                  style: AppTypography.labelSmall(
+                    color: AppColors.rose,
+                  ).copyWith(fontSize: 10),
                 ),
               ),
             ],
@@ -896,8 +969,9 @@ class PeakTimesAndRescheduledWidget extends StatelessWidget {
                     flex: 3,
                     child: Text(
                       reason.reason,
-                      style: AppTypography.bodySmall(color: AppColors.textSub)
-                          .copyWith(fontSize: 11),
+                      style: AppTypography.bodySmall(
+                        color: AppColors.textSub,
+                      ).copyWith(fontSize: 11),
                     ),
                   ),
                   Expanded(
@@ -917,8 +991,9 @@ class PeakTimesAndRescheduledWidget extends StatelessWidget {
                   const SizedBox(width: 8),
                   Text(
                     '${reason.percentage.toStringAsFixed(0)}%',
-                    style: AppTypography.labelSmall(color: AppColors.lavDark)
-                        .copyWith(fontSize: 10, fontWeight: FontWeight.w700),
+                    style: AppTypography.labelSmall(
+                      color: AppColors.lavDark,
+                    ).copyWith(fontSize: 10, fontWeight: FontWeight.w700),
                   ),
                 ],
               ),
@@ -982,13 +1057,15 @@ class NewVsReturningDonut extends StatelessWidget {
                   children: [
                     Text(
                       '$total',
-                      style: AppTypography.displayTitle(color: AppColors.text)
-                          .copyWith(fontSize: 20, fontWeight: FontWeight.w800),
+                      style: AppTypography.displayTitle(
+                        color: AppColors.text,
+                      ).copyWith(fontSize: 20, fontWeight: FontWeight.w800),
                     ),
                     Text(
                       'Total Visits',
-                      style: AppTypography.bodySmall(color: AppColors.textMuted)
-                          .copyWith(fontSize: 10),
+                      style: AppTypography.bodySmall(
+                        color: AppColors.textMuted,
+                      ).copyWith(fontSize: 10),
                     ),
                   ],
                 ),
@@ -1011,19 +1088,22 @@ class NewVsReturningDonut extends StatelessWidget {
                     children: [
                       Text(
                         'Returning Patients',
-                        style: AppTypography.bodySmall(color: AppColors.roseDark)
-                            .copyWith(fontSize: 11),
+                        style: AppTypography.bodySmall(
+                          color: AppColors.roseDark,
+                        ).copyWith(fontSize: 11),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         '${data.returningPatients}',
-                        style: AppTypography.displayStat(color: AppColors.text)
-                            .copyWith(fontSize: 18),
+                        style: AppTypography.displayStat(
+                          color: AppColors.text,
+                        ).copyWith(fontSize: 18),
                       ),
                       Text(
                         '${data.returningPercentage.toStringAsFixed(1)}% of total',
-                        style: AppTypography.labelSmall(color: AppColors.rose)
-                            .copyWith(fontSize: 10),
+                        style: AppTypography.labelSmall(
+                          color: AppColors.rose,
+                        ).copyWith(fontSize: 10),
                       ),
                     ],
                   ),
@@ -1043,19 +1123,22 @@ class NewVsReturningDonut extends StatelessWidget {
                     children: [
                       Text(
                         'New Patients',
-                        style: AppTypography.bodySmall(color: AppColors.lavDark)
-                            .copyWith(fontSize: 11),
+                        style: AppTypography.bodySmall(
+                          color: AppColors.lavDark,
+                        ).copyWith(fontSize: 11),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         '${data.newPatients}',
-                        style: AppTypography.displayStat(color: AppColors.text)
-                            .copyWith(fontSize: 18),
+                        style: AppTypography.displayStat(
+                          color: AppColors.text,
+                        ).copyWith(fontSize: 18),
                       ),
                       Text(
                         '${data.newPercentage.toStringAsFixed(1)}% of total',
-                        style: AppTypography.labelSmall(color: AppColors.lavDark)
-                            .copyWith(fontSize: 10),
+                        style: AppTypography.labelSmall(
+                          color: AppColors.lavDark,
+                        ).copyWith(fontSize: 10),
                       ),
                     ],
                   ),
@@ -1093,10 +1176,8 @@ class PatientGrowthLineChart extends StatelessWidget {
                   show: true,
                   drawVerticalLine: false,
                   horizontalInterval: 100,
-                  getDrawingHorizontalLine: (value) => FlLine(
-                    color: AppColors.hairline,
-                    strokeWidth: 1,
-                  ),
+                  getDrawingHorizontalLine: (value) =>
+                      FlLine(color: AppColors.hairline, strokeWidth: 1),
                 ),
                 titlesData: FlTitlesData(
                   rightTitles: const AxisTitles(
@@ -1147,7 +1228,10 @@ class PatientGrowthLineChart extends StatelessWidget {
                     spots: data
                         .asMap()
                         .entries
-                        .map((e) => FlSpot(e.key.toDouble(), e.value.totalCumulative))
+                        .map(
+                          (e) =>
+                              FlSpot(e.key.toDouble(), e.value.totalCumulative),
+                        )
                         .toList(),
                     isCurved: true,
                     curveSmoothness: 0.3,
@@ -1203,13 +1287,15 @@ class PatientRetentionCard extends StatelessWidget {
                     children: [
                       Text(
                         '${data.retentionRate}%',
-                        style: AppTypography.displayTitle(color: AppColors.roseDark)
-                            .copyWith(fontSize: 18, fontWeight: FontWeight.w800),
+                        style: AppTypography.displayTitle(
+                          color: AppColors.roseDark,
+                        ).copyWith(fontSize: 18, fontWeight: FontWeight.w800),
                       ),
                       Text(
                         'Retention',
-                        style: AppTypography.bodySmall(color: AppColors.textSub)
-                            .copyWith(fontSize: 9),
+                        style: AppTypography.bodySmall(
+                          color: AppColors.textSub,
+                        ).copyWith(fontSize: 9),
                       ),
                     ],
                   ),
@@ -1263,14 +1349,16 @@ class PatientRetentionCard extends StatelessWidget {
         Expanded(
           child: Text(
             label,
-            style: AppTypography.bodySmall(color: AppColors.textSub)
-                .copyWith(fontSize: 12),
+            style: AppTypography.bodySmall(
+              color: AppColors.textSub,
+            ).copyWith(fontSize: 12),
           ),
         ),
         Text(
           value,
-          style: AppTypography.labelMedium(color: AppColors.text)
-              .copyWith(fontWeight: FontWeight.w700),
+          style: AppTypography.labelMedium(
+            color: AppColors.text,
+          ).copyWith(fontWeight: FontWeight.w700),
         ),
       ],
     );
@@ -1342,12 +1430,15 @@ class _AnalyticsCard extends StatelessWidget {
                         children: [
                           Text(
                             title,
-                            style: AppTypography.labelLarge(color: AppColors.text),
+                            style: AppTypography.labelLarge(
+                              color: AppColors.text,
+                            ),
                           ),
                           Text(
                             subtitle,
-                            style: AppTypography.bodySmall(color: AppColors.textMuted)
-                                .copyWith(fontSize: 11),
+                            style: AppTypography.bodySmall(
+                              color: AppColors.textMuted,
+                            ).copyWith(fontSize: 11),
                           ),
                         ],
                       ),
@@ -1358,7 +1449,10 @@ class _AnalyticsCard extends StatelessWidget {
               if (badgeText != null) ...[
                 const SizedBox(width: 12),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: effectiveBadgeColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(12),
@@ -1368,8 +1462,9 @@ class _AnalyticsCard extends StatelessWidget {
                   ),
                   child: Text(
                     badgeText!,
-                    style: AppTypography.labelSmall(color: effectiveBadgeColor)
-                        .copyWith(fontWeight: FontWeight.w700, fontSize: 10),
+                    style: AppTypography.labelSmall(
+                      color: effectiveBadgeColor,
+                    ).copyWith(fontWeight: FontWeight.w700, fontSize: 10),
                   ),
                 ),
               ],
@@ -1397,16 +1492,14 @@ class _LegendItem extends StatelessWidget {
         Container(
           width: 10,
           height: 10,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-          ),
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 6),
         Text(
           label,
-          style: AppTypography.bodySmall(color: AppColors.textSub)
-              .copyWith(fontSize: 11),
+          style: AppTypography.bodySmall(
+            color: AppColors.textSub,
+          ).copyWith(fontSize: 11),
         ),
       ],
     );

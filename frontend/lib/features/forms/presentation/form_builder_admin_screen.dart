@@ -82,11 +82,17 @@ class _FormBuilderAdminScreenState extends State<FormBuilderAdminScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.error_outline, size: 48, color: AppColors.rose),
+                        const Icon(
+                          Icons.error_outline,
+                          size: 48,
+                          color: AppColors.rose,
+                        ),
                         const SizedBox(height: 12),
                         Text(
                           'Could not load the form: ${snapshot.error}',
-                          style: AppTypography.bodyMedium(color: AppColors.textSub),
+                          style: AppTypography.bodyMedium(
+                            color: AppColors.textSub,
+                          ),
                         ),
                         const SizedBox(height: 16),
                         ElevatedButton.icon(
@@ -187,8 +193,9 @@ class _FormBuilderAdminScreenState extends State<FormBuilderAdminScreen> {
               children: [
                 Text(
                   'Clinic forms builder',
-                  style: AppTypography.displaySubtitle(color: AppColors.text)
-                      .copyWith(fontSize: 20),
+                  style: AppTypography.displaySubtitle(
+                    color: AppColors.text,
+                  ).copyWith(fontSize: 20),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -237,7 +244,8 @@ class _FormBuilderAdminScreenState extends State<FormBuilderAdminScreen> {
                 Expanded(
                   child: TextField(
                     controller: _searchController,
-                    onChanged: (val) => setState(() => _searchQuery = val.trim()),
+                    onChanged: (val) =>
+                        setState(() => _searchQuery = val.trim()),
                     decoration: const InputDecoration(
                       hintText: 'Search by question title or field key...',
                       border: InputBorder.none,
@@ -251,7 +259,11 @@ class _FormBuilderAdminScreenState extends State<FormBuilderAdminScreen> {
                 ),
                 if (_searchController.text.isNotEmpty)
                   IconButton(
-                    icon: const Icon(Icons.clear, size: 16, color: AppColors.textMuted),
+                    icon: const Icon(
+                      Icons.clear,
+                      size: 16,
+                      color: AppColors.textMuted,
+                    ),
                     onPressed: () {
                       _searchController.clear();
                       setState(() => _searchQuery = '');
@@ -299,17 +311,18 @@ class _FormBuilderAdminScreenState extends State<FormBuilderAdminScreen> {
                     color: Color(0x0A000000),
                     blurRadius: 4,
                     offset: Offset(0, 2),
-                  )
+                  ),
                 ]
               : null,
         ),
         child: Text(
           label,
-          style: AppTypography.labelSmall(
-            color: isSelected ? AppColors.rose : AppColors.textSub,
-          ).copyWith(
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-          ),
+          style:
+              AppTypography.labelSmall(
+                color: isSelected ? AppColors.rose : AppColors.textSub,
+              ).copyWith(
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+              ),
         ),
       ),
     );
@@ -399,26 +412,30 @@ class _QuestionCard extends StatelessWidget {
     final options = (question['options'] as List<dynamic>? ?? const [])
         .cast<Map<String, dynamic>>();
 
-    final (IconData typeIcon, Color typeColor, Color typeBg, String typeName) =
-        switch (fieldType) {
+    final (
+      IconData typeIcon,
+      Color typeColor,
+      Color typeBg,
+      String typeName,
+    ) = switch (fieldType) {
       'BOOLEAN' => (
-          Icons.toggle_on_outlined,
-          AppColors.lavDark,
-          AppColors.bgLavender,
-          'Yes / No'
-        ),
+        Icons.toggle_on_outlined,
+        AppColors.lavDark,
+        AppColors.bgLavender,
+        'Yes / No',
+      ),
       'MULTI_SELECT' => (
-          Icons.checklist_rounded,
-          AppColors.sageDark,
-          AppColors.bgSage,
-          'Multiple Choice'
-        ),
+        Icons.checklist_rounded,
+        AppColors.sageDark,
+        AppColors.bgSage,
+        'Multiple Choice',
+      ),
       _ => (
-          Icons.radio_button_checked_rounded,
-          AppColors.roseDark,
-          AppColors.bgRose,
-          'Single Choice'
-        ),
+        Icons.radio_button_checked_rounded,
+        AppColors.roseDark,
+        AppColors.bgRose,
+        'Single Choice',
+      ),
     };
 
     return Container(
@@ -426,7 +443,9 @@ class _QuestionCard extends StatelessWidget {
         color: isActive ? AppColors.bgCard : AppColors.bgAlt,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: isActive ? AppColors.border : AppColors.border.withValues(alpha: 0.6),
+          color: isActive
+              ? AppColors.border
+              : AppColors.border.withValues(alpha: 0.6),
         ),
         boxShadow: isActive
             ? const [
@@ -595,9 +614,7 @@ class _QuestionCard extends StatelessWidget {
                     ),
                     child: Text(
                       '${opt['label']} (${opt['value']})',
-                      style: AppTypography.labelSmall(
-                        color: AppColors.textSub,
-                      ),
+                      style: AppTypography.labelSmall(color: AppColors.textSub),
                     ),
                   ),
               ],
@@ -695,7 +712,9 @@ class _QuestionDialogState extends State<_QuestionDialog> {
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
-                      isEditing ? Icons.edit_note_rounded : Icons.add_circle_outline_rounded,
+                      isEditing
+                          ? Icons.edit_note_rounded
+                          : Icons.add_circle_outline_rounded,
                       color: AppColors.rose,
                       size: 22,
                     ),
@@ -740,7 +759,10 @@ class _QuestionDialogState extends State<_QuestionDialog> {
                       const SizedBox(height: 14),
 
                       // Help Text
-                      Text('Help text (optional)', style: AppTypography.labelMedium()),
+                      Text(
+                        'Help text (optional)',
+                        style: AppTypography.labelMedium(),
+                      ),
                       const SizedBox(height: 6),
                       TextField(
                         controller: help,
@@ -763,7 +785,11 @@ class _QuestionDialogState extends State<_QuestionDialog> {
                             value: 'SINGLE_SELECT',
                             child: Row(
                               children: [
-                                Icon(Icons.radio_button_checked, size: 18, color: AppColors.rose),
+                                Icon(
+                                  Icons.radio_button_checked,
+                                  size: 18,
+                                  color: AppColors.rose,
+                                ),
                                 SizedBox(width: 8),
                                 Text('Single choice'),
                               ],
@@ -773,7 +799,11 @@ class _QuestionDialogState extends State<_QuestionDialog> {
                             value: 'MULTI_SELECT',
                             child: Row(
                               children: [
-                                Icon(Icons.checklist, size: 18, color: AppColors.sage),
+                                Icon(
+                                  Icons.checklist,
+                                  size: 18,
+                                  color: AppColors.sage,
+                                ),
                                 SizedBox(width: 8),
                                 Text('Multiple choice'),
                               ],
@@ -783,7 +813,11 @@ class _QuestionDialogState extends State<_QuestionDialog> {
                             value: 'BOOLEAN',
                             child: Row(
                               children: [
-                                Icon(Icons.toggle_on, size: 18, color: AppColors.lav),
+                                Icon(
+                                  Icons.toggle_on,
+                                  size: 18,
+                                  color: AppColors.lav,
+                                ),
                                 SizedBox(width: 8),
                                 Text('Yes / No'),
                               ],
@@ -805,7 +839,10 @@ class _QuestionDialogState extends State<_QuestionDialog> {
                           value: required,
                           activeThumbColor: AppColors.rose,
                           onChanged: (v) => setState(() => required = v),
-                          title: Text('Required', style: AppTypography.labelMedium()),
+                          title: Text(
+                            'Required',
+                            style: AppTypography.labelMedium(),
+                          ),
                           subtitle: Text(
                             'Must be answered before form can be submitted',
                             style: AppTypography.bodySmall(),
@@ -820,16 +857,21 @@ class _QuestionDialogState extends State<_QuestionDialog> {
                         const SizedBox(height: 4),
                         Text(
                           'Format: VALUE:Label (one per line, e.g. OILY:Oily Skin)',
-                          style: AppTypography.bodySmall(color: AppColors.textMuted),
+                          style: AppTypography.bodySmall(
+                            color: AppColors.textMuted,
+                          ),
                         ),
                         const SizedBox(height: 6),
                         TextField(
                           controller: options,
                           maxLines: 4,
                           decoration: _inputDecoration(
-                            hint: 'DRY:Dry Skin\nOILY:Oily Skin\nCOMBINATION:Combination',
+                            hint:
+                                'DRY:Dry Skin\nOILY:Oily Skin\nCOMBINATION:Combination',
                           ),
-                          style: AppTypography.bodyMedium().copyWith(fontFamily: 'monospace'),
+                          style: AppTypography.bodyMedium().copyWith(
+                            fontFamily: 'monospace',
+                          ),
                         ),
                       ],
                     ],
@@ -845,7 +887,10 @@ class _QuestionDialogState extends State<_QuestionDialog> {
                 children: [
                   TextButton(
                     onPressed: () => Navigator.pop(context),
-                    child: Text('Cancel', style: AppTypography.labelLarge(color: AppColors.textSub)),
+                    child: Text(
+                      'Cancel',
+                      style: AppTypography.labelLarge(color: AppColors.textSub),
+                    ),
                   ),
                   const SizedBox(width: 12),
                   ElevatedButton(
@@ -857,7 +902,9 @@ class _QuestionDialogState extends State<_QuestionDialog> {
                       Navigator.pop(context, {
                         'fieldKey': fieldKey.text.trim(),
                         'label': label.text.trim(),
-                        'helpText': help.text.trim().isEmpty ? null : help.text.trim(),
+                        'helpText': help.text.trim().isEmpty
+                            ? null
+                            : help.text.trim(),
                         'fieldType': type,
                         'required': required,
                         'displayOrder': widget.question == null
@@ -868,7 +915,9 @@ class _QuestionDialogState extends State<_QuestionDialog> {
                             {
                               'value': lines[i].split(':').first.trim(),
                               'label': lines[i].contains(':')
-                                  ? lines[i].substring(lines[i].indexOf(':') + 1).trim()
+                                  ? lines[i]
+                                        .substring(lines[i].indexOf(':') + 1)
+                                        .trim()
                                   : lines[i].trim(),
                               'displayOrder': i,
                             },
@@ -878,7 +927,10 @@ class _QuestionDialogState extends State<_QuestionDialog> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.rose,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),

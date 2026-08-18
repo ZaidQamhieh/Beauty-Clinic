@@ -29,9 +29,9 @@ class ClinicalIntakeTab extends StatefulWidget {
     this.onBackToAppointments,
     this.onSaved,
   }) : assert(
-          patientId == null ? dynamicApi != null : clinicalApi != null,
-          'Own intake needs dynamicApi; staff editing needs clinicalApi',
-        );
+         patientId == null ? dynamicApi != null : clinicalApi != null,
+         'Own intake needs dynamicApi; staff editing needs clinicalApi',
+       );
 
   @override
   State<ClinicalIntakeTab> createState() => _ClinicalIntakeTabState();
@@ -286,7 +286,9 @@ class _ClinicalIntakeTabState extends State<ClinicalIntakeTab> {
                           width: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
                           ),
                         )
                       : Text(

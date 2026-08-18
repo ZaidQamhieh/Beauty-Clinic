@@ -3,12 +3,7 @@ import 'package:intl/intl.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../network/api_client.dart';
 
-enum AdminDateRangeType {
-  days7,
-  days30,
-  months3,
-  custom,
-}
+enum AdminDateRangeType { days7, days30, months3, custom }
 
 extension AdminDateRangeTypeExtension on AdminDateRangeType {
   String get label {
@@ -90,7 +85,8 @@ class ClinicOverviewData {
       activeDoctorsNow: (json['activeDoctorsNow'] as num?)?.toInt() ?? 0,
       doctorSub: json['doctorSub'] as String? ?? '',
       todayAppointments: (json['todayAppointments'] as num?)?.toInt() ?? 0,
-      confirmedAppointments: (json['confirmedAppointments'] as num?)?.toInt() ?? 0,
+      confirmedAppointments:
+          (json['confirmedAppointments'] as num?)?.toInt() ?? 0,
       inRoomAppointments: (json['inRoomAppointments'] as num?)?.toInt() ?? 0,
       pendingAppointments: (json['pendingAppointments'] as num?)?.toInt() ?? 0,
       todaySessions: (json['todaySessions'] as num?)?.toInt() ?? 0,
@@ -128,7 +124,10 @@ class ServiceBookingItem {
       percentage: (json['percentage'] as num?)?.toDouble() ?? 0.0,
       revenue: json['revenue'] as String? ?? '₪0',
       icon: _iconFromKey(json['iconKey'] as String?),
-      accentColor: _colorFromHex(json['accentColorHex'] as String?, AppColors.rose),
+      accentColor: _colorFromHex(
+        json['accentColorHex'] as String?,
+        AppColors.rose,
+      ),
     );
   }
 }
@@ -174,12 +173,18 @@ class ServiceAnalyticsData {
 
   factory ServiceAnalyticsData.fromJson(Map<String, dynamic> json) {
     return ServiceAnalyticsData(
-      bookingsByService: (json['bookingsByService'] as List<dynamic>?)
-              ?.map((e) => ServiceBookingItem.fromJson(e as Map<String, dynamic>))
+      bookingsByService:
+          (json['bookingsByService'] as List<dynamic>?)
+              ?.map(
+                (e) => ServiceBookingItem.fromJson(e as Map<String, dynamic>),
+              )
               .toList() ??
           [],
-      growthOverTime: (json['growthOverTime'] as List<dynamic>?)
-              ?.map((e) => ServiceGrowthPoint.fromJson(e as Map<String, dynamic>))
+      growthOverTime:
+          (json['growthOverTime'] as List<dynamic>?)
+              ?.map(
+                (e) => ServiceGrowthPoint.fromJson(e as Map<String, dynamic>),
+              )
               .toList() ??
           [],
       topService: json['topService'] as String? ?? 'HydraFacial',
@@ -213,10 +218,15 @@ class DoctorUtilizationItem {
       doctorName: json['doctorName'] as String? ?? '',
       specialty: json['specialty'] as String? ?? '',
       bookedHours: (json['bookedHours'] as num?)?.toDouble() ?? 0.0,
-      totalAvailableHours: (json['totalAvailableHours'] as num?)?.toDouble() ?? 0.0,
-      utilizationPercentage: (json['utilizationPercentage'] as num?)?.toDouble() ?? 0.0,
+      totalAvailableHours:
+          (json['totalAvailableHours'] as num?)?.toDouble() ?? 0.0,
+      utilizationPercentage:
+          (json['utilizationPercentage'] as num?)?.toDouble() ?? 0.0,
       status: json['status'] as String? ?? 'Optimal',
-      statusColor: _colorFromHex(json['statusColorHex'] as String?, AppColors.sage),
+      statusColor: _colorFromHex(
+        json['statusColorHex'] as String?,
+        AppColors.sage,
+      ),
     );
   }
 }
@@ -246,7 +256,11 @@ class DoctorAvailableSlotItem {
       specialty: json['specialty'] as String? ?? '',
       avatarInitials: json['avatarInitials'] as String? ?? 'DR',
       availableSlotsCount: (json['availableSlotsCount'] as num?)?.toInt() ?? 0,
-      slots: (json['slots'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+      slots:
+          (json['slots'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
       nextAvailable: json['nextAvailable'] as String? ?? 'Today',
       room: json['room'] as String? ?? 'Suite 1',
     );
@@ -268,15 +282,24 @@ class DoctorAnalyticsData {
 
   factory DoctorAnalyticsData.fromJson(Map<String, dynamic> json) {
     return DoctorAnalyticsData(
-      utilizationList: (json['utilizationList'] as List<dynamic>?)
-              ?.map((e) => DoctorUtilizationItem.fromJson(e as Map<String, dynamic>))
+      utilizationList:
+          (json['utilizationList'] as List<dynamic>?)
+              ?.map(
+                (e) =>
+                    DoctorUtilizationItem.fromJson(e as Map<String, dynamic>),
+              )
               .toList() ??
           [],
-      availableSlotsList: (json['availableSlotsList'] as List<dynamic>?)
-              ?.map((e) => DoctorAvailableSlotItem.fromJson(e as Map<String, dynamic>))
+      availableSlotsList:
+          (json['availableSlotsList'] as List<dynamic>?)
+              ?.map(
+                (e) =>
+                    DoctorAvailableSlotItem.fromJson(e as Map<String, dynamic>),
+              )
               .toList() ??
           [],
-      averageUtilization: (json['averageUtilization'] as num?)?.toDouble() ?? 0.0,
+      averageUtilization:
+          (json['averageUtilization'] as num?)?.toDouble() ?? 0.0,
       totalFreeSlotsToday: (json['totalFreeSlotsToday'] as num?)?.toInt() ?? 0,
     );
   }
@@ -399,8 +422,12 @@ class RescheduledAppointmentsData {
       totalRescheduled: (json['totalRescheduled'] as num?)?.toInt() ?? 0,
       rescheduleRate: (json['rescheduleRate'] as num?)?.toDouble() ?? 0.0,
       avgNoticeTime: json['avgNoticeTime'] as String? ?? '',
-      topReasons: (json['topReasons'] as List<dynamic>?)
-              ?.map((e) => RescheduledReasonItem.fromJson(e as Map<String, dynamic>))
+      topReasons:
+          (json['topReasons'] as List<dynamic>?)
+              ?.map(
+                (e) =>
+                    RescheduledReasonItem.fromJson(e as Map<String, dynamic>),
+              )
               .toList() ??
           [],
     );
@@ -426,12 +453,18 @@ class AppointmentAnalyticsData {
 
   factory AppointmentAnalyticsData.fromJson(Map<String, dynamic> json) {
     return AppointmentAnalyticsData(
-      bookingsOverTime: (json['bookingsOverTime'] as List<dynamic>?)
-              ?.map((e) => AppointmentTrendPoint.fromJson(e as Map<String, dynamic>))
+      bookingsOverTime:
+          (json['bookingsOverTime'] as List<dynamic>?)
+              ?.map(
+                (e) =>
+                    AppointmentTrendPoint.fromJson(e as Map<String, dynamic>),
+              )
               .toList() ??
           [],
       outcomes: json['outcomes'] != null
-          ? AppointmentOutcomesData.fromJson(json['outcomes'] as Map<String, dynamic>)
+          ? AppointmentOutcomesData.fromJson(
+              json['outcomes'] as Map<String, dynamic>,
+            )
           : const AppointmentOutcomesData(
               completed: 0,
               cancelled: 0,
@@ -442,14 +475,20 @@ class AppointmentAnalyticsData {
               noShowRate: 0.0,
               rescheduledRate: 0.0,
             ),
-      peakBookingTimes: (json['peakBookingTimes'] as List<dynamic>?)
-              ?.map((e) => PeakBookingTimeItem.fromJson(e as Map<String, dynamic>))
+      peakBookingTimes:
+          (json['peakBookingTimes'] as List<dynamic>?)
+              ?.map(
+                (e) => PeakBookingTimeItem.fromJson(e as Map<String, dynamic>),
+              )
               .toList() ??
           [],
       busiestDayOfWeek: json['busiestDayOfWeek'] as String? ?? 'Thursday',
-      busiestTimeWindow: json['busiestTimeWindow'] as String? ?? '2:00 PM – 5:30 PM',
+      busiestTimeWindow:
+          json['busiestTimeWindow'] as String? ?? '2:00 PM – 5:30 PM',
       rescheduled: json['rescheduled'] != null
-          ? RescheduledAppointmentsData.fromJson(json['rescheduled'] as Map<String, dynamic>)
+          ? RescheduledAppointmentsData.fromJson(
+              json['rescheduled'] as Map<String, dynamic>,
+            )
           : const RescheduledAppointmentsData(
               totalRescheduled: 0,
               rescheduleRate: 0.0,
@@ -479,7 +518,8 @@ class PatientRatioData {
       newPatients: (json['newPatients'] as num?)?.toInt() ?? 0,
       returningPatients: (json['returningPatients'] as num?)?.toInt() ?? 0,
       newPercentage: (json['newPercentage'] as num?)?.toDouble() ?? 0.0,
-      returningPercentage: (json['returningPercentage'] as num?)?.toDouble() ?? 0.0,
+      returningPercentage:
+          (json['returningPercentage'] as num?)?.toDouble() ?? 0.0,
     );
   }
 }
@@ -524,7 +564,8 @@ class PatientRetentionData {
       retentionRate: (json['retentionRate'] as num?)?.toDouble() ?? 0.0,
       averageReturnDays: (json['averageReturnDays'] as num?)?.toInt() ?? 0,
       repeatBookingRate: (json['repeatBookingRate'] as num?)?.toDouble() ?? 0.0,
-      activeLoyaltyMembers: (json['activeLoyaltyMembers'] as num?)?.toInt() ?? 0,
+      activeLoyaltyMembers:
+          (json['activeLoyaltyMembers'] as num?)?.toInt() ?? 0,
       retentionTrend: json['retentionTrend'] as String? ?? '',
     );
   }
@@ -544,14 +585,26 @@ class PatientAnalyticsData {
   factory PatientAnalyticsData.fromJson(Map<String, dynamic> json) {
     return PatientAnalyticsData(
       newVsReturning: json['newVsReturning'] != null
-          ? PatientRatioData.fromJson(json['newVsReturning'] as Map<String, dynamic>)
-          : const PatientRatioData(newPatients: 0, returningPatients: 0, newPercentage: 0.0, returningPercentage: 0.0),
-      growthTimeline: (json['growthTimeline'] as List<dynamic>?)
-              ?.map((e) => PatientGrowthPoint.fromJson(e as Map<String, dynamic>))
+          ? PatientRatioData.fromJson(
+              json['newVsReturning'] as Map<String, dynamic>,
+            )
+          : const PatientRatioData(
+              newPatients: 0,
+              returningPatients: 0,
+              newPercentage: 0.0,
+              returningPercentage: 0.0,
+            ),
+      growthTimeline:
+          (json['growthTimeline'] as List<dynamic>?)
+              ?.map(
+                (e) => PatientGrowthPoint.fromJson(e as Map<String, dynamic>),
+              )
               .toList() ??
           [],
       retention: json['retention'] != null
-          ? PatientRetentionData.fromJson(json['retention'] as Map<String, dynamic>)
+          ? PatientRetentionData.fromJson(
+              json['retention'] as Map<String, dynamic>,
+            )
           : const PatientRetentionData(
               retentionRate: 0.0,
               averageReturnDays: 0,
@@ -630,11 +683,15 @@ class OperationsData {
 
   factory OperationsData.fromJson(Map<String, dynamic> json) {
     return OperationsData(
-      todayAppointments: (json['todayAppointments'] as List<dynamic>?)
-              ?.map((e) => TodayAppointmentItem.fromJson(e as Map<String, dynamic>))
+      todayAppointments:
+          (json['todayAppointments'] as List<dynamic>?)
+              ?.map(
+                (e) => TodayAppointmentItem.fromJson(e as Map<String, dynamic>),
+              )
               .toList() ??
           [],
-      staffList: (json['staffList'] as List<dynamic>?)
+      staffList:
+          (json['staffList'] as List<dynamic>?)
               ?.map((e) => StaffDutyItem.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
@@ -671,20 +728,39 @@ class AdminDashboardData {
     return '${formatter.format(startDate)} – ${formatter.format(endDate)}';
   }
 
-  factory AdminDashboardData.fromJson(Map<String, dynamic> json, {AdminDateRangeType? rangeType}) {
+  factory AdminDashboardData.fromJson(
+    Map<String, dynamic> json, {
+    AdminDateRangeType? rangeType,
+  }) {
     final startStr = json['startDate'] as String?;
     final endStr = json['endDate'] as String?;
 
     return AdminDashboardData(
       rangeType: rangeType ?? AdminDateRangeType.days30,
-      startDate: startStr != null ? DateTime.tryParse(startStr) ?? DateTime.now() : DateTime.now(),
-      endDate: endStr != null ? DateTime.tryParse(endStr) ?? DateTime.now() : DateTime.now(),
-      overview: ClinicOverviewData.fromJson((json['overview'] as Map<String, dynamic>?) ?? {}),
-      serviceAnalytics: ServiceAnalyticsData.fromJson((json['serviceAnalytics'] as Map<String, dynamic>?) ?? {}),
-      doctorAnalytics: DoctorAnalyticsData.fromJson((json['doctorAnalytics'] as Map<String, dynamic>?) ?? {}),
-      appointmentAnalytics: AppointmentAnalyticsData.fromJson((json['appointmentAnalytics'] as Map<String, dynamic>?) ?? {}),
-      patientAnalytics: PatientAnalyticsData.fromJson((json['patientAnalytics'] as Map<String, dynamic>?) ?? {}),
-      operations: OperationsData.fromJson((json['operations'] as Map<String, dynamic>?) ?? {}),
+      startDate: startStr != null
+          ? DateTime.tryParse(startStr) ?? DateTime.now()
+          : DateTime.now(),
+      endDate: endStr != null
+          ? DateTime.tryParse(endStr) ?? DateTime.now()
+          : DateTime.now(),
+      overview: ClinicOverviewData.fromJson(
+        (json['overview'] as Map<String, dynamic>?) ?? {},
+      ),
+      serviceAnalytics: ServiceAnalyticsData.fromJson(
+        (json['serviceAnalytics'] as Map<String, dynamic>?) ?? {},
+      ),
+      doctorAnalytics: DoctorAnalyticsData.fromJson(
+        (json['doctorAnalytics'] as Map<String, dynamic>?) ?? {},
+      ),
+      appointmentAnalytics: AppointmentAnalyticsData.fromJson(
+        (json['appointmentAnalytics'] as Map<String, dynamic>?) ?? {},
+      ),
+      patientAnalytics: PatientAnalyticsData.fromJson(
+        (json['patientAnalytics'] as Map<String, dynamic>?) ?? {},
+      ),
+      operations: OperationsData.fromJson(
+        (json['operations'] as Map<String, dynamic>?) ?? {},
+      ),
     );
   }
 }
@@ -713,7 +789,8 @@ class AdminAnalyticsRepository {
             start = now.subtract(const Duration(days: 90));
             break;
           case AdminDateRangeType.custom:
-            start = customRange?.start ?? now.subtract(const Duration(days: 30));
+            start =
+                customRange?.start ?? now.subtract(const Duration(days: 30));
             end = customRange?.end ?? now;
             break;
         }
@@ -778,10 +855,7 @@ class AdminAnalyticsRepository {
   }
 
   static OperationsData _buildOperations() {
-    return const OperationsData(
-      todayAppointments: [],
-      staffList: [],
-    );
+    return const OperationsData(todayAppointments: [], staffList: []);
   }
 
   static ClinicOverviewData _buildOverview(AdminDateRangeType rangeType) {
@@ -838,7 +912,9 @@ class AdminAnalyticsRepository {
     }
   }
 
-  static ServiceAnalyticsData _buildServiceAnalytics(AdminDateRangeType rangeType) {
+  static ServiceAnalyticsData _buildServiceAnalytics(
+    AdminDateRangeType rangeType,
+  ) {
     final List<ServiceBookingItem> bookings = [
       const ServiceBookingItem(
         serviceName: 'HydraFacial Glow',
@@ -890,27 +966,117 @@ class AdminAnalyticsRepository {
     List<ServiceGrowthPoint> growth;
     if (rangeType == AdminDateRangeType.days7) {
       growth = const [
-        ServiceGrowthPoint(dateLabel: 'Mon', laserCount: 12, facialCount: 18, contourCount: 6, injectableCount: 9),
-        ServiceGrowthPoint(dateLabel: 'Tue', laserCount: 15, facialCount: 22, contourCount: 8, injectableCount: 11),
-        ServiceGrowthPoint(dateLabel: 'Wed', laserCount: 14, facialCount: 20, contourCount: 7, injectableCount: 10),
-        ServiceGrowthPoint(dateLabel: 'Thu', laserCount: 18, facialCount: 26, contourCount: 10, injectableCount: 14),
-        ServiceGrowthPoint(dateLabel: 'Fri', laserCount: 16, facialCount: 24, contourCount: 9, injectableCount: 12),
-        ServiceGrowthPoint(dateLabel: 'Sat', laserCount: 20, facialCount: 28, contourCount: 11, injectableCount: 16),
-        ServiceGrowthPoint(dateLabel: 'Sun', laserCount: 8, facialCount: 12, contourCount: 4, injectableCount: 6),
+        ServiceGrowthPoint(
+          dateLabel: 'Mon',
+          laserCount: 12,
+          facialCount: 18,
+          contourCount: 6,
+          injectableCount: 9,
+        ),
+        ServiceGrowthPoint(
+          dateLabel: 'Tue',
+          laserCount: 15,
+          facialCount: 22,
+          contourCount: 8,
+          injectableCount: 11,
+        ),
+        ServiceGrowthPoint(
+          dateLabel: 'Wed',
+          laserCount: 14,
+          facialCount: 20,
+          contourCount: 7,
+          injectableCount: 10,
+        ),
+        ServiceGrowthPoint(
+          dateLabel: 'Thu',
+          laserCount: 18,
+          facialCount: 26,
+          contourCount: 10,
+          injectableCount: 14,
+        ),
+        ServiceGrowthPoint(
+          dateLabel: 'Fri',
+          laserCount: 16,
+          facialCount: 24,
+          contourCount: 9,
+          injectableCount: 12,
+        ),
+        ServiceGrowthPoint(
+          dateLabel: 'Sat',
+          laserCount: 20,
+          facialCount: 28,
+          contourCount: 11,
+          injectableCount: 16,
+        ),
+        ServiceGrowthPoint(
+          dateLabel: 'Sun',
+          laserCount: 8,
+          facialCount: 12,
+          contourCount: 4,
+          injectableCount: 6,
+        ),
       ];
     } else if (rangeType == AdminDateRangeType.months3) {
       growth = const [
-        ServiceGrowthPoint(dateLabel: 'May', laserCount: 68, facialCount: 110, contourCount: 38, injectableCount: 55),
-        ServiceGrowthPoint(dateLabel: 'Jun', laserCount: 82, facialCount: 128, contourCount: 44, injectableCount: 65),
-        ServiceGrowthPoint(dateLabel: 'Jul', laserCount: 92, facialCount: 135, contourCount: 46, injectableCount: 72),
-        ServiceGrowthPoint(dateLabel: 'Aug', laserCount: 98, facialCount: 142, contourCount: 48, injectableCount: 76),
+        ServiceGrowthPoint(
+          dateLabel: 'May',
+          laserCount: 68,
+          facialCount: 110,
+          contourCount: 38,
+          injectableCount: 55,
+        ),
+        ServiceGrowthPoint(
+          dateLabel: 'Jun',
+          laserCount: 82,
+          facialCount: 128,
+          contourCount: 44,
+          injectableCount: 65,
+        ),
+        ServiceGrowthPoint(
+          dateLabel: 'Jul',
+          laserCount: 92,
+          facialCount: 135,
+          contourCount: 46,
+          injectableCount: 72,
+        ),
+        ServiceGrowthPoint(
+          dateLabel: 'Aug',
+          laserCount: 98,
+          facialCount: 142,
+          contourCount: 48,
+          injectableCount: 76,
+        ),
       ];
     } else {
       growth = const [
-        ServiceGrowthPoint(dateLabel: 'Week 1', laserCount: 20, facialCount: 32, contourCount: 10, injectableCount: 16),
-        ServiceGrowthPoint(dateLabel: 'Week 2', laserCount: 24, facialCount: 36, contourCount: 12, injectableCount: 19),
-        ServiceGrowthPoint(dateLabel: 'Week 3', laserCount: 26, facialCount: 38, contourCount: 13, injectableCount: 20),
-        ServiceGrowthPoint(dateLabel: 'Week 4', laserCount: 28, facialCount: 36, contourCount: 13, injectableCount: 21),
+        ServiceGrowthPoint(
+          dateLabel: 'Week 1',
+          laserCount: 20,
+          facialCount: 32,
+          contourCount: 10,
+          injectableCount: 16,
+        ),
+        ServiceGrowthPoint(
+          dateLabel: 'Week 2',
+          laserCount: 24,
+          facialCount: 36,
+          contourCount: 12,
+          injectableCount: 19,
+        ),
+        ServiceGrowthPoint(
+          dateLabel: 'Week 3',
+          laserCount: 26,
+          facialCount: 38,
+          contourCount: 13,
+          injectableCount: 20,
+        ),
+        ServiceGrowthPoint(
+          dateLabel: 'Week 4',
+          laserCount: 28,
+          facialCount: 36,
+          contourCount: 13,
+          injectableCount: 21,
+        ),
       ];
     }
 
@@ -922,7 +1088,9 @@ class AdminAnalyticsRepository {
     );
   }
 
-  static DoctorAnalyticsData _buildDoctorAnalytics(AdminDateRangeType rangeType) {
+  static DoctorAnalyticsData _buildDoctorAnalytics(
+    AdminDateRangeType rangeType,
+  ) {
     final List<DoctorUtilizationItem> utilization = [
       const DoctorUtilizationItem(
         doctorName: 'Dr. Hana Nasser',
@@ -1009,31 +1177,108 @@ class AdminAnalyticsRepository {
     );
   }
 
-  static AppointmentAnalyticsData _buildAppointmentAnalytics(AdminDateRangeType rangeType) {
+  static AppointmentAnalyticsData _buildAppointmentAnalytics(
+    AdminDateRangeType rangeType,
+  ) {
     List<AppointmentTrendPoint> bookings;
     if (rangeType == AdminDateRangeType.days7) {
       bookings = const [
-        AppointmentTrendPoint(dateLabel: 'Mon', booked: 18, completed: 16, cancelled: 1),
-        AppointmentTrendPoint(dateLabel: 'Tue', booked: 22, completed: 20, cancelled: 2),
-        AppointmentTrendPoint(dateLabel: 'Wed', booked: 20, completed: 19, cancelled: 1),
-        AppointmentTrendPoint(dateLabel: 'Thu', booked: 26, completed: 24, cancelled: 2),
-        AppointmentTrendPoint(dateLabel: 'Fri', booked: 24, completed: 21, cancelled: 1),
-        AppointmentTrendPoint(dateLabel: 'Sat', booked: 28, completed: 26, cancelled: 1),
-        AppointmentTrendPoint(dateLabel: 'Sun', booked: 12, completed: 11, cancelled: 0),
+        AppointmentTrendPoint(
+          dateLabel: 'Mon',
+          booked: 18,
+          completed: 16,
+          cancelled: 1,
+        ),
+        AppointmentTrendPoint(
+          dateLabel: 'Tue',
+          booked: 22,
+          completed: 20,
+          cancelled: 2,
+        ),
+        AppointmentTrendPoint(
+          dateLabel: 'Wed',
+          booked: 20,
+          completed: 19,
+          cancelled: 1,
+        ),
+        AppointmentTrendPoint(
+          dateLabel: 'Thu',
+          booked: 26,
+          completed: 24,
+          cancelled: 2,
+        ),
+        AppointmentTrendPoint(
+          dateLabel: 'Fri',
+          booked: 24,
+          completed: 21,
+          cancelled: 1,
+        ),
+        AppointmentTrendPoint(
+          dateLabel: 'Sat',
+          booked: 28,
+          completed: 26,
+          cancelled: 1,
+        ),
+        AppointmentTrendPoint(
+          dateLabel: 'Sun',
+          booked: 12,
+          completed: 11,
+          cancelled: 0,
+        ),
       ];
     } else if (rangeType == AdminDateRangeType.months3) {
       bookings = const [
-        AppointmentTrendPoint(dateLabel: 'May', booked: 240, completed: 210, cancelled: 18),
-        AppointmentTrendPoint(dateLabel: 'Jun', booked: 285, completed: 254, cancelled: 20),
-        AppointmentTrendPoint(dateLabel: 'Jul', booked: 310, completed: 282, cancelled: 16),
-        AppointmentTrendPoint(dateLabel: 'Aug', booked: 345, completed: 314, cancelled: 22),
+        AppointmentTrendPoint(
+          dateLabel: 'May',
+          booked: 240,
+          completed: 210,
+          cancelled: 18,
+        ),
+        AppointmentTrendPoint(
+          dateLabel: 'Jun',
+          booked: 285,
+          completed: 254,
+          cancelled: 20,
+        ),
+        AppointmentTrendPoint(
+          dateLabel: 'Jul',
+          booked: 310,
+          completed: 282,
+          cancelled: 16,
+        ),
+        AppointmentTrendPoint(
+          dateLabel: 'Aug',
+          booked: 345,
+          completed: 314,
+          cancelled: 22,
+        ),
       ];
     } else {
       bookings = const [
-        AppointmentTrendPoint(dateLabel: 'Week 1', booked: 74, completed: 68, cancelled: 4),
-        AppointmentTrendPoint(dateLabel: 'Week 2', booked: 86, completed: 80, cancelled: 5),
-        AppointmentTrendPoint(dateLabel: 'Week 3', booked: 92, completed: 84, cancelled: 6),
-        AppointmentTrendPoint(dateLabel: 'Week 4', booked: 93, completed: 82, cancelled: 7),
+        AppointmentTrendPoint(
+          dateLabel: 'Week 1',
+          booked: 74,
+          completed: 68,
+          cancelled: 4,
+        ),
+        AppointmentTrendPoint(
+          dateLabel: 'Week 2',
+          booked: 86,
+          completed: 80,
+          cancelled: 5,
+        ),
+        AppointmentTrendPoint(
+          dateLabel: 'Week 3',
+          booked: 92,
+          completed: 84,
+          cancelled: 6,
+        ),
+        AppointmentTrendPoint(
+          dateLabel: 'Week 4',
+          booked: 93,
+          completed: 82,
+          cancelled: 7,
+        ),
       ];
     }
 
@@ -1050,11 +1295,31 @@ class AdminAnalyticsRepository {
         rescheduledRate: 9.0,
       ),
       peakBookingTimes: const [
-        PeakBookingTimeItem(timeSlot: '09:00 - 11:00', bookingVolume: 42, isPeak: false),
-        PeakBookingTimeItem(timeSlot: '11:00 - 13:00', bookingVolume: 68, isPeak: false),
-        PeakBookingTimeItem(timeSlot: '14:00 - 16:00', bookingVolume: 114, isPeak: true),
-        PeakBookingTimeItem(timeSlot: '16:00 - 18:00', bookingVolume: 126, isPeak: true),
-        PeakBookingTimeItem(timeSlot: '18:00 - 20:00', bookingVolume: 56, isPeak: false),
+        PeakBookingTimeItem(
+          timeSlot: '09:00 - 11:00',
+          bookingVolume: 42,
+          isPeak: false,
+        ),
+        PeakBookingTimeItem(
+          timeSlot: '11:00 - 13:00',
+          bookingVolume: 68,
+          isPeak: false,
+        ),
+        PeakBookingTimeItem(
+          timeSlot: '14:00 - 16:00',
+          bookingVolume: 114,
+          isPeak: true,
+        ),
+        PeakBookingTimeItem(
+          timeSlot: '16:00 - 18:00',
+          bookingVolume: 126,
+          isPeak: true,
+        ),
+        PeakBookingTimeItem(
+          timeSlot: '18:00 - 20:00',
+          bookingVolume: 56,
+          isPeak: false,
+        ),
       ],
       busiestDayOfWeek: 'Thursday',
       busiestTimeWindow: '2:00 PM – 6:00 PM',
@@ -1063,16 +1328,34 @@ class AdminAnalyticsRepository {
         rescheduleRate: 9.0,
         avgNoticeTime: '26 hours',
         topReasons: [
-          RescheduledReasonItem(reason: 'Patient Work / Travel Conflict', count: 16, percentage: 47.0),
-          RescheduledReasonItem(reason: 'Specialist Session Extension', count: 9, percentage: 26.5),
-          RescheduledReasonItem(reason: 'Illness / Family Emergency', count: 6, percentage: 17.6),
-          RescheduledReasonItem(reason: 'Treatment Pre-care Requirement', count: 3, percentage: 8.9),
+          RescheduledReasonItem(
+            reason: 'Patient Work / Travel Conflict',
+            count: 16,
+            percentage: 47.0,
+          ),
+          RescheduledReasonItem(
+            reason: 'Specialist Session Extension',
+            count: 9,
+            percentage: 26.5,
+          ),
+          RescheduledReasonItem(
+            reason: 'Illness / Family Emergency',
+            count: 6,
+            percentage: 17.6,
+          ),
+          RescheduledReasonItem(
+            reason: 'Treatment Pre-care Requirement',
+            count: 3,
+            percentage: 8.9,
+          ),
         ],
       ),
     );
   }
 
-  static PatientAnalyticsData _buildPatientAnalytics(AdminDateRangeType rangeType) {
+  static PatientAnalyticsData _buildPatientAnalytics(
+    AdminDateRangeType rangeType,
+  ) {
     int newPatients;
     int returning;
     if (rangeType == AdminDateRangeType.days7) {
@@ -1090,27 +1373,87 @@ class AdminAnalyticsRepository {
     List<PatientGrowthPoint> growth;
     if (rangeType == AdminDateRangeType.days7) {
       growth = const [
-        PatientGrowthPoint(dateLabel: 'Mon', totalCumulative: 1272, monthlyNew: 6),
-        PatientGrowthPoint(dateLabel: 'Tue', totalCumulative: 1278, monthlyNew: 6),
-        PatientGrowthPoint(dateLabel: 'Wed', totalCumulative: 1283, monthlyNew: 5),
-        PatientGrowthPoint(dateLabel: 'Thu', totalCumulative: 1290, monthlyNew: 7),
-        PatientGrowthPoint(dateLabel: 'Fri', totalCumulative: 1295, monthlyNew: 5),
-        PatientGrowthPoint(dateLabel: 'Sat', totalCumulative: 1298, monthlyNew: 9),
-        PatientGrowthPoint(dateLabel: 'Sun', totalCumulative: 1302, monthlyNew: 4),
+        PatientGrowthPoint(
+          dateLabel: 'Mon',
+          totalCumulative: 1272,
+          monthlyNew: 6,
+        ),
+        PatientGrowthPoint(
+          dateLabel: 'Tue',
+          totalCumulative: 1278,
+          monthlyNew: 6,
+        ),
+        PatientGrowthPoint(
+          dateLabel: 'Wed',
+          totalCumulative: 1283,
+          monthlyNew: 5,
+        ),
+        PatientGrowthPoint(
+          dateLabel: 'Thu',
+          totalCumulative: 1290,
+          monthlyNew: 7,
+        ),
+        PatientGrowthPoint(
+          dateLabel: 'Fri',
+          totalCumulative: 1295,
+          monthlyNew: 5,
+        ),
+        PatientGrowthPoint(
+          dateLabel: 'Sat',
+          totalCumulative: 1298,
+          monthlyNew: 9,
+        ),
+        PatientGrowthPoint(
+          dateLabel: 'Sun',
+          totalCumulative: 1302,
+          monthlyNew: 4,
+        ),
       ];
     } else if (rangeType == AdminDateRangeType.months3) {
       growth = const [
-        PatientGrowthPoint(dateLabel: 'May', totalCumulative: 1040, monthlyNew: 52),
-        PatientGrowthPoint(dateLabel: 'Jun', totalCumulative: 1115, monthlyNew: 75),
-        PatientGrowthPoint(dateLabel: 'Jul', totalCumulative: 1198, monthlyNew: 83),
-        PatientGrowthPoint(dateLabel: 'Aug', totalCumulative: 1284, monthlyNew: 86),
+        PatientGrowthPoint(
+          dateLabel: 'May',
+          totalCumulative: 1040,
+          monthlyNew: 52,
+        ),
+        PatientGrowthPoint(
+          dateLabel: 'Jun',
+          totalCumulative: 1115,
+          monthlyNew: 75,
+        ),
+        PatientGrowthPoint(
+          dateLabel: 'Jul',
+          totalCumulative: 1198,
+          monthlyNew: 83,
+        ),
+        PatientGrowthPoint(
+          dateLabel: 'Aug',
+          totalCumulative: 1284,
+          monthlyNew: 86,
+        ),
       ];
     } else {
       growth = const [
-        PatientGrowthPoint(dateLabel: 'Week 1', totalCumulative: 1238, monthlyNew: 12),
-        PatientGrowthPoint(dateLabel: 'Week 2', totalCumulative: 1253, monthlyNew: 15),
-        PatientGrowthPoint(dateLabel: 'Week 3', totalCumulative: 1268, monthlyNew: 15),
-        PatientGrowthPoint(dateLabel: 'Week 4', totalCumulative: 1284, monthlyNew: 16),
+        PatientGrowthPoint(
+          dateLabel: 'Week 1',
+          totalCumulative: 1238,
+          monthlyNew: 12,
+        ),
+        PatientGrowthPoint(
+          dateLabel: 'Week 2',
+          totalCumulative: 1253,
+          monthlyNew: 15,
+        ),
+        PatientGrowthPoint(
+          dateLabel: 'Week 3',
+          totalCumulative: 1268,
+          monthlyNew: 15,
+        ),
+        PatientGrowthPoint(
+          dateLabel: 'Week 4',
+          totalCumulative: 1284,
+          monthlyNew: 16,
+        ),
       ];
     }
 

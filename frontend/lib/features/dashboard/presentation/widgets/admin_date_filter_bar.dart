@@ -8,7 +8,7 @@ class AdminDateFilterBar extends StatelessWidget {
   final DateTimeRange? customDateRange;
   final String formattedRange;
   final void Function(AdminDateRangeType rangeType, DateTimeRange? customRange)
-      onRangeSelected;
+  onRangeSelected;
 
   const AdminDateFilterBar({
     super.key,
@@ -142,7 +142,9 @@ class AdminDateFilterBar extends StatelessWidget {
                         vertical: 8,
                       ),
                       decoration: BoxDecoration(
-                        color: isSelected ? AppColors.white : Colors.transparent,
+                        color: isSelected
+                            ? AppColors.white
+                            : Colors.transparent,
                         borderRadius: BorderRadius.circular(10),
                         boxShadow: isSelected
                             ? [
@@ -169,15 +171,16 @@ class AdminDateFilterBar extends StatelessWidget {
                           ],
                           Text(
                             type.label,
-                            style: AppTypography.labelSmall(
-                              color: isSelected
-                                  ? AppColors.roseDark
-                                  : AppColors.textSub,
-                            ).copyWith(
-                              fontWeight: isSelected
-                                  ? FontWeight.w700
-                                  : FontWeight.w500,
-                            ),
+                            style:
+                                AppTypography.labelSmall(
+                                  color: isSelected
+                                      ? AppColors.roseDark
+                                      : AppColors.textSub,
+                                ).copyWith(
+                                  fontWeight: isSelected
+                                      ? FontWeight.w700
+                                      : FontWeight.w500,
+                                ),
                           ),
                         ],
                       ),

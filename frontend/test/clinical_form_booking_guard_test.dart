@@ -78,39 +78,44 @@ void main() {
       (tester) async {
         bool navigatedToForms = false;
 
-        final adapter = QueueAdapter(List.generate(20, (_) => (RequestOptions options) {
-          Object? body;
-          if (options.path == '/api/patients/me') {
-            body = {
-              'id': 'pat-1',
-              'firstName': 'Jane',
-              'lastName': 'Doe',
-              'skinType': null,
-              'pregnantBreastfeeding': false,
-              'allergies': [],
-              'medications': [],
-              'chronicConditions': [],
-            };
-          } else if (options.path == '/api/appointments/me') {
-            body = {
-              'content': [],
-              'totalElements': 0,
-              'number': 0,
-              'size': 20,
-              'last': true,
-            };
-          } else {
-            body = <String, dynamic>{};
-          }
+        final adapter = QueueAdapter(
+          List.generate(
+            20,
+            (_) => (RequestOptions options) {
+              Object? body;
+              if (options.path == '/api/patients/me') {
+                body = {
+                  'id': 'pat-1',
+                  'firstName': 'Jane',
+                  'lastName': 'Doe',
+                  'skinType': null,
+                  'pregnantBreastfeeding': false,
+                  'allergies': [],
+                  'medications': [],
+                  'chronicConditions': [],
+                };
+              } else if (options.path == '/api/appointments/me') {
+                body = {
+                  'content': [],
+                  'totalElements': 0,
+                  'number': 0,
+                  'size': 20,
+                  'last': true,
+                };
+              } else {
+                body = <String, dynamic>{};
+              }
 
-          return ResponseBody.fromString(
-            jsonEncode(body),
-            200,
-            headers: {
-              Headers.contentTypeHeader: [Headers.jsonContentType],
+              return ResponseBody.fromString(
+                jsonEncode(body),
+                200,
+                headers: {
+                  Headers.contentTypeHeader: [Headers.jsonContentType],
+                },
+              );
             },
-          );
-        }));
+          ),
+        );
 
         final client = ApiClient(session, dio: testDio(adapter));
         final clinicalApi = ClinicalIntakeApi(client);
@@ -161,39 +166,44 @@ void main() {
       (tester) async {
         bool navigatedToForms = false;
 
-        final adapter = QueueAdapter(List.generate(20, (_) => (RequestOptions options) {
-          Object? body;
-          if (options.path == '/api/patients/me') {
-            body = {
-              'id': 'pat-1',
-              'firstName': 'Jane',
-              'lastName': 'Doe',
-              'skinType': 'COMBINATION',
-              'pregnantBreastfeeding': false,
-              'allergies': [],
-              'medications': [],
-              'chronicConditions': [],
-            };
-          } else if (options.path == '/api/appointments/me') {
-            body = {
-              'content': [],
-              'totalElements': 0,
-              'number': 0,
-              'size': 20,
-              'last': true,
-            };
-          } else {
-            body = <String, dynamic>{};
-          }
+        final adapter = QueueAdapter(
+          List.generate(
+            20,
+            (_) => (RequestOptions options) {
+              Object? body;
+              if (options.path == '/api/patients/me') {
+                body = {
+                  'id': 'pat-1',
+                  'firstName': 'Jane',
+                  'lastName': 'Doe',
+                  'skinType': 'COMBINATION',
+                  'pregnantBreastfeeding': false,
+                  'allergies': [],
+                  'medications': [],
+                  'chronicConditions': [],
+                };
+              } else if (options.path == '/api/appointments/me') {
+                body = {
+                  'content': [],
+                  'totalElements': 0,
+                  'number': 0,
+                  'size': 20,
+                  'last': true,
+                };
+              } else {
+                body = <String, dynamic>{};
+              }
 
-          return ResponseBody.fromString(
-            jsonEncode(body),
-            200,
-            headers: {
-              Headers.contentTypeHeader: [Headers.jsonContentType],
+              return ResponseBody.fromString(
+                jsonEncode(body),
+                200,
+                headers: {
+                  Headers.contentTypeHeader: [Headers.jsonContentType],
+                },
+              );
             },
-          );
-        }));
+          ),
+        );
 
         final client = ApiClient(session, dio: testDio(adapter));
         final clinicalApi = ClinicalIntakeApi(client);

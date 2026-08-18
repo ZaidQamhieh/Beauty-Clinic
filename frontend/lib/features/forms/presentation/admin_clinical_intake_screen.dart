@@ -42,8 +42,9 @@ class _AdminClinicalIntakeScreenState extends State<AdminClinicalIntakeScreen> {
       _error = null;
     });
     try {
-      final patients =
-          await widget.api.searchClinical(_searchController.text.trim());
+      final patients = await widget.api.searchClinical(
+        _searchController.text.trim(),
+      );
       if (!mounted) return;
       setState(() {
         _patients = patients;
@@ -119,8 +120,9 @@ class _AdminClinicalIntakeScreenState extends State<AdminClinicalIntakeScreen> {
               children: [
                 Text(
                   'Patient Forms History & Activity Log',
-                  style: AppTypography.displaySubtitle(color: AppColors.text)
-                      .copyWith(fontSize: 20),
+                  style: AppTypography.displaySubtitle(
+                    color: AppColors.text,
+                  ).copyWith(fontSize: 20),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -140,7 +142,11 @@ class _AdminClinicalIntakeScreenState extends State<AdminClinicalIntakeScreen> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.people_outline, size: 16, color: AppColors.rose),
+                const Icon(
+                  Icons.people_outline,
+                  size: 16,
+                  color: AppColors.rose,
+                ),
                 const SizedBox(width: 6),
                 Text(
                   '${_patients.length} Patients',
@@ -181,7 +187,11 @@ class _AdminClinicalIntakeScreenState extends State<AdminClinicalIntakeScreen> {
           ),
           if (_searchController.text.isNotEmpty)
             IconButton(
-              icon: const Icon(Icons.clear, size: 18, color: AppColors.textMuted),
+              icon: const Icon(
+                Icons.clear,
+                size: 18,
+                color: AppColors.textMuted,
+              ),
               onPressed: () {
                 _searchController.clear();
                 _load();
@@ -212,10 +222,7 @@ class _AdminClinicalIntakeScreenState extends State<AdminClinicalIntakeScreen> {
             const SizedBox(height: 16),
             Text(_error!, style: AppTypography.bodyMedium()),
             const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _load,
-              child: const Text('Try Again'),
-            ),
+            ElevatedButton(onPressed: _load, child: const Text('Try Again')),
           ],
         ),
       );
@@ -343,11 +350,12 @@ class _AdminClinicalIntakeScreenState extends State<AdminClinicalIntakeScreen> {
                                   children: [
                                     Text(
                                       '${patient['firstName']} ${patient['lastName']}',
-                                      style: AppTypography.labelMedium().copyWith(
-                                        fontWeight: isSelected
-                                            ? FontWeight.bold
-                                            : FontWeight.w600,
-                                      ),
+                                      style: AppTypography.labelMedium()
+                                          .copyWith(
+                                            fontWeight: isSelected
+                                                ? FontWeight.bold
+                                                : FontWeight.w600,
+                                          ),
                                     ),
                                     const SizedBox(height: 2),
                                     Text(
@@ -394,10 +402,7 @@ class _AdminClinicalIntakeScreenState extends State<AdminClinicalIntakeScreen> {
                 color: AppColors.textMuted,
               ),
               const SizedBox(height: 16),
-              Text(
-                'Select a Patient',
-                style: AppTypography.displaySubtitle(),
-              ),
+              Text('Select a Patient', style: AppTypography.displaySubtitle()),
               const SizedBox(height: 8),
               Text(
                 'Choose a patient from the directory on the left to inspect their current Clinic Form and revision audit log.',
@@ -451,7 +456,9 @@ class _AdminClinicalIntakeScreenState extends State<AdminClinicalIntakeScreen> {
                     const SizedBox(height: 2),
                     Text(
                       '$email · $phone',
-                      style: AppTypography.bodySmall(color: AppColors.textMuted),
+                      style: AppTypography.bodySmall(
+                        color: AppColors.textMuted,
+                      ),
                     ),
                   ],
                 ),
@@ -474,8 +481,10 @@ class _AdminClinicalIntakeScreenState extends State<AdminClinicalIntakeScreen> {
               ),
               const SizedBox(width: 8),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.bgAlt,
                   borderRadius: BorderRadius.circular(12),
@@ -585,8 +594,9 @@ class _ClinicalHistoryState extends State<_ClinicalHistory> {
           separatorBuilder: (_, _) => const SizedBox(height: 10),
           itemBuilder: (context, index) {
             final record = records[index];
-            final changedAt =
-                DateTime.tryParse(record['changedAt']?.toString() ?? '');
+            final changedAt = DateTime.tryParse(
+              record['changedAt']?.toString() ?? '',
+            );
             final actorName = record['actorName']?.toString() ?? 'System';
 
             return Material(
@@ -596,8 +606,10 @@ class _ClinicalHistoryState extends State<_ClinicalHistory> {
                 side: const BorderSide(color: AppColors.border),
               ),
               child: ListTile(
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 6,
+                ),
                 leading: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: const BoxDecoration(
@@ -694,7 +706,9 @@ class _ClinicalHistoryState extends State<_ClinicalHistory> {
                         const SizedBox(height: 2),
                         Text(
                           widget.patientName,
-                          style: AppTypography.labelLarge(color: AppColors.rose),
+                          style: AppTypography.labelLarge(
+                            color: AppColors.rose,
+                          ),
                         ),
                       ],
                     ),
@@ -723,8 +737,9 @@ class _ClinicalHistoryState extends State<_ClinicalHistory> {
                     const SizedBox(width: 6),
                     Text(
                       'Changed by: $actorName',
-                      style: AppTypography.bodySmall()
-                          .copyWith(fontWeight: FontWeight.w600),
+                      style: AppTypography.bodySmall().copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     const Spacer(),
                     const Icon(
@@ -736,11 +751,12 @@ class _ClinicalHistoryState extends State<_ClinicalHistory> {
                     Text(
                       changedAt == null
                           ? 'Unknown date'
-                          : DateFormat.yMMMd()
-                              .add_jm()
-                              .format(changedAt.toLocal()),
-                      style:
-                          AppTypography.bodySmall(color: AppColors.textMuted),
+                          : DateFormat.yMMMd().add_jm().format(
+                              changedAt.toLocal(),
+                            ),
+                      style: AppTypography.bodySmall(
+                        color: AppColors.textMuted,
+                      ),
                     ),
                   ],
                 ),
@@ -756,21 +772,20 @@ class _ClinicalHistoryState extends State<_ClinicalHistory> {
                     ? const Padding(
                         padding: EdgeInsets.all(24),
                         child: Center(
-                          child:
-                              Text('No recorded form changes in this revision.'),
+                          child: Text(
+                            'No recorded form changes in this revision.',
+                          ),
                         ),
                       )
                     : ListView.separated(
                         shrinkWrap: true,
                         itemCount: allKeys.length,
-                        separatorBuilder: (_, _) =>
-                            const SizedBox(height: 10),
+                        separatorBuilder: (_, _) => const SizedBox(height: 10),
                         itemBuilder: (context, i) {
                           final key = allKeys[i];
                           final prevVal = prevMap[key];
                           final newVal = newMap[key];
-                          final isChanged =
-                              !_areValuesEqual(prevVal, newVal);
+                          final isChanged = !_areValuesEqual(prevVal, newVal);
 
                           return Container(
                             padding: const EdgeInsets.all(12),
@@ -808,8 +823,9 @@ class _ClinicalHistoryState extends State<_ClinicalHistory> {
                                         ),
                                         decoration: BoxDecoration(
                                           color: AppColors.rose,
-                                          borderRadius:
-                                              BorderRadius.circular(8),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
                                         ),
                                         child: Text(
                                           'MODIFIED',
@@ -835,12 +851,13 @@ class _ClinicalHistoryState extends State<_ClinicalHistory> {
                                       Expanded(
                                         child: Text(
                                           _formatValue(prevVal),
-                                          style: AppTypography.bodySmall(
-                                            color: AppColors.textMuted,
-                                          ).copyWith(
-                                            decoration:
-                                                TextDecoration.lineThrough,
-                                          ),
+                                          style:
+                                              AppTypography.bodySmall(
+                                                color: AppColors.textMuted,
+                                              ).copyWith(
+                                                decoration:
+                                                    TextDecoration.lineThrough,
+                                              ),
                                         ),
                                       ),
                                     ],
@@ -859,10 +876,12 @@ class _ClinicalHistoryState extends State<_ClinicalHistory> {
                                       Expanded(
                                         child: Text(
                                           _formatValue(newVal),
-                                          style: AppTypography.bodySmall(
-                                            color: AppColors.roseDark,
-                                          ).copyWith(
-                                              fontWeight: FontWeight.w600),
+                                          style:
+                                              AppTypography.bodySmall(
+                                                color: AppColors.roseDark,
+                                              ).copyWith(
+                                                fontWeight: FontWeight.w600,
+                                              ),
                                         ),
                                       ),
                                     ],
@@ -917,11 +936,35 @@ class _ClinicalHistoryState extends State<_ClinicalHistory> {
     }
 
     const ignoredKeys = {
-      'array', 'bigDecimal', 'bigInteger', 'binary', 'boolean', 'containerNode',
-      'double', 'empty', 'float', 'floatingPointNumber', 'int', 'integralNumber',
-      'long', 'missingNode', 'nodeType', 'null', 'number', 'object', 'pojo',
-      'short', 'textual', 'valueNode', 'id', 'firstName', 'lastName', 'email',
-      'phone', 'dateOfBirth', 'gender',
+      'array',
+      'bigDecimal',
+      'bigInteger',
+      'binary',
+      'boolean',
+      'containerNode',
+      'double',
+      'empty',
+      'float',
+      'floatingPointNumber',
+      'int',
+      'integralNumber',
+      'long',
+      'missingNode',
+      'nodeType',
+      'null',
+      'number',
+      'object',
+      'pojo',
+      'short',
+      'textual',
+      'valueNode',
+      'id',
+      'firstName',
+      'lastName',
+      'email',
+      'phone',
+      'dateOfBirth',
+      'gender',
     };
 
     final result = <String, dynamic>{};
@@ -971,10 +1014,12 @@ class _ClinicalHistoryState extends State<_ClinicalHistory> {
   static String _humanizeEnum(String text) {
     if (text.isEmpty) return text;
     final words = text.replaceAll('_', ' ').split(' ');
-    return words.map((w) {
-      if (w.isEmpty) return w;
-      return '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}';
-    }).join(' ');
+    return words
+        .map((w) {
+          if (w.isEmpty) return w;
+          return '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}';
+        })
+        .join(' ');
   }
 
   static bool _areValuesEqual(dynamic a, dynamic b) {

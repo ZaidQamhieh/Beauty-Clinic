@@ -150,7 +150,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // ADMIN DASHBOARD
   // ───────────────────────────────────────────────────────────────────────────
   Widget _buildAdminDashboard() {
-    final adminData = _adminDashboardData ??
+    final adminData =
+        _adminDashboardData ??
         AdminAnalyticsRepository.fetchDashboardData(
           rangeType: _adminDateRange,
           customRange: _customDateRange,
@@ -207,7 +208,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
               children: [
                 _StatCard(
                   label: "Total Patients",
-                  value: NumberFormat('#,###').format(adminData.overview.totalPatients),
+                  value: NumberFormat(
+                    '#,###',
+                  ).format(adminData.overview.totalPatients),
                   sub: adminData.overview.patientTrendSub,
                   icon: Icons.people_outline,
                   color: AppColors.rose,
@@ -224,7 +227,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 _StatCard(
                   label: "Today's Appointments",
                   value: "${adminData.overview.todayAppointments}",
-                  sub: "${adminData.overview.confirmedAppointments} confirmed · ${adminData.overview.inRoomAppointments} in room",
+                  sub:
+                      "${adminData.overview.confirmedAppointments} confirmed · ${adminData.overview.inRoomAppointments} in room",
                   icon: Icons.calendar_today_outlined,
                   color: AppColors.lav,
                   trend: "+${adminData.overview.pendingAppointments} new",
@@ -232,10 +236,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 _StatCard(
                   label: "Today's Sessions",
                   value: "${adminData.overview.todaySessions}",
-                  sub: "${adminData.overview.completedSessions} completed · ${adminData.overview.ongoingSessions} ongoing",
+                  sub:
+                      "${adminData.overview.completedSessions} completed · ${adminData.overview.ongoingSessions} ongoing",
                   icon: Icons.spa_outlined,
                   color: AppColors.gold,
-                  trend: "${adminData.overview.completedSessions}/${adminData.overview.todaySessions}",
+                  trend:
+                      "${adminData.overview.completedSessions}/${adminData.overview.todaySessions}",
                 ),
               ],
             );
@@ -247,7 +253,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         // 3. SERVICE ANALYTICS SECTION
         _buildSectionHeader(
           title: 'Service Analytics',
-          subtitle: 'Treatment popularity, procedure breakdown, and growth trajectory',
+          subtitle:
+              'Treatment popularity, procedure breakdown, and growth trajectory',
           icon: Icons.spa_outlined,
           color: AppColors.roseDark,
         ),
@@ -261,7 +268,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
               children: [
                 Expanded(
                   flex: isDesktop ? 1 : 0,
-                  child: ServiceBookingsBarChart(data: adminData.serviceAnalytics),
+                  child: ServiceBookingsBarChart(
+                    data: adminData.serviceAnalytics,
+                  ),
                 ),
                 if (isDesktop)
                   const SizedBox(width: 20)
@@ -269,7 +278,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   const SizedBox(height: 20),
                 Expanded(
                   flex: isDesktop ? 1 : 0,
-                  child: ServiceGrowthLineChart(data: adminData.serviceAnalytics),
+                  child: ServiceGrowthLineChart(
+                    data: adminData.serviceAnalytics,
+                  ),
                 ),
               ],
             );
@@ -307,7 +318,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
               children: [
                 Expanded(
                   flex: isDesktop ? 1 : 0,
-                  child: AppointmentOutcomesDonut(data: adminData.appointmentAnalytics.outcomes),
+                  child: AppointmentOutcomesDonut(
+                    data: adminData.appointmentAnalytics.outcomes,
+                  ),
                 ),
                 if (isDesktop)
                   const SizedBox(width: 20)
@@ -315,7 +328,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   const SizedBox(height: 20),
                 Expanded(
                   flex: isDesktop ? 1 : 0,
-                  child: PeakTimesAndRescheduledWidget(data: adminData.appointmentAnalytics),
+                  child: PeakTimesAndRescheduledWidget(
+                    data: adminData.appointmentAnalytics,
+                  ),
                 ),
               ],
             );
@@ -341,7 +356,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
               children: [
                 Expanded(
                   flex: isDesktop ? 1 : 0,
-                  child: NewVsReturningDonut(data: adminData.patientAnalytics.newVsReturning),
+                  child: NewVsReturningDonut(
+                    data: adminData.patientAnalytics.newVsReturning,
+                  ),
                 ),
                 if (isDesktop)
                   const SizedBox(width: 20)
@@ -349,7 +366,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   const SizedBox(height: 20),
                 Expanded(
                   flex: isDesktop ? 1 : 0,
-                  child: PatientGrowthLineChart(data: adminData.patientAnalytics.growthTimeline),
+                  child: PatientGrowthLineChart(
+                    data: adminData.patientAnalytics.growthTimeline,
+                  ),
                 ),
               ],
             );
@@ -395,7 +414,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             ),
                             Text(
                               '${adminData.operations.todayAppointments.length} Scheduled',
-                              style: AppTypography.bodySmall(color: AppColors.textMuted),
+                              style: AppTypography.bodySmall(
+                                color: AppColors.textMuted,
+                              ),
                             ),
                           ],
                         ),
@@ -406,7 +427,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             child: Center(
                               child: Text(
                                 'No appointments scheduled for today.',
-                                style: AppTypography.bodySmall(color: AppColors.textMuted),
+                                style: AppTypography.bodySmall(
+                                  color: AppColors.textMuted,
+                                ),
                               ),
                             ),
                           )
@@ -446,15 +469,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Staff Today', style: AppTypography.labelLarge()),
+                            Text(
+                              'Staff Today',
+                              style: AppTypography.labelLarge(),
+                            ),
                             const SizedBox(height: 16),
                             if (adminData.operations.staffList.isEmpty)
                               Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 24),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 24,
+                                ),
                                 child: Center(
                                   child: Text(
                                     'No specialists registered yet.',
-                                    style: AppTypography.bodySmall(color: AppColors.textMuted),
+                                    style: AppTypography.bodySmall(
+                                      color: AppColors.textMuted,
+                                    ),
                                   ),
                                 ),
                               )
@@ -505,13 +535,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
             children: [
               Text(
                 title,
-                style: AppTypography.displaySubtitle(color: AppColors.text)
-                    .copyWith(fontSize: 18, fontWeight: FontWeight.w700),
+                style: AppTypography.displaySubtitle(
+                  color: AppColors.text,
+                ).copyWith(fontSize: 18, fontWeight: FontWeight.w700),
               ),
               Text(
                 subtitle,
-                style: AppTypography.bodySmall(color: AppColors.textMuted)
-                    .copyWith(fontSize: 12),
+                style: AppTypography.bodySmall(
+                  color: AppColors.textMuted,
+                ).copyWith(fontSize: 12),
               ),
             ],
           ),
@@ -751,7 +783,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             ElevatedButton.icon(
                               onPressed: () =>
                                   widget.onViewPatient(activePatient['name']!),
-                              icon: const Icon(Icons.description_outlined, size: 16),
+                              icon: const Icon(
+                                Icons.description_outlined,
+                                size: 16,
+                              ),
                               label: const Text('Open Clinic Forms & EHR'),
                             ),
                           ],

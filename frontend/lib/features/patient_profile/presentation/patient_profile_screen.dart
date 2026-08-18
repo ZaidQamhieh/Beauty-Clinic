@@ -277,7 +277,8 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
     final fullName = '$firstName $lastName'.trim();
     final displayName = fullName.isNotEmpty ? fullName : 'Patient Profile';
 
-    final initials = (firstName.isNotEmpty ? firstName[0] : '') +
+    final initials =
+        (firstName.isNotEmpty ? firstName[0] : '') +
         (lastName.isNotEmpty ? lastName[0] : '');
     final avatarText = initials.isNotEmpty ? initials.toUpperCase() : 'P';
 
@@ -365,12 +366,14 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
     final smoking = _patientData?['smokingStatus'] != null
         ? _humanizeEnum(_patientData!['smokingStatus'].toString())
         : 'Not recorded';
-    final pregnant =
-        _patientData?['pregnantBreastfeeding'] == true ? 'Yes' : 'No';
+    final pregnant = _patientData?['pregnantBreastfeeding'] == true
+        ? 'Yes'
+        : 'No';
     final allergies = List<String>.from(_patientData?['allergies'] ?? []);
     final medications = List<String>.from(_patientData?['medications'] ?? []);
-    final chronicConditions =
-        List<String>.from(_patientData?['chronicConditions'] ?? []);
+    final chronicConditions = List<String>.from(
+      _patientData?['chronicConditions'] ?? [],
+    );
 
     return ListView(
       children: [
@@ -509,10 +512,7 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
             const Icon(Icons.error_outline, size: 36, color: AppColors.rose),
             const SizedBox(height: 8),
             Text(_productsError!, style: AppTypography.bodySmall()),
-            TextButton(
-              onPressed: _loadProducts,
-              child: const Text('Retry'),
-            ),
+            TextButton(onPressed: _loadProducts, child: const Text('Retry')),
           ],
         ),
       );
@@ -523,7 +523,11 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.spa_outlined, size: 48, color: AppColors.textMuted),
+            const Icon(
+              Icons.spa_outlined,
+              size: 48,
+              color: AppColors.textMuted,
+            ),
             const SizedBox(height: 12),
             Text(
               'No Products Assigned',
@@ -587,7 +591,9 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
                     const SizedBox(height: 2),
                     Text(
                       subtitle,
-                      style: AppTypography.bodySmall(color: AppColors.textMuted),
+                      style: AppTypography.bodySmall(
+                        color: AppColors.textMuted,
+                      ),
                     ),
                   ],
                 ),
@@ -602,10 +608,12 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
   static String _humanizeEnum(String text) {
     if (text.isEmpty) return text;
     final words = text.replaceAll('_', ' ').split(' ');
-    return words.map((w) {
-      if (w.isEmpty) return w;
-      return '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}';
-    }).join(' ');
+    return words
+        .map((w) {
+          if (w.isEmpty) return w;
+          return '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}';
+        })
+        .join(' ');
   }
 
   Widget _buildTag(String label, Color color, Color bg) {

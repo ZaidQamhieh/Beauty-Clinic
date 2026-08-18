@@ -16,7 +16,8 @@ class PatientsDirectoryScreen extends StatefulWidget {
   });
 
   @override
-  State<PatientsDirectoryScreen> createState() => _PatientsDirectoryScreenState();
+  State<PatientsDirectoryScreen> createState() =>
+      _PatientsDirectoryScreenState();
 }
 
 class _PatientsDirectoryScreenState extends State<PatientsDirectoryScreen> {
@@ -134,10 +135,7 @@ class _PatientsDirectoryScreenState extends State<PatientsDirectoryScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Patients Directory',
-                  style: AppTypography.displayTitle(),
-                ),
+                Text('Patients Directory', style: AppTypography.displayTitle()),
                 const SizedBox(height: 4),
                 Text(
                   'Browse registered clinic patients, inspect medical histories, and update clinical intake forms.',
@@ -156,7 +154,11 @@ class _PatientsDirectoryScreenState extends State<PatientsDirectoryScreen> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.folder_shared_outlined, size: 16, color: AppColors.rose),
+                const Icon(
+                  Icons.folder_shared_outlined,
+                  size: 16,
+                  color: AppColors.rose,
+                ),
                 const SizedBox(width: 8),
                 Text(
                   '${_patients.length} Patients',
@@ -186,11 +188,21 @@ class _PatientsDirectoryScreenState extends State<PatientsDirectoryScreen> {
                 },
                 decoration: InputDecoration(
                   hintText: 'Search by patient name, email, or phone number...',
-                  hintStyle: AppTypography.bodySmall(color: AppColors.textMuted),
-                  prefixIcon: const Icon(Icons.search, color: AppColors.textMuted, size: 20),
+                  hintStyle: AppTypography.bodySmall(
+                    color: AppColors.textMuted,
+                  ),
+                  prefixIcon: const Icon(
+                    Icons.search,
+                    color: AppColors.textMuted,
+                    size: 20,
+                  ),
                   suffixIcon: _searchController.text.isNotEmpty
                       ? IconButton(
-                          icon: const Icon(Icons.clear, size: 18, color: AppColors.textMuted),
+                          icon: const Icon(
+                            Icons.clear,
+                            size: 18,
+                            color: AppColors.textMuted,
+                          ),
                           onPressed: () {
                             _searchController.clear();
                             _loadPatients('');
@@ -199,7 +211,10 @@ class _PatientsDirectoryScreenState extends State<PatientsDirectoryScreen> {
                       : null,
                   filled: true,
                   fillColor: AppColors.bgCard,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
                     borderSide: const BorderSide(color: AppColors.border),
@@ -210,7 +225,10 @@ class _PatientsDirectoryScreenState extends State<PatientsDirectoryScreen> {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
-                    borderSide: const BorderSide(color: AppColors.rose, width: 1.5),
+                    borderSide: const BorderSide(
+                      color: AppColors.rose,
+                      width: 1.5,
+                    ),
                   ),
                 ),
               ),
@@ -223,8 +241,13 @@ class _PatientsDirectoryScreenState extends State<PatientsDirectoryScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.rose,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 15,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
                 elevation: 0,
               ),
             ),
@@ -262,9 +285,7 @@ class _PatientsDirectoryScreenState extends State<PatientsDirectoryScreen> {
       ),
       selectedColor: AppColors.rose,
       backgroundColor: AppColors.bgAlt,
-      side: BorderSide(
-        color: isSelected ? AppColors.rose : AppColors.border,
-      ),
+      side: BorderSide(color: isSelected ? AppColors.rose : AppColors.border),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       showCheckmark: false,
     );
@@ -276,8 +297,8 @@ class _PatientsDirectoryScreenState extends State<PatientsDirectoryScreen> {
         final crossAxisCount = constraints.maxWidth > 1000
             ? 3
             : constraints.maxWidth > 650
-                ? 2
-                : 1;
+            ? 2
+            : 1;
 
         return GridView.builder(
           shrinkWrap: true,
@@ -302,13 +323,16 @@ class _PatientsDirectoryScreenState extends State<PatientsDirectoryScreen> {
     final patientId = patient['id']?.toString() ?? '';
     final firstName = patient['firstName']?.toString() ?? '';
     final lastName = patient['lastName']?.toString() ?? '';
-    final fullName = '$firstName $lastName'.trim().isEmpty ? 'Unnamed Patient' : '$firstName $lastName';
+    final fullName = '$firstName $lastName'.trim().isEmpty
+        ? 'Unnamed Patient'
+        : '$firstName $lastName';
     final email = patient['email']?.toString() ?? 'No email';
     final phone = patient['phone']?.toString() ?? 'No phone';
     final skinType = patient['skinType']?.toString();
     final hasCompletedIntake = skinType != null && skinType.isNotEmpty;
 
-    final initials = (firstName.isNotEmpty ? firstName[0] : '') +
+    final initials =
+        (firstName.isNotEmpty ? firstName[0] : '') +
         (lastName.isNotEmpty ? lastName[0] : '');
 
     return Material(
@@ -336,7 +360,9 @@ class _PatientsDirectoryScreenState extends State<PatientsDirectoryScreen> {
                     backgroundColor: AppColors.bgRose,
                     child: Text(
                       initials.toUpperCase(),
-                      style: AppTypography.labelLarge(color: AppColors.roseDark),
+                      style: AppTypography.labelLarge(
+                        color: AppColors.roseDark,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -353,7 +379,9 @@ class _PatientsDirectoryScreenState extends State<PatientsDirectoryScreen> {
                         const SizedBox(height: 2),
                         Text(
                           email,
-                          style: AppTypography.bodySmall(color: AppColors.textMuted),
+                          style: AppTypography.bodySmall(
+                            color: AppColors.textMuted,
+                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -367,7 +395,11 @@ class _PatientsDirectoryScreenState extends State<PatientsDirectoryScreen> {
               // Phone & Contact
               Row(
                 children: [
-                  const Icon(Icons.phone_outlined, size: 14, color: AppColors.textMuted),
+                  const Icon(
+                    Icons.phone_outlined,
+                    size: 14,
+                    color: AppColors.textMuted,
+                  ),
                   const SizedBox(width: 6),
                   Text(
                     phone,
@@ -384,24 +416,37 @@ class _PatientsDirectoryScreenState extends State<PatientsDirectoryScreen> {
                 children: [
                   // Form Status Badge
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
-                      color: hasCompletedIntake ? AppColors.bgSage : AppColors.bgRose,
+                      color: hasCompletedIntake
+                          ? AppColors.bgSage
+                          : AppColors.bgRose,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          hasCompletedIntake ? Icons.check_circle_outline : Icons.pending_actions,
+                          hasCompletedIntake
+                              ? Icons.check_circle_outline
+                              : Icons.pending_actions,
                           size: 12,
-                          color: hasCompletedIntake ? AppColors.sageDark : AppColors.rose,
+                          color: hasCompletedIntake
+                              ? AppColors.sageDark
+                              : AppColors.rose,
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          hasCompletedIntake ? 'Intake Complete' : 'Intake Pending',
+                          hasCompletedIntake
+                              ? 'Intake Complete'
+                              : 'Intake Pending',
                           style: AppTypography.labelSmall(
-                            color: hasCompletedIntake ? AppColors.sageDark : AppColors.roseDark,
+                            color: hasCompletedIntake
+                                ? AppColors.sageDark
+                                : AppColors.roseDark,
                           ).copyWith(fontSize: 10),
                         ),
                       ],
@@ -410,15 +455,19 @@ class _PatientsDirectoryScreenState extends State<PatientsDirectoryScreen> {
                   // Skin Type Badge
                   if (skinType != null && skinType.isNotEmpty)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.bgLavender,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
                         'Skin: $skinType',
-                        style: AppTypography.labelSmall(color: AppColors.lavDark)
-                            .copyWith(fontSize: 10),
+                        style: AppTypography.labelSmall(
+                          color: AppColors.lavDark,
+                        ).copyWith(fontSize: 10),
                       ),
                     ),
                 ],
@@ -435,7 +484,9 @@ class _PatientsDirectoryScreenState extends State<PatientsDirectoryScreen> {
                   Flexible(
                     child: Text(
                       'ID: ${patientId.length > 8 ? patientId.substring(0, 8) : patientId}...',
-                      style: AppTypography.labelSmall(color: AppColors.textMuted),
+                      style: AppTypography.labelSmall(
+                        color: AppColors.textMuted,
+                      ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -445,11 +496,16 @@ class _PatientsDirectoryScreenState extends State<PatientsDirectoryScreen> {
                     children: [
                       Text(
                         'View Details',
-                        style: AppTypography.labelSmall(color: AppColors.rose)
-                            .copyWith(fontWeight: FontWeight.w600),
+                        style: AppTypography.labelSmall(
+                          color: AppColors.rose,
+                        ).copyWith(fontWeight: FontWeight.w600),
                       ),
                       const SizedBox(width: 4),
-                      const Icon(Icons.arrow_forward_rounded, size: 14, color: AppColors.rose),
+                      const Icon(
+                        Icons.arrow_forward_rounded,
+                        size: 14,
+                        color: AppColors.rose,
+                      ),
                     ],
                   ),
                 ],
@@ -472,12 +528,13 @@ class _PatientsDirectoryScreenState extends State<PatientsDirectoryScreen> {
       ),
       child: Column(
         children: [
-          const Icon(Icons.person_search_outlined, size: 48, color: AppColors.textMuted),
-          const SizedBox(height: 16),
-          Text(
-            'No Patients Found',
-            style: AppTypography.displaySubtitle(),
+          const Icon(
+            Icons.person_search_outlined,
+            size: 48,
+            color: AppColors.textMuted,
           ),
+          const SizedBox(height: 16),
+          Text('No Patients Found', style: AppTypography.displaySubtitle()),
           const SizedBox(height: 6),
           Text(
             _searchController.text.isNotEmpty
@@ -495,7 +552,9 @@ class _PatientsDirectoryScreenState extends State<PatientsDirectoryScreen> {
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.rose,
                 side: const BorderSide(color: AppColors.borderRose),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               child: const Text('Clear Search'),
             ),
