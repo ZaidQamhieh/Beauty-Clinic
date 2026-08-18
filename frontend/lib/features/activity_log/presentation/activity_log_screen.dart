@@ -149,20 +149,22 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
 
   Widget _body() {
     if (_loading) return const Center(child: CircularProgressIndicator());
-    if (_error != null)
+    if (_error != null) {
       return Center(
         child: Text(
           _error!,
           style: AppTypography.bodyLarge(color: AppColors.textMuted),
         ),
       );
-    if (_entries.isEmpty)
+    }
+    if (_entries.isEmpty) {
       return Center(
         child: Text(
           'No activity matches these filters.',
           style: AppTypography.bodyLarge(color: AppColors.textMuted),
         ),
       );
+    }
     return Row(
       children: [
         Expanded(
