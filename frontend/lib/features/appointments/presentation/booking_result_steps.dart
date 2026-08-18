@@ -22,7 +22,7 @@ class BookingSuccessStep extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      // Hugs its sessions, so a one-treatment visit is not a screen of nothing.
+      // Hugs its sessions; one treatment fills little.
       mainAxisSize: MainAxisSize.min,
       children: [
         const Icon(Icons.check_circle_outline, color: AppColors.sage, size: 44),
@@ -177,4 +177,171 @@ class BookingErrorBanner extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Browse's shape while the first load runs.
+class BookingBrowseSkeleton extends StatelessWidget {
+  const BookingBrowseSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return _Pulse(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // Wide fills the frame, matching browse.
+          if (constraints.maxWidth >= 720) {
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(width: 340, child: _LeftSkeleton(fill: true)),
+                const SizedBox(width: 24),
+                const Expanded(child: _CardsSkeleton(fill: true)),
+              ],
+            );
+          }
+          return SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const _LeftSkeleton(fill: false),
+                const SizedBox(height: 20),
+                const _CardsSkeleton(fill: false),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// The times panel alone, mid-search.
+class BookingSlotsSkeleton extends StatelessWidget {
+  const BookingSlotsSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const _Pulse(child: _CardsSkeleton(fill: false));
+  }
+}
+
+/// Fades its child; marks it unreal.
+class _Pulse extends StatefulWidget {
+  const _Pulse({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_Pulse> createState() => _PulseState();
+}
+
+class _PulseState extends State<_Pulse> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 900),
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: Tween<double>(begin: 0.45, end: 1).animate(_controller),
+      child: widget.child,
+    );
+  }
+}
+
+/// Treatment field, view toggle, then calendar.
+class _LeftSkeleton extends StatelessWidget {
+  const _LeftSkeleton({required this.fill});
+
+  final bool fill;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: fill ? MainAxisSize.max : MainAxisSize.min,
+      children: [
+        _bar(width: 140, height: 10),
+        const SizedBox(height: 10),
+        _block(height: 44),
+        const SizedBox(height: 18),
+        _bar(width: 120, height: 10),
+        const SizedBox(height: 10),
+        _block(height: 38),
+        const SizedBox(height: 18),
+        // Calendar takes what the fields leave.
+        if (fill) Expanded(child: _block()) else _block(height: 250),
+      ],
+    );
+  }
+}
+
+/// Panel heading over stand-in slot cards.
+class _CardsSkeleton extends StatelessWidget {
+  const _CardsSkeleton({required this.fill});
+
+  final bool fill;
+
+  static const _count = 3;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: fill ? MainAxisSize.max : MainAxisSize.min,
+      children: [
+        _bar(width: 180, height: 12),
+        const SizedBox(height: 8),
+        _bar(width: 240, height: 10),
+        const SizedBox(height: 18),
+        // Filling shares the height; else fixed cards.
+        if (fill)
+          Expanded(
+            child: Column(
+              children: [
+                for (var i = 0; i < _count; i++) ...[
+                  Expanded(child: _block()),
+                  if (i < _count - 1) const SizedBox(height: 12),
+                ],
+              ],
+            ),
+          )
+        else
+          for (var i = 0; i < _count; i++) ...[
+            _block(height: 68),
+            if (i < _count - 1) const SizedBox(height: 12),
+          ],
+      ],
+    );
+  }
+}
+
+Widget _bar({required double width, required double height}) {
+  return Container(
+    width: width,
+    height: height,
+    decoration: BoxDecoration(
+      color: AppColors.hairline,
+      borderRadius: BorderRadius.circular(4),
+    ),
+  );
+}
+
+// Null height lets Expanded size it.
+Widget _block({double? height}) {
+  return Container(
+    height: height,
+    decoration: BoxDecoration(
+      color: AppColors.bgAlt,
+      border: Border.all(color: AppColors.border),
+      borderRadius: BorderRadius.circular(12),
+    ),
+  );
 }

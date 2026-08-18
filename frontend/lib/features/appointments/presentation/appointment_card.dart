@@ -33,7 +33,7 @@ class UpcomingCard extends StatelessWidget {
         : appointment.sessions;
     return _AppointmentCard(
       appointment: appointment,
-      // Still to come, or all if none planned.
+      // Still to come, else all of them.
       sessions: sessions,
       statusLabel: 'Confirmed',
       // Soonest treatment stands out; rest recedes.
@@ -113,14 +113,14 @@ class HistoryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return _AppointmentCard(
       appointment: appointment,
-      // What was delivered, not only what is planned.
+      // What was delivered, not just planned.
       sessions: [...appointment.sessions]
         ..sort((a, b) => a.startTime.compareTo(b.startTime)),
       statusLabel: historyStatus(appointment),
     );
   }
 
-  // What became of the visit, per its treatments.
+  // Visit outcome, read from its treatments.
   static String historyStatus(Appointment appointment) {
     if (!appointment.isBooked) return 'Cancelled';
     final sessions = appointment.sessions;
@@ -133,6 +133,9 @@ class HistoryCard extends StatelessWidget {
     return 'Pending';
   }
 }
+
+/// Side inset every row but next.
+const EdgeInsets _inset = EdgeInsets.symmetric(horizontal: 8);
 
 class _AppointmentCard extends StatelessWidget {
   const _AppointmentCard({
@@ -175,7 +178,8 @@ class _AppointmentCard extends StatelessWidget {
     return Opacity(
       opacity: _muted ? 0.6 : 1,
       child: Container(
-        padding: const EdgeInsets.all(16),
+        // Sides sit on children; next row bleeds.
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
         decoration: BoxDecoration(
           color: _muted ? AppColors.bgAlt : AppColors.bgCard,
           borderRadius: BorderRadius.circular(14),
@@ -184,21 +188,27 @@ class _AppointmentCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Flexible(
-                  child: Text(
-                    '${BookingFormat.day(appointment.scheduledAt)} · '
-                    '${BookingFormat.time12(appointment.scheduledAt)}',
-                    style: AppTypography.labelLarge(),
+            Padding(
+              padding: _inset,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Flexible(
+                    child: Text(
+                      '${BookingFormat.day(appointment.scheduledAt)} · '
+                      '${BookingFormat.time12(appointment.scheduledAt)}',
+                      style: AppTypography.labelLarge(),
+                    ),
                   ),
-                ),
-                StatusPill(status: statusLabel),
-              ],
+                  StatusPill(status: statusLabel),
+                ],
+              ),
             ),
             const SizedBox(height: 8),
-            const Divider(height: 1, color: AppColors.border),
+            const Padding(
+              padding: _inset,
+              child: Divider(height: 1, color: AppColors.border),
+            ),
             const SizedBox(height: 10),
             for (final session in sessions)
               _SessionRow(
@@ -206,7 +216,10 @@ class _AppointmentCard extends StatelessWidget {
                 isNext: session.id == nextId,
                 trailing: sessionTrailing?.call(session),
               ),
-            if (footer != null) ...[const SizedBox(height: 4), footer!],
+            if (footer != null) ...[
+              const SizedBox(height: 4),
+              Padding(padding: _inset, child: footer!),
+            ],
           ],
         ),
       ),
@@ -270,6 +283,7 @@ class _SessionRow extends StatelessWidget {
     );
 
     if (isNext) {
+      // Text stays aligned; tint runs wider.
       return Container(
         margin: const EdgeInsets.symmetric(vertical: 2),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
@@ -281,7 +295,7 @@ class _SessionRow extends StatelessWidget {
       );
     }
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: _inset.copyWith(bottom: 8),
       child: Opacity(opacity: 0.6, child: row),
     );
   }
@@ -293,7 +307,7 @@ class _CategoryBadge extends StatelessWidget {
 
   final String category;
 
-  /// Swaps the tint when row has its own.
+  /// Swaps tint when row has one.
   final Color? backgroundOverride;
 
   static const _byCategory = {

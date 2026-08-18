@@ -53,6 +53,9 @@ class BookingFlowSheet extends StatefulWidget {
 
 enum _Step { loading, gateBlocked, fatalError, browse, review, success }
 
+/// Shortest treatment, so it proxies open time.
+const String _probeName = 'CONSULTATION';
+
 class _BookingFlowSheetState extends State<BookingFlowSheet>
     with WidgetsBindingObserver {
   _Step _step = _Step.loading;
@@ -176,12 +179,20 @@ class _BookingFlowSheetState extends State<BookingFlowSheet>
       _fatalMessage = '';
     });
     try {
+      // Times leave first; nothing gates them.
+      final probeCall = _prefetchSlots();
+
+      final patientCall = widget.appointmentApi.me();
+      final treatmentsCall = widget.treatmentApi.list();
+      final rulesCall = widget.treatmentApi.rules();
+      final doctorsCall = widget.doctorApi.list();
+
       // One wait; a failure can't orphan others.
       final results = await Future.wait([
-        widget.appointmentApi.me(),
-        widget.treatmentApi.list(),
-        widget.treatmentApi.rules(),
-        widget.doctorApi.list(),
+        patientCall,
+        treatmentsCall,
+        rulesCall,
+        doctorsCall,
       ]);
       if (!mounted) return;
 
@@ -219,7 +230,7 @@ class _BookingFlowSheetState extends State<BookingFlowSheet>
         return;
       }
       setState(() => _step = _Step.browse);
-      _loadSlots();
+      _loadSlots(pending: _probeFits ? probeCall : null);
     } on ForbiddenException {
       _fail('Only patients can book from here.');
     } catch (_) {
@@ -253,19 +264,45 @@ class _BookingFlowSheetState extends State<BookingFlowSheet>
     });
   }
 
+  Treatment? get _probeTreatment => _probeIn(_treatments);
+
   // Consultation is shortest; best free-time proxy.
-  Treatment? get _probeTreatment {
-    if (_treatments.isEmpty) return null;
-    for (final treatment in _treatments) {
+  Treatment? _probeIn(List<Treatment> treatments) {
+    if (treatments.isEmpty) return null;
+    for (final treatment in treatments) {
       if (treatment.name == 'CONSULTATION') return treatment;
     }
-    return _treatments.reduce(
+    return treatments.reduce(
       (a, b) => a.durationMinutes <= b.durationMinutes ? a : b,
     );
   }
 
+  // First browse search, sent knowing nothing.
+  Future<List<FreeSlot>?> _prefetchSlots() async {
+    // Kept cart opens on review instead.
+    if (widget.initialSessions.isNotEmpty) return null;
+
+    try {
+      // Server fills in day and caller.
+      return await widget.appointmentApi.freeSlots(
+        treatmentName: _probeName,
+        replacesAppointmentId: widget.replacesAppointmentId,
+      );
+    } catch (_) {
+      // Lost probe costs browse one fetch.
+      return null;
+    }
+  }
+
+  // Matches only what browse opens on.
+  bool get _probeFits =>
+      _selectedDay == _today && _probeTreatment?.name == _probeName;
+
   // silent: a poll, disturbing nothing on screen.
-  Future<void> _loadSlots({bool silent = false}) async {
+  Future<void> _loadSlots({
+    bool silent = false,
+    Future<List<FreeSlot>?>? pending,
+  }) async {
     // No treatment yet; probe shows open time.
     final probing = _selectedTreatment == null;
     final treatment = _selectedTreatment ?? _probeTreatment;
@@ -284,7 +321,9 @@ class _BookingFlowSheetState extends State<BookingFlowSheet>
       });
     }
     try {
-      final slots = await widget.appointmentApi.freeSlots(
+      // Prefetched during load, when one exists.
+      var slots = pending == null ? null : await pending;
+      slots ??= await widget.appointmentApi.freeSlots(
         treatmentName: treatment.name,
         date: _selectedDay,
         patientUserId: _patient!.userId,
@@ -501,7 +540,8 @@ class _BookingFlowSheetState extends State<BookingFlowSheet>
 
   // ─── Build ────────────────────────────────────────────────────────────────
 
-  bool get _fillsHeight => _step == _Step.browse;
+  // Loading wears browse's frame; nothing jumps.
+  bool get _fillsHeight => _step == _Step.browse || _step == _Step.loading;
 
   @override
   Widget build(BuildContext context) {
@@ -587,7 +627,7 @@ class _BookingFlowSheetState extends State<BookingFlowSheet>
   Widget _body() {
     switch (_step) {
       case _Step.loading:
-        return const Center(child: CircularProgressIndicator());
+        return const BookingBrowseSkeleton();
       case _Step.fatalError:
         return BookingMessage(
           icon: Icons.error_outline,
