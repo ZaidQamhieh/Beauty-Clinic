@@ -64,10 +64,59 @@ jobs:
           name: backend-test-reports
           path: backend/target/surefire-reports/
 
+  # Fixes what a tool can fix, so nobody pushes twice for a stray space.
+  autofix:
+    name: Auto-fix (formatting and lints)
+    needs: changes
+    # A fork's token is read-only, so the fix can only be pushed on branches in this repo.
+    if: >
+      needs.changes.outputs.frontend == 'true' &&
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.head_ref }}
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.44.8'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+        working-directory: frontend
+
+      - name: Apply analyzer fixes
+        run: dart fix --apply
+        working-directory: frontend
+
+      - name: Format
+        run: dart format .
+        working-directory: frontend
+
+      # Pushing with GITHUB_TOKEN starts no new run, so this cannot loop.
+      - name: Commit whatever changed
+        run: |
+          if [[ -z "$(git status --porcelain)" ]]; then
+            echo "Already clean."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "Apply dart fix and dart format"
+          git push
+
   frontend:
     name: Frontend (Flutter web)
-    needs: changes
-    if: needs.changes.outputs.frontend == 'true'
+    needs: [changes, autofix]
+    # autofix is skipped for forks and pushes to main; the checks still run.
+    if: always() && needs.changes.outputs.frontend == 'true' && needs.autofix.result != 'failure'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     defaults:
@@ -75,6 +124,9 @@ jobs:
         working-directory: frontend
     steps:
       - uses: actions/checkout@v7
+        with:
+          # The branch tip, so this picks up whatever autofix just pushed.
+          ref: ${{ github.head_ref || github.ref }}
 
       - uses: subosito/flutter-action@v2
         with:
@@ -85,21 +137,27 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      # Still a gate, for forks and for anything dart format cannot fix.
       - name: Verify formatting
+        if: ${{ !cancelled() }}
         run: dart format --set-exit-if-changed .
 
+      # Every check runs even after one fails, so a run reports all of it at once.
       - name: Analyze
+        if: ${{ !cancelled() }}
         run: flutter analyze --fatal-infos
 
       - name: Test
+        if: ${{ !cancelled() }}
         run: flutter test
 
       - name: Build web
+        if: ${{ !cancelled() }}
         run: flutter build web --release
 
   ci:
     name: CI
-    needs: [backend, frontend]
+    needs: [backend, frontend, autofix]
     if: always()
     runs-on: ubuntu-latest
     steps:
