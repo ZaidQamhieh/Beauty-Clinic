@@ -25,7 +25,7 @@ void main() {
 
     await tester.pumpWidget(BeautyClinicApp(authSession: session));
     await tester.pump();
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.text('YASMINE'), findsWidgets);
   });

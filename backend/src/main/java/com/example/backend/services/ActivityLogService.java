@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
 import java.util.UUID;
+import com.fasterxml.jackson.databind.JsonNode;
 
 @Service
 @RequiredArgsConstructor
@@ -53,6 +54,13 @@ public class ActivityLogService {
         activityLogs.save(
                 ActivityLog.onEntity(actorId, patientUserId, action, "appointment_session", sessionId)
         );
+    }
+
+    @Transactional
+    public void recordClinicalProfileUpdate(
+            UUID actorId, UUID patientUserId, JsonNode oldValues, JsonNode newValues
+    ) {
+        activityLogs.save(ActivityLog.clinicalProfileUpdated(actorId, patientUserId, oldValues, newValues));
     }
 
     // Joins the caller: REQUIRES_NEW cannot see the uncommitted user it references.

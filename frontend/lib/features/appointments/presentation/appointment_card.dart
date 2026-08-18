@@ -271,7 +271,7 @@ class _SessionRow extends StatelessWidget {
 
     if (isNext) {
       return Container(
-        margin: const EdgeInsets.symmetric(horizontal: -8),
+        margin: const EdgeInsets.symmetric(vertical: 2),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
           color: AppColors.rosePale,

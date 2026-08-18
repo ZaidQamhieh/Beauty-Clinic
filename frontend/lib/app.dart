@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:beauty_clinic_app/auth/auth_session.dart';
 import 'package:beauty_clinic_app/auth/role.dart';
+import 'package:beauty_clinic_app/core/theme/app_colors.dart';
 import 'package:beauty_clinic_app/core/theme/app_theme.dart';
 import 'package:beauty_clinic_app/core/widgets/floating_petals.dart';
 import 'package:beauty_clinic_app/features/shell/presentation/app_shell.dart';
@@ -15,6 +16,11 @@ import 'package:beauty_clinic_app/features/appointments/data/doctor_api.dart';
 import 'package:beauty_clinic_app/features/appointments/data/treatment_api.dart';
 import 'package:beauty_clinic_app/features/appointments/presentation/appointments_screen.dart';
 import 'package:beauty_clinic_app/features/appointments/presentation/booking_flow_sheet.dart';
+import 'package:beauty_clinic_app/features/forms/data/clinical_intake_api.dart';
+import 'package:beauty_clinic_app/features/forms/data/clinical_intake_schema.dart';
+import 'package:beauty_clinic_app/features/forms/data/dynamic_form_api.dart';
+import 'package:beauty_clinic_app/features/forms/presentation/admin_clinical_intake_screen.dart';
+import 'package:beauty_clinic_app/features/forms/presentation/form_builder_admin_screen.dart';
 import 'package:beauty_clinic_app/features/products/data/product_api.dart';
 import 'package:beauty_clinic_app/features/products/presentation/product_catalog_screen.dart';
 import 'package:beauty_clinic_app/features/staff_management/staff_management_screen.dart';
@@ -120,6 +126,8 @@ class _MainRootControllerState extends State<MainRootController> {
   late final TreatmentApi _treatmentApi;
   late final AppointmentApi _appointmentApi;
   late final DoctorApi _doctorApi;
+  late final ClinicalIntakeApi _clinicalApi;
+  late final DynamicFormApi _dynamicApi;
 
   // Carries a just-booked visit to the list.
   final ValueNotifier<Appointment?> _bookedSignal = ValueNotifier<Appointment?>(
@@ -138,6 +146,8 @@ class _MainRootControllerState extends State<MainRootController> {
     _treatmentApi = TreatmentApi(_apiClient);
     _appointmentApi = AppointmentApi(_apiClient);
     _doctorApi = DoctorApi(_apiClient);
+    _clinicalApi = ClinicalIntakeApi(_apiClient);
+    _dynamicApi = DynamicFormApi(_apiClient);
   }
 
   @override
@@ -180,6 +190,7 @@ class _MainRootControllerState extends State<MainRootController> {
     }
     if (!_allowedViews.contains(newView)) return;
     setState(() {
+      _fromBookingFlow = false;
       _activeView = newView;
     });
   }
@@ -188,6 +199,7 @@ class _MainRootControllerState extends State<MainRootController> {
     'doctor' => {
       'dashboard',
       'patients',
+      'clinical_forms',
       'doctor_profile',
       'consultations',
       'products',
@@ -202,6 +214,8 @@ class _MainRootControllerState extends State<MainRootController> {
     },
     _ => {
       'dashboard',
+      'clinical_forms',
+      'form_builder',
       'appointments',
       'patients',
       'doctors',
@@ -219,13 +233,169 @@ class _MainRootControllerState extends State<MainRootController> {
     });
   }
 
+  int _patientProfileTabIndex = 0;
+  bool _fromBookingFlow = false;
+
   void _onViewDoctor(String doctorName) {
     setState(() {
       _activeView = 'doctor_profile';
     });
   }
 
-  void _openBookingModal() {
+  Future<void> _openBookingModal() async {
+    if (_activeRole == 'patient') {
+      try {
+        final data = await _clinicalApi.fetchOwn();
+        final isComplete = ClinicalIntakeSchema.isComplete(data);
+        if (!mounted) return;
+
+        if (!isComplete) {
+          await showDialog<void>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.rose.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.assignment_late_outlined,
+                      color: AppColors.rose,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      'Clinical Form Required',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                ],
+              ),
+              content: const Text(
+                'Please complete your clinical health & intake form before booking an appointment. '
+                'Our medical team requires this information to ensure your treatment is safe and tailored to you.',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: AppColors.textSub,
+                  height: 1.4,
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text(
+                    'Cancel',
+                    style: TextStyle(color: AppColors.textMuted),
+                  ),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.rose,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: () {
+                    Navigator.of(ctx).pop();
+                    setState(() {
+                      _fromBookingFlow = true;
+                      _patientProfileTabIndex = 3;
+                      _activeView = 'patient_profile';
+                    });
+                  },
+                  child: const Text('Fill Clinical Form'),
+                ),
+              ],
+            ),
+          );
+          return;
+        } else {
+          final action = await showDialog<String>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.sage.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.assignment_turned_in_outlined,
+                      color: AppColors.sage,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      'Clinical Form Verified',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                ],
+              ),
+              content: const Text(
+                'Your clinical intake form has been completed and verified. Would you like to continue with booking, or review and update your health details first?',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: AppColors.textSub,
+                  height: 1.4,
+                ),
+              ),
+              actions: [
+                OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.text,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: () {
+                    Navigator.of(ctx).pop('modify');
+                    setState(() {
+                      _fromBookingFlow = true;
+                      _patientProfileTabIndex = 3;
+                      _activeView = 'patient_profile';
+                    });
+                  },
+                  child: const Text('Review / Modify Form'),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.rose,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: () => Navigator.of(ctx).pop('proceed'),
+                  child: const Text('Continue to Booking'),
+                ),
+              ],
+            ),
+          );
+          if (action != 'proceed') return;
+        }
+      } catch (_) {
+        // Fallback gracefully on network error
+      }
+    }
+
+    if (!mounted) return;
     showDialog<bool>(
       context: context,
       builder: (context) => BookingFlowSheet(
@@ -269,6 +439,12 @@ class _MainRootControllerState extends State<MainRootController> {
         treatmentApi: _treatmentApi,
         doctorApi: _doctorApi,
         bookedSignal: _bookedSignal,
+        clinicalApi: _clinicalApi,
+        onNavigateToForms: () => setState(() {
+          _fromBookingFlow = true;
+          _patientProfileTabIndex = 3;
+          _activeView = 'patient_profile';
+        }),
       );
     }
 
@@ -282,7 +458,12 @@ class _MainRootControllerState extends State<MainRootController> {
           activeRole: _activeRole,
           onViewPatient: _onViewPatient,
           onViewDoctor: _onViewDoctor,
+          apiClient: _apiClient,
         );
+      case 'clinical_forms':
+        return AdminClinicalIntakeScreen(api: _clinicalApi);
+      case 'form_builder':
+        return FormBuilderAdminScreen(api: _dynamicApi);
       case 'products':
         return ProductCatalogScreen(
           key: const ValueKey('products'),
@@ -303,8 +484,23 @@ class _MainRootControllerState extends State<MainRootController> {
         );
       case 'patient_profile':
         return PatientProfileScreen(
-          key: const ValueKey('patient_profile'),
-          onBack: () => setState(() => _activeView = 'dashboard'),
+          key: ValueKey('patient_profile_${_patientProfileTabIndex}_$_fromBookingFlow'),
+          clinicalApi: _clinicalApi,
+          dynamicApi: _dynamicApi,
+          initialTabIndex: _patientProfileTabIndex,
+          onBackToAppointments: _fromBookingFlow
+              ? () => setState(() {
+                  _fromBookingFlow = false;
+                  _patientProfileTabIndex = 0;
+                  _activeView =
+                      _activeRole == 'patient' ? 'appointments' : 'dashboard';
+                })
+              : null,
+          onBack: () => setState(() {
+            _fromBookingFlow = false;
+            _patientProfileTabIndex = 0;
+            _activeView = 'dashboard';
+          }),
         );
       case 'landing':
       default:

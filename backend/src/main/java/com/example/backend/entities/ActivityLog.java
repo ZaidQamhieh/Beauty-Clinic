@@ -5,6 +5,9 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.Immutable;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+import com.fasterxml.jackson.databind.JsonNode;
 
 import java.time.Instant;
 import java.util.Objects;
@@ -37,6 +40,14 @@ public class ActivityLog {
 
     @Column(name = "entity_id")
     private UUID entityId;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "old_values", columnDefinition = "jsonb")
+    private JsonNode oldValues;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "new_values", columnDefinition = "jsonb")
+    private JsonNode newValues;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 60)
@@ -113,5 +124,17 @@ public class ActivityLog {
                 null,
                 null
         );
+    }
+
+    public static ActivityLog clinicalProfileUpdated(
+            UUID actorId, UUID patientUserId, JsonNode oldValues, JsonNode newValues
+    ) {
+        ActivityLog log = new ActivityLog(
+                actorId, patientUserId, null, ActivityAction.CLINICAL_PROFILE_UPDATED,
+                "patient_profile", patientUserId
+        );
+        log.oldValues = oldValues;
+        log.newValues = newValues;
+        return log;
     }
 }
