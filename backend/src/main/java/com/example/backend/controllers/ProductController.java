@@ -2,7 +2,7 @@ package com.example.backend.controllers;
 
 import com.example.backend.dtos.CreateProductRequest;
 import com.example.backend.dtos.ProductResponse;
-import com.example.backend.security.access.AdminOnly;
+import com.example.backend.security.access.AdminOrDoctor; // replaced with Admin since Doctor can work with products
 import com.example.backend.security.access.Authenticated;
 import com.example.backend.services.ProductService;
 import jakarta.validation.Valid;
@@ -42,13 +42,13 @@ public class ProductController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    @AdminOnly
+    @AdminOrDoctor
     public ProductResponse create(@Valid @RequestBody CreateProductRequest request) {
         return products.create(request);
     }
 
     @PutMapping("/{id}")
-    @AdminOnly
+    @AdminOrDoctor
     public ProductResponse update(
             @PathVariable UUID id,
             @Valid @RequestBody CreateProductRequest request
@@ -58,7 +58,7 @@ public class ProductController {
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @AdminOnly
+    @AdminOrDoctor
     public void delete(@PathVariable UUID id) {
         products.delete(id);
     }

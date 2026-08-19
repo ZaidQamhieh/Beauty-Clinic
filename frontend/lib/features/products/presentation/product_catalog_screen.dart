@@ -23,7 +23,11 @@ class ProductCatalogScreen extends StatefulWidget {
 class _ProductCatalogScreenState extends State<ProductCatalogScreen> {
   late Future<List<Product>> _products = widget.api.list();
 
-  void _reload() => setState(() => _products = widget.api.list());
+  void _reload() {
+    setState(() {
+      _products = widget.api.list();
+    });
+  }
 
   Future<void> _edit([Product? product]) async {
     final input = await showDialog<ProductInput>(
@@ -41,6 +45,39 @@ class _ProductCatalogScreenState extends State<ProductCatalogScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Unable to save product.')),
+        );
+      }
+    }
+  }
+
+  Future<void> _delete(Product product) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete product?'),
+        content: Text('Delete ${product.brandLabel} ${product.typeLabel}?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await widget.api.delete(product.id);
+      if (mounted) _reload();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Unable to delete product.')),
         );
       }
     }
@@ -115,13 +152,27 @@ class _ProductCatalogScreenState extends State<ProductCatalogScreen> {
                           '${product.brandLabel} ${product.typeLabel}',
                         ),
                         subtitle: Text(
-                          '${product.category} • ${product.stockQuantity} in stock',
+                          [
+                            '${product.category} • ${product.stockQuantity} in stock',
+                            if (product.ingredients.isNotEmpty)
+                              'Ingredients: ${product.ingredients.map(Product.label).join(', ')}',
+                          ].join('\n'),
                         ),
                         trailing: widget.canManage
-                            ? IconButton(
-                                tooltip: 'Edit product',
-                                onPressed: () => _edit(product),
-                                icon: const Icon(Icons.edit_outlined),
+                            ? Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    tooltip: 'Edit product',
+                                    onPressed: () => _edit(product),
+                                    icon: const Icon(Icons.edit_outlined),
+                                  ),
+                                  IconButton(
+                                    tooltip: 'Delete product',
+                                    onPressed: () => _delete(product),
+                                    icon: const Icon(Icons.delete_outline),
+                                  ),
+                                ],
                               )
                             : const Icon(Icons.chevron_right),
                         onTap: () => _open(product),
@@ -155,7 +206,7 @@ class _ProductFormState extends State<_ProductForm> {
   );
   late String _brand = widget.product?.brand ?? Product.brands.first;
   late String _type = widget.product?.productType ?? Product.types.first;
-  late final Set<String> _ingredients = {...?widget.product?.ingredients};
+  List<String> get _ingredients => Product.ingredientsByType[_type] ?? const [];
 
   @override
   void dispose() {
@@ -192,7 +243,7 @@ class _ProductFormState extends State<_ProductForm> {
         productType: _type,
         category: _category.text.trim(),
         stockQuantity: int.parse(_stock.text),
-        ingredients: _ingredients.toList(),
+        ingredients: _ingredients,
       ),
     );
   }
@@ -220,7 +271,7 @@ class _ProductFormState extends State<_ProductForm> {
                   'Product type',
                   Product.types,
                   _type,
-                  (value) => _type = value,
+                  (value) => setState(() => _type = value),
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
@@ -247,17 +298,12 @@ class _ProductFormState extends State<_ProductForm> {
                 const SizedBox(height: 12),
                 Wrap(
                   spacing: 6,
-                  children: Product.ingredientOptions.map((ingredient) {
-                    return FilterChip(
-                      label: Text(Product.label(ingredient)),
-                      selected: _ingredients.contains(ingredient),
-                      onSelected: (selected) => setState(() {
-                        selected
-                            ? _ingredients.add(ingredient)
-                            : _ingredients.remove(ingredient);
-                      }),
-                    );
-                  }).toList(),
+                  children: _ingredients
+                      .map(
+                        (ingredient) =>
+                            Chip(label: Text(Product.label(ingredient))),
+                      )
+                      .toList(),
                 ),
               ],
             ),

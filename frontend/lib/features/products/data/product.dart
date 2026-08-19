@@ -27,18 +27,16 @@ class Product {
     'MASK',
     'RETINOID',
   ];
-  static const ingredientOptions = [
-    'RETINOL',
-    'NIACINAMIDE',
-    'SALICYLIC_ACID',
-    'HYALURONIC_ACID',
-    'VITAMIN_C',
-    'GLYCOLIC_ACID',
-    'BENZOYL_PEROXIDE',
-    'AZELAIC_ACID',
-    'CERAMIDES',
-    'ZINC_OXIDE',
-  ];
+  static const ingredientsByType = <String, List<String>>{
+    'CLEANSER': ['CERAMIDES', 'SALICYLIC_ACID'],
+    'MOISTURIZER': ['HYALURONIC_ACID', 'CERAMIDES'],
+    'SERUM': ['VITAMIN_C', 'NIACINAMIDE'],
+    'SUNSCREEN': ['ZINC_OXIDE'],
+    'TONER': ['NIACINAMIDE', 'GLYCOLIC_ACID'],
+    'EXFOLIANT': ['GLYCOLIC_ACID', 'SALICYLIC_ACID'],
+    'MASK': ['HYALURONIC_ACID', 'NIACINAMIDE'],
+    'RETINOID': ['RETINOL'],
+  };
 
   final String id;
   final String brand;

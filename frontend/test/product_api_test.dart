@@ -28,6 +28,7 @@ void main() {
       (_) => _listResponse([_product()]),
       (_) => jsonResponse(201, _product()),
       (_) => jsonResponse(200, _product(stock: 3)),
+      (_) => ResponseBody.fromString('', 204),
     ]);
     final client = ApiClient(session, dio: testDio(adapter));
     addTearDown(() {
@@ -48,6 +49,7 @@ void main() {
     final products = await api.list();
     await api.create(input);
     final updated = await api.update('product-id', input);
+    await api.delete('product-id');
 
     expect(product.brandLabel, 'La Roche Posay');
     expect(products.single.id, 'product-id');
@@ -57,6 +59,7 @@ void main() {
       'GET',
       'POST',
       'PUT',
+      'DELETE',
     ]);
     expect(adapter.requests.last.path, '/api/products/product-id');
   });

@@ -30,7 +30,7 @@ void main() {
       'productType': 'CLEANSER',
       'category': 'Skin care',
       'stockQuantity': 5,
-      'ingredients': <String>[],
+      'ingredients': <String>['CERAMIDES'],
     };
     final adapter = QueueAdapter([
       (_) => _listResponse([product]),
@@ -53,9 +53,12 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('Cerave Cleanser'), findsOneWidget);
+    expect(find.textContaining('Ingredients: Ceramides'), findsOneWidget);
 
     await tester.tap(find.text('Add Product'));
     await tester.pumpAndSettle();
+    expect(find.text('Ceramides'), findsOneWidget);
+    expect(find.text('Salicylic Acid'), findsOneWidget);
     await tester.enterText(find.byType(TextFormField).first, 'Skin care');
     await tester.enterText(find.byType(TextFormField).last, '10');
     await tester.tap(find.text('Save'));
@@ -63,6 +66,10 @@ void main() {
 
     expect(adapter.requests[1].method, 'POST');
     expect(adapter.requests[1].path, '/api/products');
+    expect(adapter.requests[1].data['ingredients'], [
+      'CERAMIDES',
+      'SALICYLIC_ACID',
+    ]);
   });
 }
 

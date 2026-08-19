@@ -73,8 +73,27 @@ class ProductControllerTest extends AbstractIntegrationTest {
 
     @Test
     @WithMockUser(roles = "DOCTOR")
-    void onlyAdminCanChangeProducts() throws Exception {
-        mockMvc.perform(delete("/api/products/{id}", "00000000-0000-0000-0000-000000000000"))
-                .andExpect(status().isForbidden());
+    void doctorCanCreateUpdateAndDeleteProduct() throws Exception {
+        String body = mockMvc.perform(post("/api/products")
+        .contentType(MediaType.APPLICATION_JSON)
+        .content("""
+                {"brand":"CERAVE","productType":"CLEANSER","category":"Skin care",
+                "stockQuantity":5,"ingredients":["CERAMIDES"]}
+                """))
+        .andExpect(status().isCreated())
+        .andReturn().getResponse().getContentAsString();
+
+        String id = JsonPath.read(body, "$.id");
+
+        mockMvc.perform(put("/api/products/{id}", id)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"brand":"CERAVE","productType":"MOISTURIZER","category":"Skin care",
+                                "stockQuantity":10,"ingredients":["CERAMIDES"]}
+                                """))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(delete("/api/products/{id}", id))
+                .andExpect(status().isNoContent());
     }
 }
