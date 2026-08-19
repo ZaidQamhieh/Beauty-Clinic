@@ -104,6 +104,10 @@ public class ActivityLogService {
                         cb.like(entity, pattern)
                 ));
             }
+            // Auth events are captured for security but clutter the admin log.
+            predicates.add(cb.not(
+                    root.get("action").in(ActivityAction.LOGIN, ActivityAction.LOGOUT, ActivityAction.LOGIN_FAILED)
+            ));
             return cb.and(predicates.toArray(new Predicate[0]));
         }, pageable);
     }
