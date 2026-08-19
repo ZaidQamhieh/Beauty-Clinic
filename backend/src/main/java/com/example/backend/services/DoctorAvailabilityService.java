@@ -2,6 +2,7 @@ package com.example.backend.services;
 
 import com.example.backend.dtos.CreateDoctorAvailabilityRequest;
 import com.example.backend.dtos.DoctorAvailabilityResponse;
+import com.example.backend.entities.ActivityAction;
 import com.example.backend.entities.DoctorAvailability;
 import com.example.backend.entities.DoctorAvailability.AvailabilityKind;
 import com.example.backend.entities.DoctorProfile;
@@ -30,6 +31,7 @@ public class DoctorAvailabilityService {
     private final DoctorAvailabilityRepository availabilities;
     private final DoctorProfileRepository doctors;
     private final CurrentUser currentUser;
+    private final ActivityLogService activityLogs;
 
     @Transactional(readOnly = true)
     public List<DoctorAvailabilityResponse> list(UUID doctorUserId) {
@@ -41,7 +43,7 @@ public class DoctorAvailabilityService {
                 .toList();
     }
 
-    // A dated closure is a sick day or a holiday. The desk may see it; the public may not.
+    // A dated closure: desk only, not public.
     private static boolean isClosure(DoctorAvailability availability) {
         return availability.getKind() == AvailabilityKind.OVERRIDE && !availability.isAvailable();
     }
@@ -62,7 +64,13 @@ public class DoctorAvailabilityService {
         availability.setAvailable(request.available());
         availability.setEffectiveTo(request.effectiveTo());
 
-        return DoctorAvailabilityResponse.of(availabilities.save(availability));
+        DoctorAvailability saved = availabilities.save(availability);
+
+        activityLogs.record(
+                currentUser.id().orElse(null), null, ActivityAction.AVAILABILITY_ADDED,
+                "doctor_availability", saved.getId());
+
+        return DoctorAvailabilityResponse.of(saved);
     }
 
     @Transactional
@@ -71,6 +79,10 @@ public class DoctorAvailabilityService {
                 .filter(a -> a.getDoctor().getUserId().equals(doctorUserId))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No such availability window"));
         availabilities.delete(availability);
+
+        activityLogs.record(
+                currentUser.id().orElse(null), null, ActivityAction.AVAILABILITY_REMOVED,
+                "doctor_availability", availabilityId);
     }
 
     // The weekly pattern settles first, then the day's overrides go on top and win.

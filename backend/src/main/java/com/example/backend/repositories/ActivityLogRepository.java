@@ -1,5 +1,6 @@
 package com.example.backend.repositories;
 
+import com.example.backend.entities.ActivityAction;
 import com.example.backend.entities.ActivityLog;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -8,29 +9,41 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.UUID;
 
 public interface ActivityLogRepository
         extends JpaRepository<ActivityLog, UUID> {
-    Page<ActivityLog> findByPatientUserIdAndActionOrderByCreatedAtDesc(
-            UUID patientUserId, com.example.backend.entities.ActivityAction action, Pageable pageable);
 
+    // Id settles rows sharing a timestamp.
+    Page<ActivityLog> findByPatientUserIdAndActionOrderByCreatedAtDescIdDesc(
+            UUID patientUserId, ActivityAction action, Pageable pageable);
+
+    // Every parameter bound, so Postgres types it.
     @Query("""
             select log from ActivityLog log
             where (:action is null or log.action = :action)
-              and (:from is null or log.createdAt >= :from)
-              and (:to is null or log.createdAt < :to)
-              and (:search is null or (lower(coalesce(log.attemptedIdentifier, '')) like lower(concat('%', :search, '%'))
-                   or lower(coalesce(log.entityType, '')) like lower(concat('%', :search, '%'))
-                   or cast(log.userId as string) like concat('%', :search, '%')
-                   or cast(log.patientUserId as string) like concat('%', :search, '%')
-                   or cast(log.entityId as string) like concat('%', :search, '%')))
+              and log.createdAt >= :from
+              and log.createdAt < :to
+              and (
+                    :searching = false
+                 or log.userId = :id
+                 or log.patientUserId = :id
+                 or log.entityId = :id
+                 or lower(coalesce(log.attemptedIdentifier, '')) like :text escape '!'
+                 or lower(coalesce(log.entityType, '')) like :text escape '!'
+                 or log.userId in :actorIds
+                 or log.patientUserId in :actorIds
+              )
             """)
     Page<ActivityLog> search(
-            @Param("action") com.example.backend.entities.ActivityAction action,
+            @Param("action") ActivityAction action,
             @Param("from") Instant from,
             @Param("to") Instant to,
-            @Param("search") String search,
+            @Param("searching") boolean searching,
+            @Param("text") String text,
+            @Param("id") UUID id,
+            @Param("actorIds") Collection<UUID> actorIds,
             Pageable pageable
     );
 }

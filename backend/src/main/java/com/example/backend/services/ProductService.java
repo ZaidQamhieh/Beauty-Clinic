@@ -2,8 +2,10 @@ package com.example.backend.services;
 
 import com.example.backend.dtos.CreateProductRequest;
 import com.example.backend.dtos.ProductResponse;
+import com.example.backend.entities.ActivityAction;
 import com.example.backend.entities.Product;
 import com.example.backend.repositories.ProductRepository;
+import com.example.backend.security.CurrentUser;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -20,6 +22,8 @@ import java.util.stream.Collectors;
 public class ProductService {
 
     private final ProductRepository products;
+    private final ActivityLogService activityLogs;
+    private final CurrentUser currentUser;
 
     @Transactional(readOnly = true)
     public List<ProductResponse> list() {
@@ -33,14 +37,19 @@ public class ProductService {
 
     @Transactional
     public ProductResponse create(CreateProductRequest request) {
-        // Named here rather than left to the unique index, which cannot say which pair clashed.
+        // Named here; the index cannot say which.
         if (products.existsByBrandAndProductType(request.brand(), request.productType())) {
             throw duplicateProduct();
         }
 
         Product product = new Product();
         apply(product, request);
-        return ProductResponse.of(products.save(product));
+        Product saved = products.save(product);
+
+        activityLogs.record(
+                actor(), null, ActivityAction.PRODUCT_CREATED, "product", saved.getId());
+
+        return ProductResponse.of(saved);
     }
 
     @Transactional
@@ -53,6 +62,10 @@ public class ProductService {
         }
 
         apply(product, request);
+
+        activityLogs.record(
+                actor(), null, ActivityAction.PRODUCT_UPDATED, "product", id);
+
         return ProductResponse.of(products.save(product));
     }
 
@@ -60,6 +73,13 @@ public class ProductService {
     public void delete(UUID id) {
         products.delete(find(id));
         products.flush();
+
+        activityLogs.record(
+                actor(), null, ActivityAction.PRODUCT_DELETED, "product", id);
+    }
+
+    private UUID actor() {
+        return currentUser.id().orElse(null);
     }
 
     private Product find(UUID id) {
@@ -72,7 +92,7 @@ public class ProductService {
         product.setProductType(request.productType());
         product.setCategory(request.category().trim());
         product.setStockQuantity(request.stockQuantity());
-        // The column CHECK tests containment, not distinctness, so duplicates store.
+        // CHECK tests containment, so duplicates store.
         product.setIngredients(request.ingredients() == null
                 ? new ArrayList<>()
                 : request.ingredients().stream().distinct()

@@ -2,7 +2,7 @@ package com.example.backend.services;
 
 import com.example.backend.dtos.FormQuestionRequest;
 import com.example.backend.dtos.FormQuestionResponse;
-import com.example.backend.dtos.PatientRecordResponse;
+import com.example.backend.entities.ActivityAction;
 import com.example.backend.entities.FormQuestion;
 import com.example.backend.entities.FormQuestionOption;
 import com.example.backend.entities.PatientFormResponse;
@@ -10,7 +10,7 @@ import com.example.backend.entities.PatientProfile;
 import com.example.backend.repositories.FormQuestionRepository;
 import com.example.backend.repositories.PatientFormResponseRepository;
 import com.example.backend.repositories.PatientProfileRepository;
-import com.example.backend.services.ActivityLogService;
+import com.example.backend.security.CurrentUser;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -19,11 +19,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
@@ -37,8 +37,8 @@ public class DynamicFormService {
     private final PatientFormResponseRepository responses;
     private final ActivityLogService activityLogs;
     private final PatientProfileRepository patientProfiles;
-    // Spring Boot 4's web stack uses Jackson 3; Hibernate JSONB mapping still
-    // uses Jackson 2, so we keep a local mapper like PatientProfileService.
+    private final CurrentUser currentUser;
+    // Jackson 2 kept for Hibernate JsonNode.
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Transactional(readOnly = true)
@@ -61,7 +61,13 @@ public class DynamicFormService {
         FormQuestion question = new FormQuestion();
         question.setFormKey(CLINICAL_INTAKE);
         apply(question, request);
-        return FormQuestionResponse.of(questions.save(question), true);
+        FormQuestion saved = questions.save(question);
+
+        activityLogs.record(
+                actor(), null, ActivityAction.FORM_QUESTION_CREATED,
+                "form_question", saved.getId());
+
+        return FormQuestionResponse.of(saved, true);
     }
 
     @Transactional
@@ -74,17 +80,32 @@ public class DynamicFormService {
         }
 
         apply(question, request);
+
+        activityLogs.record(
+                actor(), null, ActivityAction.FORM_QUESTION_UPDATED,
+                "form_question", question.getId());
+
         return FormQuestionResponse.of(question, true);
     }
 
     @Transactional
     public void deactivate(UUID id) {
         require(id).setActive(false);
+
+        activityLogs.record(
+                actor(), null, ActivityAction.FORM_QUESTION_DEACTIVATED, "form_question", id);
     }
 
     @Transactional
     public void activate(UUID id) {
         require(id).setActive(true);
+
+        activityLogs.record(
+                actor(), null, ActivityAction.FORM_QUESTION_ACTIVATED, "form_question", id);
+    }
+
+    private UUID actor() {
+        return currentUser.id().orElse(null);
     }
 
     @Transactional(readOnly = true)
@@ -125,54 +146,112 @@ public class DynamicFormService {
             }
         }
 
-        JsonNode oldValues = stored.getAnswers();
-        if (oldValues == null || oldValues.isEmpty() || oldValues.size() == 0) {
-            oldValues = patientProfiles.findById(patientUserId)
-                    .map(p -> (JsonNode) objectMapper.valueToTree(PatientRecordResponse.of(p)))
-                    .orElseGet(objectMapper::createObjectNode);
-        } else {
-            oldValues = oldValues.deepCopy();
-        }
+        Map<String, Object> before = previousAnswers(stored, patientUserId);
+        Map<String, Object> after = ClinicalAnswers.canonical(merged);
+
+        // Profile changes before anything claims it.
+        applyToProfile(patientUserId, submitted);
 
         stored.setAnswers(objectMapper.valueToTree(merged));
-        JsonNode newValues = stored.getAnswers();
         responses.save(stored);
-        activityLogs.recordClinicalProfileUpdate(actorId, patientUserId, oldValues, newValues);
 
-        // Synchronize with PatientProfile table if this is a clinical intake form
-        patientProfiles.findById(patientUserId).ifPresent(profile -> {
-            if (submitted.get("skinType") instanceof String st && !st.isBlank()) {
-                try {
-                    profile.setSkinType(PatientProfile.SkinType.valueOf(st.toUpperCase()));
-                } catch (Exception ignored) {}
-            }
-            if (submitted.get("smokingStatus") instanceof String ss && !ss.isBlank()) {
-                try {
-                    profile.setSmokingStatus(PatientProfile.SmokingStatus.valueOf(ss.toUpperCase()));
-                } catch (Exception ignored) {}
-            }
-            if (submitted.get("pregnantBreastfeeding") instanceof Boolean pb) {
-                profile.setPregnantBreastfeeding(pb);
-            }
-            if (submitted.get("allergies") instanceof List<?> list) {
-                profile.setAllergies(list.stream().filter(String.class::isInstance).map(s -> {
-                    try { return PatientProfile.Allergy.valueOf(((String) s).toUpperCase()); } catch (Exception e) { return null; }
-                }).filter(Objects::nonNull).distinct().toList());
-            }
-            if (submitted.get("medications") instanceof List<?> list) {
-                profile.setMedications(list.stream().filter(String.class::isInstance).map(s -> {
-                    try { return PatientProfile.Medication.valueOf(((String) s).toUpperCase()); } catch (Exception e) { return null; }
-                }).filter(Objects::nonNull).distinct().toList());
-            }
-            if (submitted.get("chronicConditions") instanceof List<?> list) {
-                profile.setChronicConditions(list.stream().filter(String.class::isInstance).map(s -> {
-                    try { return PatientProfile.ChronicCondition.valueOf(((String) s).toUpperCase()); } catch (Exception e) { return null; }
-                }).filter(Objects::nonNull).distinct().toList());
-            }
-            patientProfiles.save(profile);
-        });
+        // Nothing changed, so nothing happened.
+        if (!before.equals(after)) {
+            activityLogs.recordClinicalProfileUpdate(
+                    actorId, patientUserId,
+                    objectMapper.valueToTree(before),
+                    objectMapper.valueToTree(after));
+        }
 
         return merged;
+    }
+
+    // Falls back to profile when unanswered.
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> previousAnswers(PatientFormResponse stored, UUID patientUserId) {
+        JsonNode answers = stored.getAnswers();
+
+        if (answers != null && !answers.isEmpty()) {
+            return ClinicalAnswers.canonical(objectMapper.convertValue(answers, Map.class));
+        }
+
+        return patientProfiles.findById(patientUserId)
+                .map(ClinicalAnswers::of)
+                .orElseGet(Map::of);
+    }
+
+    // Rejected values must not read as stored.
+    private void applyToProfile(UUID patientUserId, Map<String, Object> submitted) {
+        PatientProfile profile = patientProfiles.findById(patientUserId).orElse(null);
+
+        if (profile == null) {
+            return;
+        }
+
+        if (submitted.get(ClinicalAnswers.PREGNANT) instanceof Boolean pregnant) {
+            profile.setPregnantBreastfeeding(pregnant);
+        }
+
+        if (submitted.get(ClinicalAnswers.SKIN_TYPE) instanceof String skin && !skin.isBlank()) {
+            profile.setSkinType(constant(PatientProfile.SkinType.class, skin, "Skin type"));
+        }
+
+        if (submitted.get(ClinicalAnswers.SMOKING) instanceof String smoking && !smoking.isBlank()) {
+            profile.setSmokingStatus(
+                    constant(PatientProfile.SmokingStatus.class, smoking, "Smoking status"));
+        }
+
+        List<PatientProfile.Allergy> allergies = constants(
+                PatientProfile.Allergy.class, submitted.get(ClinicalAnswers.ALLERGIES), "Allergies");
+        if (allergies != null) {
+            profile.setAllergies(allergies);
+        }
+
+        List<PatientProfile.Medication> medications = constants(
+                PatientProfile.Medication.class, submitted.get(ClinicalAnswers.MEDICATIONS), "Medications");
+        if (medications != null) {
+            profile.setMedications(medications);
+        }
+
+        List<PatientProfile.ChronicCondition> conditions = constants(
+                PatientProfile.ChronicCondition.class,
+                submitted.get(ClinicalAnswers.CONDITIONS), "Chronic conditions");
+        if (conditions != null) {
+            profile.setChronicConditions(conditions);
+        }
+
+        patientProfiles.save(profile);
+    }
+
+    // An unholdable option is rejected.
+    private <E extends Enum<E>> E constant(Class<E> type, String value, String label) {
+        try {
+            return Enum.valueOf(type, value.toUpperCase());
+        } catch (IllegalArgumentException unknown) {
+            throw bad(label + " has an option the patient record cannot store");
+        }
+    }
+
+    private <E extends Enum<E>> List<E> constants(Class<E> type, Object value, String label) {
+        if (!(value instanceof List<?> items)) {
+            return null;
+        }
+
+        List<E> mapped = new ArrayList<>();
+
+        for (Object item : items) {
+            if (!(item instanceof String name)) {
+                continue;
+            }
+
+            E constant = constant(type, name, label);
+
+            if (!mapped.contains(constant)) {
+                mapped.add(constant);
+            }
+        }
+
+        return mapped;
     }
 
     private void apply(FormQuestion question, FormQuestionRequest request) {
