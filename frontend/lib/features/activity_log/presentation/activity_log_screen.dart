@@ -109,7 +109,7 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
           onSubmitted: (_) => _load(),
           decoration: InputDecoration(
             prefixIcon: const Icon(Icons.search),
-            hintText: 'Search IDs, entity, or login email',
+            hintText: 'Search IDs, entity, or email',
             filled: true,
             fillColor: AppColors.bgCard,
             border: OutlineInputBorder(
@@ -289,18 +289,53 @@ class ActivityEntry {
       entityId,
       attemptedIdentifier;
   static const actions = [
-    'LOGIN',
-    'LOGOUT',
-    'LOGIN_FAILED',
     'ACCOUNT_REGISTERED',
     'PERMISSION_DENIED',
     'APPOINTMENT_BOOKED',
     'APPOINTMENT_RESCHEDULED',
     'APPOINTMENT_CANCELLED',
+    'APPOINTMENT_SESSIONS_ADDED',
     'SESSION_SCHEDULED',
+    'SESSION_STATUS_CHANGED',
     'SESSION_CANCELLED',
     'SESSION_COMPLETED',
     'SESSION_NO_SHOW',
+    'CLINICAL_PROFILE_VIEWED',
+    'CLINICAL_HISTORY_VIEWED',
+    'CLINICAL_LIST_VIEWED',
+    'SESSION_RECORDS_VIEWED',
+    'CLINICAL_PROFILE_UPDATED',
+    'SESSION_RECORD_CREATED',
+    'SESSION_RECORD_AMENDED',
+    'ACCOUNT_CREATED',
+    'ACCOUNT_UPDATED',
+    'ACCOUNT_DELETED',
+    'ACCOUNT_STATUS_CHANGED',
+    'PASSWORD_CHANGED',
+    'PASSWORD_RESET',
+    'PROFILE_UPDATED',
+    'PATIENT_REGISTERED_BY_STAFF',
+    'PATIENT_DEMOGRAPHICS_UPDATED',
+    'ACCOUNT_LOCKED',
+    'AUTH_RATE_LIMITED',
+    'STALE_SESSION_REJECTED',
+    'ROLE_CHANGE_REJECTED',
+    'DISABLED_ACCOUNT_REJECTED',
+    'REFRESH_TOKEN_REJECTED',
+    'DOCTOR_CREATED',
+    'DOCTOR_UPDATED',
+    'DOCTOR_DELETED',
+    'AVAILABILITY_ADDED',
+    'AVAILABILITY_REMOVED',
+    'PRODUCT_CREATED',
+    'PRODUCT_UPDATED',
+    'PRODUCT_DELETED',
+    'PATIENT_PRODUCT_ADDED',
+    'PATIENT_PRODUCT_DISCONTINUED',
+    'FORM_QUESTION_CREATED',
+    'FORM_QUESTION_UPDATED',
+    'FORM_QUESTION_ACTIVATED',
+    'FORM_QUESTION_DEACTIVATED',
   ];
   factory ActivityEntry.fromJson(Map<String, dynamic> json) => ActivityEntry(
     id: json['id'] as String,
@@ -321,15 +356,19 @@ class ActivityEntry {
       attemptedIdentifier ??
       entityType ??
       (userId == null ? 'System event' : 'Account ${userId!.substring(0, 8)}');
-  IconData get icon => action.contains('LOGIN')
-      ? Icons.login
-      : action.contains('APPOINTMENT')
-      ? Icons.calendar_month_outlined
-      : action.contains('SESSION')
-      ? Icons.spa_outlined
-      : action == 'PERMISSION_DENIED'
-      ? Icons.lock_outline
-      : Icons.person_outline;
+  IconData get icon {
+    if (action.contains('APPOINTMENT')) return Icons.calendar_month_outlined;
+    if (action.contains('SESSION')) return Icons.spa_outlined;
+    if (action == 'PERMISSION_DENIED') return Icons.lock_outline;
+    if (action.contains('CLINICAL') || action.contains('RECORD')) {
+      return Icons.assignment_outlined;
+    }
+    if (action.contains('DOCTOR')) return Icons.medical_services_outlined;
+    if (action.contains('PRODUCT')) return Icons.inventory_2_outlined;
+    if (action.contains('FORM_QUESTION')) return Icons.description_outlined;
+    return Icons.person_outline;
+  }
+
   Color get color =>
       action.contains('FAILED') ||
           action.contains('DENIED') ||
