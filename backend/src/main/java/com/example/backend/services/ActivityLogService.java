@@ -13,8 +13,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -24,12 +29,6 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 @Service
 @RequiredArgsConstructor
 public class ActivityLogService {
-
-    // Matches nothing, keeping every parameter bound.
-    private static final UUID NO_MATCH = new UUID(0L, 0L);
-    private static final String NO_TEXT = "-";
-    private static final Instant SINCE_ALWAYS = Instant.EPOCH.minusSeconds(62_167_219_200L);
-    private static final Instant UNTIL_FOREVER = Instant.EPOCH.plusSeconds(253_402_300_799L);
 
     private final ActivityLogRepository activityLogs;
     private final UserAccountRepository users;
@@ -126,20 +125,59 @@ public class ActivityLogService {
 
     @Transactional(readOnly = true)
     public Page<ActivityLog> search(ActivityAction action, Instant from, Instant to, String search, Pageable pageable) {
-        String query = search == null || search.isBlank() ? null : search.trim();
+        String term = search == null || search.isBlank() ? null : search.trim();
 
-        UUID id = asUuid(query);
-        String text = id == null && query != null ? "%" + escaped(query) + "%" : null;
+        UUID id = asUuid(term);
+        List<UUID> actorIds = id == null ? actorIdsFor(term) : List.of();
 
-        return activityLogs.search(
-                action,
-                from == null ? SINCE_ALWAYS : from,
-                to == null ? UNTIL_FOREVER : to,
-                query != null,
-                text == null ? NO_TEXT : text,
-                id == null ? NO_MATCH : id,
-                actorIdsFor(text),
-                stable(pageable));
+        return activityLogs.findAll((root, query, cb) -> {
+            var predicates = new ArrayList<Predicate>();
+
+            if (action != null) {
+                predicates.add(cb.equal(root.get("action"), action));
+            }
+            if (from != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("createdAt"), from));
+            }
+            if (to != null) {
+                predicates.add(cb.lessThan(root.get("createdAt"), to));
+            }
+            if (term != null) {
+                predicates.add(matching(root, cb, term, id, actorIds));
+            }
+
+            // Auth events clutter the admin log.
+            predicates.add(cb.not(
+                    root.get("action").in(ActivityAction.LOGIN, ActivityAction.LOGOUT, ActivityAction.LOGIN_FAILED)
+            ));
+
+            return cb.and(predicates.toArray(new Predicate[0]));
+        }, stable(pageable));
+    }
+
+    // Ids compare by equality; text resolves actors.
+    private Predicate matching(
+            Root<ActivityLog> root, CriteriaBuilder cb, String term, UUID id, List<UUID> actorIds
+    ) {
+        if (id != null) {
+            return cb.or(
+                    cb.equal(root.get("userId"), id),
+                    cb.equal(root.get("patientUserId"), id),
+                    cb.equal(root.get("entityId"), id));
+        }
+
+        String pattern = pattern(term);
+        var predicates = new ArrayList<Predicate>();
+
+        predicates.add(cb.like(cb.lower(cb.coalesce(root.get("attemptedIdentifier"), "")), pattern));
+        predicates.add(cb.like(cb.lower(cb.coalesce(root.get("entityType"), "")), pattern));
+
+        if (!actorIds.isEmpty()) {
+            predicates.add(root.get("userId").in(actorIds));
+            predicates.add(root.get("patientUserId").in(actorIds));
+        }
+
+        return cb.or(predicates.toArray(new Predicate[0]));
     }
 
     // Ties the rows one operation writes together.
@@ -156,30 +194,25 @@ public class ActivityLogService {
     }
 
     // The screen promises names, so resolve them.
-    private List<UUID> actorIdsFor(String text) {
-        if (text == null) {
-            return List.of(NO_MATCH);
+    private List<UUID> actorIdsFor(String term) {
+        if (term == null) {
+            return List.of();
         }
 
-        List<UUID> matches = users.findIdsMatching(text);
-        return matches.isEmpty() ? List.of(NO_MATCH) : matches;
+        return users.findIdsMatching(pattern(term));
     }
 
-    // Wildcards typed by a user stay literal.
-    private String escaped(String query) {
-        return query.toLowerCase()
-                .replace("!", "!!")
-                .replace("%", "!%")
-                .replace("_", "!_");
+    private String pattern(String term) {
+        return "%" + term.toLowerCase(Locale.ROOT) + "%";
     }
 
-    private UUID asUuid(String query) {
-        if (query == null) {
+    private UUID asUuid(String term) {
+        if (term == null) {
             return null;
         }
 
         try {
-            return UUID.fromString(query);
+            return UUID.fromString(term);
         } catch (IllegalArgumentException notAnId) {
             return null;
         }
