@@ -155,4 +155,20 @@ public class ActivityLog {
         log.newValues = newValues;
         return log;
     }
+
+    // Seeding and replays carry their original timestamps.
+    public static ActivityLog timed(
+            UUID userId,
+            UUID patientUserId,
+            ActivityAction action,
+            String entityType,
+            UUID entityId,
+            Instant createdAt
+    ) {
+        ActivityLog log = new ActivityLog(
+                userId, patientUserId, null, action, entityType, entityId
+        );
+        log.createdAt = createdAt;
+        return log;
+    }
 }
