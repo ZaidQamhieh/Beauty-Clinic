@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../network/api_error_text.dart';
 import '../../forms/data/clinical_intake_api.dart';
 
-/// Luxury Patients Directory Screen for Clinic Staff & Admins.
-/// Lists all clinic patients with live search, medical intake status, and quick profile navigation.
+// Searchable patient directory for clinic staff.
 class PatientsDirectoryScreen extends StatefulWidget {
   final ClinicalIntakeApi clinicalApi;
   final ValueChanged<String> onSelectPatient;
@@ -55,7 +55,7 @@ class _PatientsDirectoryScreenState extends State<PatientsDirectoryScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = 'Failed to load patients: $e';
+        _error = apiErrorText(e, action: 'load your patients');
         _isLoading = false;
       });
     }
@@ -351,7 +351,7 @@ class _PatientsDirectoryScreenState extends State<PatientsDirectoryScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Top Row: Avatar + Name + Status Pill
+              // Avatar, name, status pill.
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

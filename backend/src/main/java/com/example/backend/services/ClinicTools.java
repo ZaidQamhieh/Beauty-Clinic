@@ -24,7 +24,10 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -143,10 +146,10 @@ public class ClinicTools {
             + "confirming call books exactly what was quoted, so its picks are ignored and "
             + "may be sent empty.")
     public String book(
-            @ToolParam(description = "The treatments to quote. For each, practitionerUserId "
-                    + "and startTime must be copied exactly from a prior findSlots result, "
-                    + "for example practitionerUserId 3b6aa563-fa7f-44b0-b52b-5d6b7f2f9f83. "
-                    + "Never a doctor's name or a made-up id.")
+            @ToolParam(description = "The slots to quote, each named by the short code that "
+                    + "findSlots just printed beside it, such as S1 or S3. Use only codes from "
+                    + "the answer you just received, never a doctor's name, a time, or a code "
+                    + "you remember from earlier.")
             List<Pick> picks,
             @ToolParam(description = "True only after the patient has agreed to the total")
             boolean confirmed) {
@@ -156,34 +159,74 @@ public class ClinicTools {
                 picks == null ? 0 : picks.size());
 
         // The patient confirms, never the model.
-        if (confirmed) {
+        if (confirmed && pending.quoteFor(patient).isPresent()) {
             return confirmBooking(patient);
         }
 
         if (picks == null || picks.isEmpty()) {
-            return "Nothing to quote: no treatments were given.";
+            return "Nothing to quote: no treatments were given. Call findSlots, then book "
+                    + "with confirmed=false and the slot it returned.";
         }
 
-        List<AddSessionRequest> sessions;
-        try {
-            sessions = picks.stream()
-                    .map(pick -> new AddSessionRequest(
-                            UUID.fromString(pick.practitionerUserId()),
-                            pick.treatment(),
-                            parseStart(pick.startTime())))
-                    .toList();
-        } catch (IllegalArgumentException | DateTimeParseException | NullPointerException bad) {
-            log.info("Chat booking had a bad id or time: {}", bad.getMessage());
-            return "That doctor or time was not recognized. Call findSlots again and use "
-                    + "its practitionerUserId and startTime exactly as given, do not retype them.";
+        List<AddSessionRequest> sessions = new ArrayList<>();
+        for (Pick pick : picks) {
+            String code = pick.slot();
+            Optional<AddSessionRequest> known = code == null
+                    ? Optional.empty()
+                    : pending.offered(patient, code);
+
+            if (known.isEmpty()) {
+                log.info("Chat booking used an unknown slot code: {}", code);
+                return "There is no slot " + code + ". Call findSlots again and pass one of "
+                        + "the codes it prints, such as S1, exactly as written.";
+            }
+
+            sessions.add(known.get());
         }
 
-        BigDecimal total = totalOf(picks);
+        BigDecimal total = totalOf(sessions);
         pending.quote(patient, sessions, total);
-        return review(picks, total);
+
+        // Confirm with no quote: quote now instead.
+        if (confirmed) {
+            log.info("Chat confirm arrived with no quote; quoting {} instead", total);
+            return "NOT BOOKED. Nothing had been quoted, so this is the quote, not a booking. "
+                    + "The total is " + money(total) + ". Say only that total to the patient "
+                    + "and ask them to confirm, then call book with confirmed=true again.";
+        }
+
+        return review(sessions, total);
     }
 
-    @Tool(description = "The patient's own upcoming appointments, with the id needed to cancel one.")
+    // Null when every pick came from findSlots.
+    private String firstPickNotFree(List<AddSessionRequest> sessions) {
+        for (AddSessionRequest session : sessions) {
+            LocalDate day = LocalDate.ofInstant(session.startTime(), clinic.zone());
+            List<FreeSlotResponse> free = freeSlots(session.treatmentName(), day);
+
+            boolean real = free.stream()
+                    .anyMatch(slot -> slot.practitionerUserId().equals(session.practitionerUserId())
+                            && slot.startTime().equals(session.startTime()));
+
+            if (!real) {
+                log.info("Pick rejected: doctor={} start={}; free were {}",
+                        session.practitionerUserId(), session.startTime(),
+                        free.stream()
+                                .map(slot -> slot.practitionerUserId() + "@" + slot.startTime())
+                                .toList());
+                return "That doctor is not free for " + session.treatmentName().name()
+                        + " at that time, so nothing was quoted. Call findSlots again for "
+                        + day + " and copy a practitionerUserId and startTime from its"
+                        + " answer exactly, without retyping them.";
+            }
+        }
+
+        return null;
+    }
+
+    @Tool(description = "The patient's own upcoming appointments: what is booked, when, what "
+            + "each treatment costs and the visit's total, plus the id needed to cancel one. "
+            + "Call this whenever they ask what they have booked or what it costs.")
     public String myVisits() {
         List<AppointmentResponse> visits = upcoming();
 
@@ -192,11 +235,23 @@ public class ClinicTools {
         }
 
         StringBuilder out = new StringBuilder();
-        visits.forEach(visit -> out
-                .append("id ").append(visit.id())
-                .append(" | ").append(visit.scheduledAt())
-                .append(" | ").append(treatmentsIn(visit))
-                .append('\n'));
+        visits.forEach(visit -> {
+            out.append("id ").append(visit.id())
+                    .append(" | ").append(visit.scheduledAt())
+                    .append('\n');
+
+            BigDecimal total = BigDecimal.ZERO;
+            for (AppointmentSessionResponse session : visit.sessions()) {
+                ClinicProperties.Tariff tariff = clinic.tariffFor(session.treatmentName());
+                total = total.add(tariff.price());
+                out.append("   ").append(session.treatmentName().name())
+                        .append(" at ").append(time(session.startTime()))
+                        .append(" | ").append(money(tariff.price()))
+                        .append('\n');
+            }
+
+            out.append("   visit total ").append(money(total)).append('\n');
+        });
 
         return out.toString().strip();
     }
@@ -297,12 +352,24 @@ public class ClinicTools {
         StringBuilder out = new StringBuilder("Free times for " + treatment.name() + " on "
                 + date + " (" + date.getDayOfWeek() + "):\n");
 
-        slots.stream().limit(MAX_SLOTS).forEach(slot -> out
-                .append(time(slot.startTime()))
-                .append(" | doctor ").append(slot.practitionerName())
-                .append(" | practitionerUserId ").append(slot.practitionerUserId())
-                .append(" | startTime ").append(slot.startTime())
-                .append('\n'));
+        Map<String, AddSessionRequest> offered = new LinkedHashMap<>();
+        List<FreeSlotResponse> shown = slots.stream().limit(MAX_SLOTS).toList();
+
+        for (int at = 0; at < shown.size(); at++) {
+            FreeSlotResponse slot = shown.get(at);
+            String code = "S" + (at + 1);
+
+            offered.put(code, new AddSessionRequest(
+                    slot.practitionerUserId(), treatment, slot.startTime()));
+
+            out.append(code)
+                    .append(" | ").append(time(slot.startTime()))
+                    .append(" | doctor ").append(slot.practitionerName())
+                    .append('\n');
+        }
+
+        pending.offer(currentUser.requireId(), offered);
+        out.append("To book, pass the slot code exactly as written, for example S1.");
 
         return out.toString().strip();
     }
@@ -322,23 +389,23 @@ public class ClinicTools {
         return null;
     }
 
-    private BigDecimal totalOf(List<Pick> picks) {
-        return picks.stream()
-                .map(pick -> clinic.tariffFor(pick.treatment()).price())
+    private BigDecimal totalOf(List<AddSessionRequest> sessions) {
+        return sessions.stream()
+                .map(session -> clinic.tariffFor(session.treatmentName()).price())
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     // Priced here; the model never adds.
-    private String review(List<Pick> picks, BigDecimal total) {
+    private String review(List<AddSessionRequest> sessions, BigDecimal total) {
         StringBuilder out = new StringBuilder("NOT BOOKED YET. Read this back to the patient "
                 + "and ask them to confirm. As soon as they agree in any language, for example "
                 + "yes, ok, sure, go ahead, aywa, ah, tamam, akkid, naam, call book AGAIN with "
                 + "confirmed=true. Never ask them twice.\n");
 
-        for (Pick pick : picks) {
-            ClinicProperties.Tariff tariff = clinic.tariffFor(pick.treatment());
-            out.append(pick.treatment().name())
-                    .append(" | ").append(pick.startTime())
+        for (AddSessionRequest session : sessions) {
+            ClinicProperties.Tariff tariff = clinic.tariffFor(session.treatmentName());
+            out.append(session.treatmentName().name())
+                    .append(" | ").append(time(session.startTime()))
                     .append(" | ").append(tariff.durationMinutes()).append(" minutes")
                     .append(" | ").append(money(tariff.price()))
                     .append('\n');
@@ -376,11 +443,7 @@ public class ClinicTools {
         return moment.atZone(clinic.zone()).toLocalTime().toString();
     }
 
-    /// One treatment, its doctor and its start.
-    public record Pick(
-            TreatmentName treatment,
-            String practitionerUserId,
-            String startTime
-    ) {
+    /// One slot, named by its code.
+    public record Pick(String slot) {
     }
 }

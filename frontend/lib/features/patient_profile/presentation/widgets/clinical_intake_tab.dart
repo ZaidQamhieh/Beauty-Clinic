@@ -1,17 +1,14 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../network/api_error_text.dart';
 import '../../../forms/data/clinical_intake_api.dart';
 import '../../../forms/data/clinical_intake_schema.dart';
 import '../../../forms/data/dynamic_form_api.dart';
 import '../../../forms/domain/form_controller.dart';
 import '../../../forms/presentation/dynamic_form_renderer.dart';
 
-/// Renders the clinical intake form for a patient.
-///
-/// Patients load the published schema and their saved answers from the dynamic
-/// form API. Staff editing another patient's fixed clinical profile still
-/// goes through [ClinicalIntakeApi].
+// Clinical intake form; staff use ClinicalIntakeApi.
 class ClinicalIntakeTab extends StatefulWidget {
   final ClinicalIntakeApi? clinicalApi;
   final DynamicFormApi? dynamicApi;
@@ -89,7 +86,7 @@ class _ClinicalIntakeTabState extends State<ClinicalIntakeTab> {
         try {
           values = await widget.clinicalApi!.fetchForPatient(widget.patientId!);
         } catch (_) {
-          // If no previous clinical record exists, initialize with clean schema defaults
+          // No record yet, so use defaults.
           values = ClinicalIntakeSchema.schema.defaultValues();
         }
 
@@ -111,7 +108,7 @@ class _ClinicalIntakeTabState extends State<ClinicalIntakeTab> {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _error = 'Failed to load clinic forms: $e';
+        _error = apiErrorText(e, action: 'load the clinic forms');
       });
     }
   }
@@ -166,7 +163,7 @@ class _ClinicalIntakeTabState extends State<ClinicalIntakeTab> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to save clinic forms: $e'),
+          content: Text(apiErrorText(e, action: 'save the clinic forms')),
           backgroundColor: AppColors.rose,
         ),
       );

@@ -2,18 +2,18 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/widgets/yasmine_logo.dart';
+import '../../../../routing/app_routes.dart';
 import 'widgets/header_bar.dart';
 import 'widgets/sidebar_item.dart';
 
-/// Main App Shell Component for Yasmine Beauty Clinic
-/// Manages top-level layout, drawer/sidebar, and role-specific view routing.
+// Shell layout: header, sidebar, active view.
 class AppShell extends StatefulWidget {
   final Widget child;
   final String activeRole;
   final String activeView;
   final ValueChanged<String> onViewChanged;
 
-  /// Null on pages that own their own booking action, which is most of them.
+  // Null when the page owns booking.
   final VoidCallback? onBookClick;
   final VoidCallback? onLogout;
   final VoidCallback? onProfileTap;
@@ -85,9 +85,7 @@ class _AppShellState extends State<AppShell> {
     required bool isCollapsed,
     bool isDrawer = false,
   }) {
-    final List<Map<String, dynamic>> menuItems = _getMenuItemsForRole(
-      widget.activeRole,
-    );
+    final List<AppRoute> menuItems = AppRoutes.menuFor(widget.activeRole);
 
     return Column(
       children: [
@@ -96,7 +94,7 @@ class _AppShellState extends State<AppShell> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
           child: Row(
             children: [
-              // Collapsed rail has no room; logo expands it.
+              // Collapsed rail expands via the logo.
               if (!isDrawer && isCollapsed)
                 InkWell(
                   borderRadius: BorderRadius.circular(20),
@@ -156,39 +154,40 @@ class _AppShellState extends State<AppShell> {
             itemCount: menuItems.length,
             padding: EdgeInsets.zero,
             itemBuilder: (context, index) {
-              final item = menuItems[index];
-              final bool isActive = widget.activeView == item['id'];
+              final route = menuItems[index];
+              final entry = route.menu[widget.activeRole]!;
+              final bool isActive = widget.activeView == route.id;
 
               if (isCollapsed) {
                 return Tooltip(
-                  message: item['label'] as String,
+                  message: entry.label,
                   child: IconButton(
                     icon: Icon(
-                      item['icon'] as IconData,
+                      entry.icon,
                       color: isActive
                           ? AppColors.roseLight
                           : AppColors.textSideMuted,
                     ),
-                    onPressed: () => widget.onViewChanged(item['id'] as String),
+                    onPressed: () => widget.onViewChanged(route.id),
                   ),
                 );
               }
 
               return SidebarItem(
-                icon: item['icon'] as IconData,
-                label: item['label'] as String,
-                badge: item['badge'] as String?,
+                icon: entry.icon,
+                label: entry.label,
+                badge: entry.badge,
                 isActive: isActive,
                 onTap: () {
                   if (isDrawer) Navigator.of(context).pop();
-                  widget.onViewChanged(item['id'] as String);
+                  widget.onViewChanged(route.id);
                 },
               );
             },
           ),
         ),
 
-        // Quick Role Status Card at bottom of Sidebar
+        // Role status card, sidebar bottom.
         if (!isCollapsed) ...[
           Padding(
             padding: const EdgeInsets.all(16),
@@ -236,11 +235,9 @@ class _AppShellState extends State<AppShell> {
   }
 
   Widget _buildMobileBottomNav() {
-    final List<Map<String, dynamic>> menuItems = _getMenuItemsForRole(
-      widget.activeRole,
-    );
+    final List<AppRoute> menuItems = AppRoutes.menuFor(widget.activeRole);
     final int selectedIndex = menuItems
-        .indexWhere((item) => item['id'] == widget.activeView)
+        .indexWhere((route) => route.id == widget.activeView)
         .clamp(0, menuItems.length - 1);
 
     return BottomNavigationBar(
@@ -254,178 +251,18 @@ class _AppShellState extends State<AppShell> {
         color: AppColors.textMuted,
       ),
       onTap: (index) {
-        widget.onViewChanged(menuItems[index]['id'] as String);
+        widget.onViewChanged(menuItems[index].id);
       },
-      items: menuItems.take(4).map((item) {
+      items: menuItems.take(4).map((route) {
+        final entry = route.menu[widget.activeRole]!;
         return BottomNavigationBarItem(
-          icon: Icon(item['icon'] as IconData),
-          label: item['label'] as String,
+          icon: Icon(entry.icon),
+          label: entry.label,
         );
       }).toList(),
     );
   }
 
-  List<Map<String, dynamic>> _getMenuItemsForRole(String role) {
-    switch (role) {
-      case 'doctor':
-        return [
-          {
-            'id': 'my_profile',
-            'label': 'My Profile',
-            'icon': Icons.person_outline,
-          },
-          {
-            'id': 'dashboard',
-            'label': 'Today\'s Schedule',
-            'icon': Icons.calendar_today_outlined,
-            'badge': '8',
-          },
-          {
-            'id': 'patients',
-            'label': 'My Patients',
-            'icon': Icons.people_outline,
-            'badge': '24',
-          },
-          {
-            'id': 'clinical_forms',
-            'label': 'Patient Forms History',
-            'icon': Icons.assignment_outlined,
-          },
-          {
-            'id': 'doctor_profile',
-            'label': 'Doctor Profile',
-            'icon': Icons.badge_outlined,
-          },
-          {
-            'id': 'consultations',
-            'label': 'Consultations',
-            'icon': Icons.video_call_outlined,
-          },
-          {
-            'id': 'products',
-            'label': 'Products',
-            'icon': Icons.inventory_2_outlined,
-          },
-        ];
-      case 'patient':
-        return [
-          {
-            'id': 'landing',
-            'label': 'Clinic Homepage',
-            'icon': Icons.home_outlined,
-          },
-          {
-            'id': 'my_profile',
-            'label': 'My Profile',
-            'icon': Icons.person_outline,
-          },
-          {
-            'id': 'dashboard',
-            'label': 'Treatments & Visits',
-            'icon': Icons.spa_outlined,
-          },
-          {
-            'id': 'products',
-            'label': 'Products',
-            'icon': Icons.inventory_2_outlined,
-          },
-        ];
-      case 'receptionist':
-        return [
-          {
-            'id': 'my_profile',
-            'label': 'My Profile',
-            'icon': Icons.person_outline,
-          },
-          {
-            'id': 'dashboard',
-            'label': 'Front Desk Desk',
-            'icon': Icons.meeting_room_outlined,
-            'badge': '12',
-          },
-          {
-            'id': 'appointments',
-            'label': 'All Appointments',
-            'icon': Icons.event_note_outlined,
-          },
-          {
-            'id': 'patients',
-            'label': 'Patient Directory',
-            'icon': Icons.folder_shared_outlined,
-          },
-          {
-            'id': 'doctors',
-            'label': 'Doctor Rosters',
-            'icon': Icons.medical_information_outlined,
-          },
-          {
-            'id': 'products',
-            'label': 'Products',
-            'icon': Icons.inventory_2_outlined,
-          },
-        ];
-      case 'admin':
-      default:
-        return [
-          {
-            'id': 'my_profile',
-            'label': 'My Profile',
-            'icon': Icons.person_outline,
-          },
-          {
-            'id': 'landing',
-            'label': 'Clinic Landing Page',
-            'icon': Icons.space_dashboard_outlined,
-          },
-          {
-            'id': 'dashboard',
-            'label': 'Overview Dashboard',
-            'icon': Icons.grid_view_rounded,
-          },
-          {
-            'id': 'clinical_forms',
-            'label': 'Patient Forms History',
-            'icon': Icons.assignment_outlined,
-          },
-          {
-            'id': 'form_builder',
-            'label': 'Form Builder',
-            'icon': Icons.dynamic_form_outlined,
-          },
-          {
-            'id': 'products',
-            'label': 'Products',
-            'icon': Icons.inventory_2_outlined,
-          },
-          {
-            'id': 'appointments',
-            'label': 'Appointments',
-            'icon': Icons.calendar_today_outlined,
-            'badge': '14',
-          },
-          {
-            'id': 'patients',
-            'label': 'Patients Directory',
-            'icon': Icons.people_alt_outlined,
-          },
-          {
-            'id': 'doctors',
-            'label': 'Doctors & Specialists',
-            'icon': Icons.health_and_safety_outlined,
-          },
-          {
-            'id': 'staff_management',
-            'label': 'Staff Management',
-            'icon': Icons.groups_rounded,
-          },
-          {
-            'id': 'activity_log',
-            'label': 'Activity Log',
-            'icon': Icons.history_rounded,
-          },
-        ];
-    }
-  }
 
   String _getRoleTitle(String role) {
     switch (role) {

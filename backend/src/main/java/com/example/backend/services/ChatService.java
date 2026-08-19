@@ -4,6 +4,8 @@ import com.example.backend.dtos.ChatReply;
 import com.example.backend.dtos.ChatRequest;
 import com.example.backend.dtos.ChatTurn;
 import com.example.backend.config.ClinicProperties;
+import com.example.backend.repositories.UserAccountRepository;
+import com.example.backend.security.CurrentUser;
 import com.example.backend.entities.AppointmentSession.TreatmentName;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -37,9 +39,14 @@ public class ChatService {
 
     // A success claim with no write lies.
     private static final List<String> COMPLETION_CLAIMS = List.of(
-            "booked", "is confirmed", "have confirmed", "successfully cancel",
+            "i booked", "i have booked", "we booked", "we have booked",
+            "has been booked", "is now booked", "successfully booked",
+            "is confirmed", "have confirmed", "successfully cancel",
             "has been cancelled", "has been canceled",
             "تم الحجز", "تم حجز", "حجزت لك", "حجزنا لك", "تأكد الحجز", "تأكد حجزك",
+            "تم تأكيد", "تم التأكيد", "أكدت الحجز", "أكدنا الحجز", "صار الحجز",
+            "حجزك مؤكد", "حجزكم مؤكد", "موعدك مؤكد", "موعدكم مؤكد",
+            "محجوز", "الحجز قد تم", "تم بنجاح", "الحجز ناجح",
             "تم الإلغاء", "تم إلغاء", "الغينا لك", "تم إلغاء موعدك");
 
     private final ChatClient chat;
@@ -48,9 +55,14 @@ public class ChatService {
     private final ChatOutcome outcome;
     private final ClinicProperties clinic;
     private final Clock clock;
+    private final CurrentUser currentUser;
+    private final UserAccountRepository users;
+    private final ChatPending pending;
 
     public ChatService(ObjectProvider<ChatModel> model, ClinicTools tools, MedicalGate medicalGate,
-                       ChatOutcome outcome, ClinicProperties clinic, Clock clock) {
+                       ChatOutcome outcome, ClinicProperties clinic, Clock clock,
+                       CurrentUser currentUser, UserAccountRepository users,
+                       ChatPending pending) {
         // No key means no chat, not death.
         ChatModel configured = model.getIfAvailable();
         this.chat = configured == null ? null : ChatClient.create(configured);
@@ -59,6 +71,46 @@ public class ChatService {
         this.outcome = outcome;
         this.clinic = clinic;
         this.clock = clock;
+        this.currentUser = currentUser;
+        this.users = users;
+        this.pending = pending;
+    }
+
+    // History drops tool results, so restate them.
+    private String openBusiness() {
+        return currentUser.id()
+                .flatMap(pending::quoteFor)
+                .map(quote -> "You have ALREADY quoted this patient "
+                        + quote.total().stripTrailingZeros().toPlainString() + " "
+                        + clinic.currency() + " and they have not been booked yet. Do not "
+                        + "quote again, do not call book with confirmed=false again, and do "
+                        + "not ask the price question a second time. If their last message "
+                        + "agrees in any way, call book with confirmed=true right now.")
+                .orElse("");
+    }
+
+    // Signed in already, so never ask.
+    private String whoIsSpeaking() {
+        String name = caller();
+
+        if (name == null) {
+            return "The patient is already signed in, so never ask for their name, phone "
+                    + "number or email. Every tool already acts as them.";
+        }
+
+        return "You are speaking with " + name + ", who is already signed in. Never ask for "
+                + "their name, phone number or email, and never ask them to identify "
+                + "themselves. Every tool already acts as them.";
+    }
+
+    private String caller() {
+        return currentUser.id()
+                .flatMap(users::findById)
+                .map(account -> {
+                    String name = (account.getFirstName() + " " + account.getLastName()).strip();
+                    return name.isBlank() ? account.getEmail() : name;
+                })
+                .orElse(null);
     }
 
     public ChatReply reply(ChatRequest request) {
@@ -152,14 +204,37 @@ public class ChatService {
                 Today is %s, a %s, in %s, so tomorrow is %s. Reply in the patient's own \
                 language, English or Arabic dialect, warmly and in two sentences at most.
 
-                These are the only treatments the clinic offers, with their price and length:
+                These are the only treatments the clinic offers, with how long each takes:
                 %s
 
-                Quote a price only from that list, and never state a total yourself: only book \
-                totals a visit. You do not know the clinic's opening hours, which doctors work \
-                there, or what is free at any moment. Only findSlots knows, so never name a \
-                time, a day or a doctor that a tool did not just return, and never say a day is \
-                full without calling a tool. If a tool did not answer, say you could not check.
+                You do not know what anything costs. Never say a price or a total from memory \
+                or work one out yourself: the only money you may say is a figure a tool just \
+                returned: listTreatments for what one treatment costs, book for a new quote, \
+                or myVisits for something already booked. If they ask what an existing visit \
+                costs, call myVisits and read its total back. You do \
+                not know the clinic's opening hours, which doctors work there, or what is free \
+                at any moment. Only findSlots knows, so never name a time, a day or a doctor \
+                that a tool did not just return, and never say a day is full without calling a \
+                tool. If a tool did not answer, say you could not check.
+
+                Saying a thing never makes it true. A visit exists only after book returns it, \
+                and is gone only after cancel returns. If you have not called the tool in this \
+                turn, you have not booked or cancelled anything, however the conversation reads.
+
+                Never guess at what the clinic's systems are doing. Do not say a booking went \
+                through in the background, that something is syncing, or that a delay explains \
+                what the patient sees. If book did not return a visit, tell them plainly that \
+                it is not booked yet and call book again.
+
+                Whenever the patient points at something they already have, by saying the same \
+                day, my appointment, my booking, add to it, or move it, call myVisits first and \
+                use the date it returns. Never assume they mean today.
+
+                Never ask permission to use a tool. Do not ask whether you should check a \
+                price, look up a time, or fetch their visits: call the tool first, then speak \
+                with what it returned. Once the patient has named a time you found, call book \
+                with confirmed=false straight away and read back the total it gives you. The \
+                only thing you ever ask them is whether they accept that total.
 
                 Booking is two steps. Call book with confirmed=false, read the total back to \
                 the patient, then wait. The moment they agree, call book again immediately with \
@@ -177,25 +252,34 @@ public class ChatService {
                 The clinic books up to %d days ahead. A patient may cancel until %d minutes \
                 before the visit starts, and no later.
 
+                You never know the patient's gender, so never guess it. In Arabic do not use \
+                أختي, أخي, حبيبتي or any gendered address, and avoid gendered verb and pronoun \
+                endings such as تفضّلي, ننتظركِ or تفضّل, ننتظركَ. Prefer neutral wording like \
+                تفضلوا, ننتظركم, حضرتكم, or rephrase to avoid addressing the patient directly. \
+                Never use the patient's name to infer gender.
+
                 You never give medical advice. If the patient asks whether a treatment is safe \
                 for them, or mentions pregnancy, a medication, an allergy or a condition, tell \
                 them the clinic's doctors will answer that and offer a consultation booking.
 
                 You only ever act for the patient you are speaking to. If they ask you to book \
                 or cancel for someone else, say you cannot.
+
+                %s
+
+                %s
                 """.formatted(today, today.getDayOfWeek(), clinic.timezone(), today.plusDays(1),
-                catalogue(), clinic.maxHorizonDays(), clinic.cancellationCutoffMinutes());
+                catalogue(), clinic.maxHorizonDays(), clinic.cancellationCutoffMinutes(),
+                whoIsSpeaking(), openBusiness());
     }
 
-    // Static facts, so no tool round trip.
+    // Names and lengths; book owns prices.
     private String catalogue() {
         return Arrays.stream(TreatmentName.values())
                 .map(treatment -> {
                     ClinicProperties.Tariff tariff = clinic.tariffFor(treatment);
                     return "- " + treatment.name() + ": "
-                            + tariff.price().stripTrailingZeros().toPlainString()
-                            + " " + clinic.currency()
-                            + ", " + tariff.durationMinutes() + " minutes";
+                            + tariff.durationMinutes() + " minutes";
                 })
                 .collect(Collectors.joining("\n"));
     }

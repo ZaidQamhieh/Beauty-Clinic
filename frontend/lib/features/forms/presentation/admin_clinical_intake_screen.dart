@@ -4,9 +4,10 @@ import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../network/api_error_text.dart';
 import '../data/clinical_intake_api.dart';
 
-/// Admin Directory & Patient Activity Log for Clinic Forms
+// Clinic form directory and activity log.
 class AdminClinicalIntakeScreen extends StatefulWidget {
   const AdminClinicalIntakeScreen({super.key, required this.api});
 
@@ -61,7 +62,7 @@ class _AdminClinicalIntakeScreenState extends State<AdminClinicalIntakeScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = 'Unable to load clinical records: $e';
+        _error = apiErrorText(e, action: 'load these clinical records');
         _loading = false;
       });
     }

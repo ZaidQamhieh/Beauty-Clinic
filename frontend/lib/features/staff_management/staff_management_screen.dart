@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
 import '../../auth/auth_session.dart';
@@ -7,6 +6,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/yasmine_logo.dart';
 import '../../network/api_client.dart';
+import '../../network/api_error_text.dart';
 
 part 'staff_form_dialog.dart';
 part 'staff_management_types.dart';
@@ -86,42 +86,6 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
     return role == 'RECEPTIONIST' ? 'Receptionist' : 'Doctor';
   }
 
-  String _friendlyDioError(DioException error) {
-    final status = error.response?.statusCode;
-    final body = error.response?.data;
-    final details = switch (body) {
-      Map<String, dynamic>() =>
-        (body['message'] ?? body['detail'] ?? body['error'] ?? '').toString(),
-      _ => '',
-    };
-
-    if (status == 404) {
-      return details.isEmpty
-          ? 'Request failed with 404. Please check backend route mapping.'
-          : 'Request failed with 404: $details';
-    }
-
-    if (status == 403) {
-      return details.isEmpty
-          ? 'Access denied (403). This endpoint requires ADMIN privileges.'
-          : 'Access denied (403): $details';
-    }
-
-    if (status == 400 || status == 422) {
-      return details.isEmpty
-          ? 'Validation failed. Please check required fields and enum values.'
-          : 'Validation failed: $details';
-    }
-
-    if (status != null) {
-      return details.isEmpty
-          ? 'Request failed with status $status.'
-          : 'Request failed with status $status: $details';
-    }
-
-    return 'Request failed: ${error.message ?? error.toString()}';
-  }
-
   Future<void> _openFormDialog({
     required _StaffRole role,
     StaffMember? initialStaff,
@@ -172,11 +136,15 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
         '/api/admin/accounts/${member.userId}',
       );
       _refreshStaff();
-    } on DioException catch (error) {
+    } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(_friendlyDioError(error))));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            apiErrorText(error, action: 'remove this staff member'),
+          ),
+        ),
+      );
     }
   }
 

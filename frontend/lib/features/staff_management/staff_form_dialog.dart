@@ -106,13 +106,9 @@ class _StaffFormDialogState extends State<_StaffFormDialog> {
 
       if (!mounted) return;
       Navigator.of(context).pop(true);
-    } on DioException catch (error) {
-      setState(() {
-        _submitError = _friendlyDioError(error);
-      });
     } catch (error) {
       setState(() {
-        _submitError = 'Could not save staff member: $error';
+        _submitError = apiErrorText(error, action: 'save this staff member');
       });
     } finally {
       if (mounted) {
@@ -547,42 +543,6 @@ class _StaffFormDialogState extends State<_StaffFormDialog> {
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
-  }
-
-  String _friendlyDioError(DioException error) {
-    final status = error.response?.statusCode;
-    final body = error.response?.data;
-    final details = switch (body) {
-      Map<String, dynamic>() =>
-        (body['message'] ?? body['detail'] ?? body['error'] ?? '').toString(),
-      _ => '',
-    };
-
-    if (status == 404) {
-      return details.isEmpty
-          ? 'Request failed with 404. Please check backend route mapping.'
-          : 'Request failed with 404: $details';
-    }
-
-    if (status == 403) {
-      return details.isEmpty
-          ? 'Access denied (403). This endpoint requires ADMIN privileges.'
-          : 'Access denied (403): $details';
-    }
-
-    if (status == 400 || status == 422) {
-      return details.isEmpty
-          ? 'Validation failed. Please check required fields and enum values.'
-          : 'Validation failed: $details';
-    }
-
-    if (status != null) {
-      return details.isEmpty
-          ? 'Request failed with status $status.'
-          : 'Request failed with status $status: $details';
-    }
-
-    return 'Request failed: ${error.message ?? error.toString()}';
   }
 
   Widget _dropdownField<T extends Enum>({

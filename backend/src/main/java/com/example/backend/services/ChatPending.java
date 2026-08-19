@@ -13,7 +13,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-// Confirms book what was shown, not what the model recalls.
+// Confirms book what was shown, not recalled.
 @Component
 public class ChatPending {
 
@@ -22,6 +22,7 @@ public class ChatPending {
 
     private final Map<UUID, Quote> quotes = new ConcurrentHashMap<>();
     private final Map<UUID, Cancellation> cancellations = new ConcurrentHashMap<>();
+    private final Map<UUID, Offered> offers = new ConcurrentHashMap<>();
     private final Clock clock;
 
     public ChatPending(Clock clock) {
@@ -39,6 +40,18 @@ public class ChatPending {
 
     void clearQuote(UUID patient) {
         quotes.remove(patient);
+    }
+
+    // Short codes copy cleanly; UUIDs do not.
+    void offer(UUID patient, Map<String, AddSessionRequest> slots) {
+        sweep(offers);
+        offers.put(patient, new Offered(Map.copyOf(slots), clock.instant()));
+    }
+
+    Optional<AddSessionRequest> offered(UUID patient, String code) {
+        return Optional.ofNullable(offers.get(patient))
+                .filter(held -> fresh(held.at()))
+                .map(held -> held.slots().get(code.trim().toUpperCase()));
     }
 
     void cancellation(UUID patient, UUID appointmentId) {
@@ -75,5 +88,8 @@ public class ChatPending {
     }
 
     record Cancellation(UUID appointmentId, Instant at) implements Held {
+    }
+
+    record Offered(Map<String, AddSessionRequest> slots, Instant at) implements Held {
     }
 }

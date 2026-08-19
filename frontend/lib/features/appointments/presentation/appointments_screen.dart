@@ -27,6 +27,7 @@ class AppointmentsScreen extends StatefulWidget {
     required this.treatmentApi,
     required this.doctorApi,
     required this.bookedSignal,
+    this.refreshSignal,
     this.clinicalApi,
     this.onNavigateToForms,
   });
@@ -39,6 +40,9 @@ class AppointmentsScreen extends StatefulWidget {
 
   /// Fires when booked elsewhere; cleared once read.
   final ValueNotifier<Appointment?> bookedSignal;
+
+  /// Ticks when the bot books or cancels.
+  final Listenable? refreshSignal;
 
   @override
   State<AppointmentsScreen> createState() => _AppointmentsScreenState();
@@ -81,8 +85,18 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
   void initState() {
     super.initState();
     widget.bookedSignal.addListener(_onExternalBooking);
+    widget.refreshSignal?.addListener(_reloadAfterMutation);
     _useClinicRules();
     _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant AppointmentsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshSignal != widget.refreshSignal) {
+      oldWidget.refreshSignal?.removeListener(_reloadAfterMutation);
+      widget.refreshSignal?.addListener(_reloadAfterMutation);
+    }
   }
 
   // Clinic zone and cutoff; failure keeps device's.
@@ -111,6 +125,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
   @override
   void dispose() {
     widget.bookedSignal.removeListener(_onExternalBooking);
+    widget.refreshSignal?.removeListener(_reloadAfterMutation);
     super.dispose();
   }
 
@@ -316,9 +331,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     }
   }
 
-  /// Verifies clinical form completion before opening the booking flow.
-  /// If incomplete, prompts the patient to fill it first and navigates to the form.
-  /// If complete, shows a reminder dialog with options to continue or review/modify.
+  // Health form gate before the booking sheet.
   Future<bool> _verifyClinicalFormBeforeBooking() async {
     if (widget.clinicalApi == null) return true;
 
@@ -329,7 +342,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
       if (!mounted) return false;
 
       if (!isComplete) {
-        // Case A: Form is incomplete -> Must fill first
+        // Incomplete form must be filled first.
         await showDialog<void>(
           context: context,
           builder: (ctx) => AlertDialog(
@@ -395,7 +408,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
         );
         return false;
       } else {
-        // Case B: Form is complete -> Remind and offer Review/Modify or Continue
+        // Complete form still offers a review.
         final action = await showDialog<String>(
           context: context,
           builder: (ctx) => AlertDialog(
@@ -464,7 +477,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
         return action == 'proceed';
       }
     } catch (_) {
-      // Fallback gracefully on network error so booking is not completely blocked
+      // Network error must not block booking.
       return true;
     }
   }
