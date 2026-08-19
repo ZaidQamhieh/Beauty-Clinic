@@ -6,11 +6,15 @@ import com.example.backend.repositories.ActivityLogRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import jakarta.persistence.criteria.Predicate;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -76,8 +80,36 @@ public class ActivityLogService {
 
     @Transactional(readOnly = true)
     public Page<ActivityLog> search(ActivityAction action, Instant from, Instant to, String search, Pageable pageable) {
-        String query = search == null || search.isBlank() ? null : search.trim();
-        return activityLogs.search(action, from, to, query, pageable);
+        return activityLogs.findAll((root, query, cb) -> {
+            var predicates = new ArrayList<Predicate>();
+            if (action != null) {
+                predicates.add(cb.equal(root.get("action"), action));
+            }
+            if (from != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("createdAt"), from));
+            }
+            if (to != null) {
+                predicates.add(cb.lessThan(root.get("createdAt"), to));
+            }
+            if (search != null && !search.isBlank()) {
+                String pattern = "%" + search.trim().toLowerCase(Locale.ROOT) + "%";
+                var text = cb.lower(
+                        cb.coalesce(root.get("attemptedIdentifier"), "")
+                );
+                var entity = cb.lower(
+                        cb.coalesce(root.get("entityType"), "")
+                );
+                predicates.add(cb.or(
+                        cb.like(text, pattern),
+                        cb.like(entity, pattern)
+                ));
+            }
+            // Auth events are captured for security but clutter the admin log.
+            predicates.add(cb.not(
+                    root.get("action").in(ActivityAction.LOGIN, ActivityAction.LOGOUT, ActivityAction.LOGIN_FAILED)
+            ));
+            return cb.and(predicates.toArray(new Predicate[0]));
+        }, pageable);
     }
 
     private void recordUserEvent(
