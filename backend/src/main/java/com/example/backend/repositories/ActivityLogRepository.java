@@ -1,5 +1,6 @@
 package com.example.backend.repositories;
 
+import com.example.backend.entities.ActivityAction;
 import com.example.backend.entities.ActivityLog;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -10,6 +11,8 @@ import java.util.UUID;
 
 public interface ActivityLogRepository
         extends JpaRepository<ActivityLog, UUID>, JpaSpecificationExecutor<ActivityLog> {
-    Page<ActivityLog> findByPatientUserIdAndActionOrderByCreatedAtDesc(
-            UUID patientUserId, com.example.backend.entities.ActivityAction action, Pageable pageable);
+
+    // Id settles rows sharing a timestamp.
+    Page<ActivityLog> findByPatientUserIdAndActionOrderByCreatedAtDescIdDesc(
+            UUID patientUserId, ActivityAction action, Pageable pageable);
 }

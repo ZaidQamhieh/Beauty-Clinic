@@ -9,7 +9,11 @@ import com.example.backend.entities.UserAccount;
 import com.example.backend.repositories.DoctorProfileRepository;
 import com.example.backend.repositories.UserAccountRepository;
 import com.example.backend.security.CurrentUser;
+import com.example.backend.entities.ActivityAction;
 import com.example.backend.security.Role;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -19,7 +23,9 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -29,6 +35,10 @@ public class UserProfileService {
     private final DoctorProfileRepository doctors;
     private final PasswordEncoder passwordEncoder;
     private final CurrentUser currentUser;
+    private final ActivityLogService activityLogs;
+    // Jackson 2 kept for Hibernate JsonNode.
+    private final ObjectMapper objectMapper = new ObjectMapper()
+            .registerModule(new JavaTimeModule());
 
     @Transactional(readOnly = true)
     public UserProfileResponse readOwn() {
@@ -47,6 +57,8 @@ public class UserProfileService {
                     HttpStatus.CONFLICT, "Phone number already registered");
         }
 
+        JsonNode before = snapshot(account);
+
         account.setFirstName(request.firstName());
         account.setLastName(request.lastName());
         account.setPhone(request.phone());
@@ -56,6 +68,10 @@ public class UserProfileService {
 
         DoctorProfileResponse doctorProfile = updateDoctorProfile(account, request);
         users.save(account);
+
+        activityLogs.record(
+                account.getId(), null, ActivityAction.PROFILE_UPDATED,
+                "user_account", account.getId(), before, snapshot(account));
 
         return UserProfileResponse.of(account, doctorProfile);
     }
@@ -73,6 +89,22 @@ public class UserProfileService {
         account.setPasswordHash(passwordEncoder.encode(request.newPassword()));
         account.setUpdatedAt(Instant.now());
         users.save(account);
+
+        activityLogs.record(
+                account.getId(), null, ActivityAction.PASSWORD_CHANGED,
+                "user_account", account.getId());
+    }
+
+    // Never the password hash.
+    private JsonNode snapshot(UserAccount account) {
+        Map<String, Object> fields = new LinkedHashMap<>();
+        fields.put("email", account.getEmail());
+        fields.put("phone", account.getPhone());
+        fields.put("firstName", account.getFirstName());
+        fields.put("lastName", account.getLastName());
+        fields.put("dateOfBirth", account.getDateOfBirth());
+        fields.put("gender", account.getGender());
+        return objectMapper.valueToTree(fields);
     }
 
     private DoctorProfileResponse updateDoctorProfile(

@@ -27,14 +27,14 @@ public class ActivityLog {
     @Column(name = "user_id")
     private UUID userId;
 
-    // The table indexes activity by patient so a record's history is one query.
+    // Patient index makes history one query.
     @Column(name = "patient_user_id")
     private UUID patientUserId;
 
     @Column(name = "attempted_identifier", length = 255)
     private String attemptedIdentifier;
 
-    // What was acted on. Both columns predate this and nothing wrote them, so no row was named.
+    // What was acted on.
     @Column(name = "entity_type", length = 60)
     private String entityType;
 
@@ -86,7 +86,7 @@ public class ActivityLog {
         );
     }
 
-    // Who did it, to whom, and to which row. userId is optional: some work has no human behind it.
+    // Actor optional: some work has no human.
     public static ActivityLog onEntity(
             UUID userId,
             UUID patientUserId,
@@ -124,6 +124,24 @@ public class ActivityLog {
                 null,
                 null
         );
+    }
+
+    // Entity and payload both optional.
+    public static ActivityLog of(
+            UUID userId,
+            UUID patientUserId,
+            ActivityAction action,
+            String entityType,
+            UUID entityId,
+            JsonNode oldValues,
+            JsonNode newValues
+    ) {
+        ActivityLog log = new ActivityLog(
+                userId, patientUserId, null, action, entityType, entityId
+        );
+        log.oldValues = oldValues;
+        log.newValues = newValues;
+        return log;
     }
 
     public static ActivityLog clinicalProfileUpdated(

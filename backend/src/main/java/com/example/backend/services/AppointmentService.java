@@ -62,11 +62,22 @@ public class AppointmentService {
     private final CurrentUser currentUser;
     private final ClinicProperties clinic;
     private final ActivityLogService activityLogs;
+    private final ActivityCorrelation correlation;
     private final CancellationPolicy cancellation;
     private final Clock clock;
 
     @Transactional
     public AppointmentResponse book(BookAppointmentRequest request) {
+        correlation.begin();
+
+        try {
+            return placeBooking(request);
+        } finally {
+            correlation.end();
+        }
+    }
+
+    private AppointmentResponse placeBooking(BookAppointmentRequest request) {
         // Doctor, admin, patient; patient self only.
         if (currentUser.hasRole(Role.PATIENT) && !currentUser.is(request.patientUserId())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Patients may only book for themselves");
@@ -120,12 +131,8 @@ public class AppointmentService {
                 .map(session -> AppointmentSessionResponse.of(sessionService.schedule(appointment, session)))
                 .toList();
 
-        // Joined visit was already booked.
-        if (!joining) {
-            record(replaced == null
-                    ? ActivityAction.APPOINTMENT_BOOKED
-                    : ActivityAction.APPOINTMENT_RESCHEDULED, appointment);
-        }
+        // Named even when the visit was joined.
+        record(visitAction(replaced, joining), appointment);
 
         // Whole day, so a join answers fully.
         return AppointmentResponse.of(appointment, joining ? liveSessionsOf(appointment) : booked);
@@ -227,10 +234,27 @@ public class AppointmentService {
 
     @Transactional
     public AppointmentResponse cancel(UUID id) {
-        Appointment appointment = requireLocked(id);
-        cancelVisit(appointment);
+        correlation.begin();
 
-        return withSessions(appointment);
+        try {
+            Appointment appointment = requireLocked(id);
+            cancelVisit(appointment);
+
+            return withSessions(appointment);
+        } finally {
+            correlation.end();
+        }
+    }
+
+    // Joining a visit is not booking.
+    private static ActivityAction visitAction(Appointment replaced, boolean joining) {
+        if (replaced != null) {
+            return ActivityAction.APPOINTMENT_RESCHEDULED;
+        }
+
+        return joining
+                ? ActivityAction.APPOINTMENT_SESSIONS_ADDED
+                : ActivityAction.APPOINTMENT_BOOKED;
     }
 
     // Drops the visit and pending treatments.

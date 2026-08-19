@@ -2,10 +2,12 @@ package com.example.backend.services;
 
 import com.example.backend.dtos.DoctorResponse;
 import com.example.backend.dtos.DoctorProfileRequest;
+import com.example.backend.entities.ActivityAction;
 import com.example.backend.entities.DoctorProfile;
 import com.example.backend.entities.UserAccount;
 import com.example.backend.repositories.DoctorProfileRepository;
 import com.example.backend.repositories.UserAccountRepository;
+import com.example.backend.security.CurrentUser;
 import com.example.backend.security.Role;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -28,6 +30,8 @@ public class DoctorService {
     private final DoctorProfileRepository doctors;
     private final UserAccountRepository users;
     private final AppointmentSessionRepository sessions;
+    private final ActivityLogService activityLogs;
+    private final CurrentUser currentUser;
 
     @Transactional
     public DoctorResponse register(UUID userId, DoctorProfileRequest request) {
@@ -44,14 +48,19 @@ public class DoctorService {
 
         DoctorProfile doctor = new DoctorProfile(account);
         if (request.specializations() != null) {
-            // The column CHECK tests containment, not distinctness, so duplicates store.
+            // CHECK tests containment, so duplicates store.
             doctor.setSpecializations(
                     request.specializations().stream().distinct()
                             .collect(Collectors.toCollection(ArrayList::new)));
         }
         doctor.setYearsOfExperience(request.yearsOfExperience());
 
-        return DoctorResponse.of(doctors.save(doctor));
+        DoctorResponse created = DoctorResponse.of(doctors.save(doctor));
+
+        activityLogs.record(
+                actor(), null, ActivityAction.DOCTOR_CREATED, "doctor_profile", userId);
+
+        return created;
     }
 
     @Transactional(readOnly = true)
@@ -71,12 +80,16 @@ public class DoctorService {
     public DoctorResponse updateProfile(UUID userId, DoctorProfileRequest request) {
         DoctorProfile doctor = require(userId);
         if (request.specializations() != null) {
-            // The column CHECK tests containment, not distinctness, so duplicates store.
+            // CHECK tests containment, so duplicates store.
             doctor.setSpecializations(
                     request.specializations().stream().distinct()
                             .collect(Collectors.toCollection(ArrayList::new)));
         }
         doctor.setYearsOfExperience(request.yearsOfExperience());
+
+        activityLogs.record(
+                actor(), null, ActivityAction.DOCTOR_UPDATED, "doctor_profile", userId);
+
         return DoctorResponse.of(doctor);
     }
 
@@ -84,12 +97,19 @@ public class DoctorService {
     public void delete(UUID userId) {
         DoctorProfile doctor = require(userId);
 
-        // Prevent removing a doctor who has any session records.
+        // Not removable while sessions exist.
         if (sessions.existsByPractitioner(userId)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Doctor has appointment sessions and cannot be removed");
         }
 
         doctors.delete(doctor);
+
+        activityLogs.record(
+                actor(), null, ActivityAction.DOCTOR_DELETED, "doctor_profile", userId);
+    }
+
+    private UUID actor() {
+        return currentUser.id().orElse(null);
     }
 
     private DoctorProfile require(UUID userId) {

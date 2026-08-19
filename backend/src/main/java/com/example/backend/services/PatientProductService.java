@@ -3,12 +3,14 @@ package com.example.backend.services;
 import com.example.backend.config.ClinicProperties;
 import com.example.backend.dtos.AddPatientProductRequest;
 import com.example.backend.dtos.PatientProductResponse;
+import com.example.backend.entities.ActivityAction;
 import com.example.backend.entities.PatientProduct;
 import com.example.backend.entities.PatientProfile;
 import com.example.backend.entities.Product;
 import com.example.backend.repositories.PatientProductRepository;
 import com.example.backend.repositories.PatientProfileRepository;
 import com.example.backend.repositories.ProductRepository;
+import com.example.backend.security.CurrentUser;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -27,6 +29,8 @@ public class PatientProductService {
     private final PatientProfileRepository patients;
     private final ProductRepository products;
     private final ClinicProperties clinic;
+    private final ActivityLogService activityLogs;
+    private final CurrentUser currentUser;
 
     @Transactional(readOnly = true)
     public List<PatientProductResponse> list(UUID patientUserId) {
@@ -45,7 +49,13 @@ public class PatientProductService {
         PatientProduct patientProduct = new PatientProduct(patient, product, request.source());
         patientProduct.setStartedOn(request.startedOn());
 
-        return PatientProductResponse.of(patientProducts.save(patientProduct));
+        PatientProduct saved = patientProducts.save(patientProduct);
+
+        activityLogs.record(
+                currentUser.id().orElse(null), patientUserId, ActivityAction.PATIENT_PRODUCT_ADDED,
+                "patient_product", saved.getId());
+
+        return PatientProductResponse.of(saved);
     }
 
     @Transactional
@@ -55,6 +65,12 @@ public class PatientProductService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No such product in this patient's routine"));
 
         patientProduct.setDiscontinuedOn(LocalDate.now(clinic.zone()));
+
+        activityLogs.record(
+                currentUser.id().orElse(null), patientUserId,
+                ActivityAction.PATIENT_PRODUCT_DISCONTINUED,
+                "patient_product", patientProductId);
+
         return PatientProductResponse.of(patientProduct);
     }
 }

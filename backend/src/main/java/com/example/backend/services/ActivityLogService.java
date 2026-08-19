@@ -3,27 +3,38 @@ package com.example.backend.services;
 import com.example.backend.entities.ActivityAction;
 import com.example.backend.entities.ActivityLog;
 import com.example.backend.repositories.ActivityLogRepository;
+import com.example.backend.repositories.UserAccountRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.domain.Specification;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 @Service
 @RequiredArgsConstructor
 public class ActivityLogService {
 
     private final ActivityLogRepository activityLogs;
+    private final UserAccountRepository users;
+    private final ActivityCorrelation correlation;
+    // Jackson 2 kept for Hibernate JsonNode.
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Transactional
     public void recordLogin(UUID userId) {
@@ -40,7 +51,7 @@ public class ActivityLogService {
         recordUserEvent(userId, ActivityAction.ACCOUNT_REGISTERED);
     }
 
-    // Must survive the rejected login transaction rolling back.
+    // Survives the rejected login rolling back.
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void recordFailedLogin(String attemptedIdentifier) {
         activityLogs.save(
@@ -48,19 +59,17 @@ public class ActivityLogService {
         );
     }
 
-    // Joins the caller's transaction: if the booking rolls back, so does the claim it happened.
+    // Joins the caller: rolled-back bookings claim nothing.
     @Transactional
     public void recordAppointment(UUID actorId, UUID patientUserId, ActivityAction action, UUID appointmentId) {
-        activityLogs.save(
-                ActivityLog.onEntity(actorId, patientUserId, action, "appointment", appointmentId)
-        );
+        activityLogs.save(ActivityLog.of(
+                actorId, patientUserId, action, "appointment", appointmentId, null, correlationNode()));
     }
 
     @Transactional
     public void recordSession(UUID actorId, UUID patientUserId, ActivityAction action, UUID sessionId) {
-        activityLogs.save(
-                ActivityLog.onEntity(actorId, patientUserId, action, "appointment_session", sessionId)
-        );
+        activityLogs.save(ActivityLog.of(
+                actorId, patientUserId, action, "appointment_session", sessionId, null, correlationNode()));
     }
 
     @Transactional
@@ -70,18 +79,60 @@ public class ActivityLogService {
         activityLogs.save(ActivityLog.clinicalProfileUpdated(actorId, patientUserId, oldValues, newValues));
     }
 
-    // Joins the caller: REQUIRES_NEW cannot see the uncommitted user it references.
-    @Transactional
+    // A denial outlives the work it refused.
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void recordPermissionDenied(Optional<UUID> userId) {
+        // Only a committed actor is visible here.
         activityLogs.save(
-                ActivityLog.permissionDenied(userId.orElse(null))
+                ActivityLog.permissionDenied(userId.filter(users::existsById).orElse(null))
         );
+    }
+
+    // Ordinary state change, tied to its caller.
+    @Transactional
+    public void record(UUID actorId, UUID patientUserId, ActivityAction action, String entityType, UUID entityId) {
+        record(actorId, patientUserId, action, entityType, entityId, null, null);
+    }
+
+    @Transactional
+    public void record(
+            UUID actorId,
+            UUID patientUserId,
+            ActivityAction action,
+            String entityType,
+            UUID entityId,
+            JsonNode oldValues,
+            JsonNode newValues
+    ) {
+        activityLogs.save(ActivityLog.of(
+                actorId, patientUserId, action, entityType, entityId, oldValues, newValues));
+    }
+
+    // Reads and security events never roll back.
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void recordIndependently(
+            UUID actorId, UUID patientUserId, ActivityAction action, String entityType, UUID entityId
+    ) {
+        activityLogs.save(ActivityLog.of(
+                actorId, patientUserId, action, entityType, entityId, null, null));
+    }
+
+    @Transactional(readOnly = true)
+    public Page<ActivityLog> clinicalHistory(UUID patientUserId, Pageable pageable) {
+        return activityLogs.findByPatientUserIdAndActionOrderByCreatedAtDescIdDesc(
+                patientUserId, ActivityAction.CLINICAL_PROFILE_UPDATED, pageable);
     }
 
     @Transactional(readOnly = true)
     public Page<ActivityLog> search(ActivityAction action, Instant from, Instant to, String search, Pageable pageable) {
+        String term = search == null || search.isBlank() ? null : search.trim();
+
+        UUID id = asUuid(term);
+        List<UUID> actorIds = id == null ? actorIdsFor(term) : List.of();
+
         return activityLogs.findAll((root, query, cb) -> {
             var predicates = new ArrayList<Predicate>();
+
             if (action != null) {
                 predicates.add(cb.equal(root.get("action"), action));
             }
@@ -91,25 +142,92 @@ public class ActivityLogService {
             if (to != null) {
                 predicates.add(cb.lessThan(root.get("createdAt"), to));
             }
-            if (search != null && !search.isBlank()) {
-                String pattern = "%" + search.trim().toLowerCase(Locale.ROOT) + "%";
-                var text = cb.lower(
-                        cb.coalesce(root.get("attemptedIdentifier"), "")
-                );
-                var entity = cb.lower(
-                        cb.coalesce(root.get("entityType"), "")
-                );
-                predicates.add(cb.or(
-                        cb.like(text, pattern),
-                        cb.like(entity, pattern)
-                ));
+            if (term != null) {
+                predicates.add(matching(root, cb, term, id, actorIds));
             }
-            // Auth events are captured for security but clutter the admin log.
+
+            // Auth events clutter the admin log.
             predicates.add(cb.not(
                     root.get("action").in(ActivityAction.LOGIN, ActivityAction.LOGOUT, ActivityAction.LOGIN_FAILED)
             ));
+
             return cb.and(predicates.toArray(new Predicate[0]));
-        }, pageable);
+        }, stable(pageable));
+    }
+
+    // Ids compare by equality; text resolves actors.
+    private Predicate matching(
+            Root<ActivityLog> root, CriteriaBuilder cb, String term, UUID id, List<UUID> actorIds
+    ) {
+        if (id != null) {
+            return cb.or(
+                    cb.equal(root.get("userId"), id),
+                    cb.equal(root.get("patientUserId"), id),
+                    cb.equal(root.get("entityId"), id));
+        }
+
+        String pattern = pattern(term);
+        var predicates = new ArrayList<Predicate>();
+
+        predicates.add(cb.like(cb.lower(cb.coalesce(root.get("attemptedIdentifier"), "")), pattern));
+        predicates.add(cb.like(cb.lower(cb.coalesce(root.get("entityType"), "")), pattern));
+
+        if (!actorIds.isEmpty()) {
+            predicates.add(root.get("userId").in(actorIds));
+            predicates.add(root.get("patientUserId").in(actorIds));
+        }
+
+        return cb.or(predicates.toArray(new Predicate[0]));
+    }
+
+    // Ties the rows one operation writes together.
+    private JsonNode correlationNode() {
+        Optional<UUID> id = correlation.current();
+
+        if (id.isEmpty()) {
+            return null;
+        }
+
+        ObjectNode node = objectMapper.createObjectNode();
+        node.put("correlationId", id.get().toString());
+        return node;
+    }
+
+    // The screen promises names, so resolve them.
+    private List<UUID> actorIdsFor(String term) {
+        if (term == null) {
+            return List.of();
+        }
+
+        return users.findIdsMatching(pattern(term));
+    }
+
+    private String pattern(String term) {
+        return "%" + term.toLowerCase(Locale.ROOT) + "%";
+    }
+
+    private UUID asUuid(String term) {
+        if (term == null) {
+            return null;
+        }
+
+        try {
+            return UUID.fromString(term);
+        } catch (IllegalArgumentException notAnId) {
+            return null;
+        }
+    }
+
+    // Timestamps tie, so page edges need settling.
+    private Pageable stable(Pageable pageable) {
+        if (pageable.isUnpaged() || pageable.getSort().getOrderFor("id") != null) {
+            return pageable;
+        }
+
+        return PageRequest.of(
+                pageable.getPageNumber(),
+                pageable.getPageSize(),
+                pageable.getSort().and(Sort.by(Sort.Direction.DESC, "id")));
     }
 
     private void recordUserEvent(

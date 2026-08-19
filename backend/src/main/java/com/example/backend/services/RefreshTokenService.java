@@ -1,6 +1,7 @@
 package com.example.backend.services;
 
 import com.example.backend.security.TokenProperties;
+import com.example.backend.entities.ActivityAction;
 import com.example.backend.entities.UserAccount;
 import lombok.RequiredArgsConstructor;
 
@@ -49,13 +50,20 @@ public class RefreshTokenService {
 
         RefreshToken currentToken = refreshTokens
                 .findByTokenHash(tokenHash)
-                .orElseThrow(this::invalidToken);
+                .orElseThrow(() -> {
+                    activityLogs.recordIndependently(
+                            null, null, ActivityAction.REFRESH_TOKEN_REJECTED, "refresh_token", null);
+                    return invalidToken();
+                });
 
         if (currentToken.isExpired(Instant.now())) {
+            activityLogs.recordIndependently(
+                    currentToken.getUser().getId(), null,
+                    ActivityAction.REFRESH_TOKEN_REJECTED, "refresh_token", currentToken.getId());
             throw invalidToken();
         }
 
-        // Rotate in place: session id stays valid, so do access tokens on it.
+        // Rotate in place; the session id survives.
         String newRawToken = generateToken();
         currentToken.rotateTo(hash(newRawToken), Instant.now().plus(properties.refreshTtl()));
         refreshTokens.save(currentToken);
@@ -102,7 +110,7 @@ public class RefreshTokenService {
                 .ifPresent(token -> {
                     UUID userId = token.getUser().getId();
 
-                    // Stamped before the row goes, so revoked stays distinguishable from removed.
+                    // Stamped first, so revoked stays distinguishable.
                     token.revoke(Instant.now());
                     refreshTokens.saveAndFlush(token);
 

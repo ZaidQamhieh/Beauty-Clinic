@@ -17,6 +17,9 @@ class ChatApi {
   /// The server keeps the last thirty anyway.
   static const historyTurns = 30;
 
+  /// Tool turns outrun the global 15s.
+  static const _replyTimeout = Duration(seconds: 60);
+
   final ApiClient _client;
 
   /// One turn; the caller owns the transcript.
@@ -40,6 +43,10 @@ class ChatApi {
               .toList(growable: false),
         },
         cancelToken: cancelToken,
+        options: Options(
+          receiveTimeout: _replyTimeout,
+          sendTimeout: _replyTimeout,
+        ),
       );
       final data = response.data;
       if (data == null) {

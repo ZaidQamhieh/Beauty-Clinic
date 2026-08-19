@@ -18,13 +18,22 @@ public interface UserAccountRepository extends JpaRepository<UserAccount, UUID> 
 
     Optional<UserAccount> findByEmailIgnoreCase(String email);
 
-    // Mirrors uq_user_account_phone, which is scoped to live rows, so a soft delete
-    // frees it.
+    // Mirrors uq_user_account_phone, scoped to live rows.
     boolean existsByPhone(String phone);
 
     List<UserAccount> findAllByRoleInOrderByLastNameAscFirstNameAsc(Collection<Role> roles);
 
-    // Locked: concurrent failed logins must not lose an increment.
+    // Backs activity-log search by name or email.
+    @Query("""
+            select u.id from UserAccount u
+            where lower(u.email) like :term
+               or lower(u.firstName) like :term
+               or lower(u.lastName) like :term
+               or lower(concat(u.firstName, ' ', u.lastName)) like :term
+            """)
+    List<UUID> findIdsMatching(@Param("term") String term);
+
+    // Locked: concurrent failures must not lose increments.
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select u from UserAccount u where lower(u.email) = lower(:email)")
     Optional<UserAccount> lockByEmail(@Param("email") String email);

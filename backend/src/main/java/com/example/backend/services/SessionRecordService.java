@@ -3,6 +3,7 @@ package com.example.backend.services;
 import com.example.backend.dtos.AmendSessionRecordRequest;
 import com.example.backend.dtos.CreateSessionRecordRequest;
 import com.example.backend.dtos.SessionRecordResponse;
+import com.example.backend.entities.ActivityAction;
 import com.example.backend.entities.AppointmentSession;
 import com.example.backend.entities.AppointmentSession.SessionStatus;
 import com.example.backend.entities.DoctorProfile;
@@ -24,7 +25,10 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Service
 @RequiredArgsConstructor
@@ -36,9 +40,16 @@ public class SessionRecordService {
     private final ProductRepository products;
     private final PrescriptionProductRepository prescriptions;
     private final CurrentUser currentUser;
+    private final ActivityLogService activityLogs;
+    // Jackson 2 kept for Hibernate JsonNode.
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Transactional(readOnly = true)
     public Page<SessionRecordResponse> list(UUID patientUserId, Pageable pageable) {
+        activityLogs.recordIndependently(
+                currentUser.id().orElse(null), patientUserId,
+                ActivityAction.SESSION_RECORDS_VIEWED, "session_record", null);
+
         return records.findBySessionAppointmentPatientUserIdOrderByCreatedAtDesc(patientUserId, pageable)
                 .map(record -> SessionRecordResponse.of(record, prescribedProductIds(record)));
     }
@@ -54,6 +65,10 @@ public class SessionRecordService {
 
         List<UUID> prescribedIds = prescribe(record, request.prescribedProductIds());
 
+        activityLogs.record(
+                author.getUserId(), patientUserId, ActivityAction.SESSION_RECORD_CREATED,
+                "session_record", record.getId(), null, prescribed(prescribedIds));
+
         return SessionRecordResponse.of(record, prescribedIds);
     }
 
@@ -66,7 +81,7 @@ public class SessionRecordService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No such session record for this patient");
         }
 
-        // A record is amended at most once, so the chain stays linear and the live note is clear.
+        // Amended once, so the chain stays linear.
         if (records.existsByAmendsId(original.getId())) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT, "That record has already been amended; amend the correction instead");
@@ -80,7 +95,23 @@ public class SessionRecordService {
 
         List<UUID> prescribedIds = prescribe(correction, request.prescribedProductIds());
 
+        activityLogs.record(
+                author.getUserId(), patientUserId, ActivityAction.SESSION_RECORD_AMENDED,
+                "session_record", correction.getId(),
+                objectMapper.valueToTree(Map.of("amendsRecordId", original.getId().toString())),
+                prescribed(prescribedIds));
+
         return SessionRecordResponse.of(correction, prescribedIds);
+    }
+
+    // Ids only; the note stays out.
+    private JsonNode prescribed(List<UUID> prescribedIds) {
+        if (prescribedIds.isEmpty()) {
+            return null;
+        }
+
+        return objectMapper.valueToTree(Map.of(
+                "prescribedProductIds", prescribedIds.stream().map(UUID::toString).toList()));
     }
 
     private List<UUID> prescribe(SessionRecord record, List<UUID> requestedIds) {
@@ -88,7 +119,7 @@ public class SessionRecordService {
             return List.of();
         }
 
-        // Deduped first: findAllById returns rows, so a repeat would read as a missing product.
+        // Deduped: a repeat would read as missing.
         List<UUID> productIds = requestedIds.stream().distinct().toList();
 
         List<Product> found = products.findAllById(productIds);
@@ -115,7 +146,7 @@ public class SessionRecordService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No such session for this patient");
         }
 
-        // A note is permanent once written, so it may only describe work actually done.
+        // Permanent once written, so describe done work.
         if (session.getStatus() != SessionStatus.COMPLETED) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
