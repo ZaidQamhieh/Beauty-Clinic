@@ -537,7 +537,9 @@ class _MainRootControllerState extends State<MainRootController> {
         return ProductCatalogScreen(
           key: const ValueKey('products'),
           api: _products,
-          canManage: widget.authSession.role == Role.admin,
+          canManage:
+              widget.authSession.role == Role.admin ||
+              widget.authSession.role == Role.doctor,
         );
       case 'staff_management':
         return StaffManagementScreen(

@@ -35,4 +35,8 @@ class ProductApi {
     );
     return Product.fromJson(response.data!);
   }
+
+  Future<void> delete(String id) async {
+    await _client.delete<void>('/api/products/$id');
+  }
 }
