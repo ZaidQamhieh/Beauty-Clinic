@@ -43,7 +43,10 @@ class ChatApi {
               .toList(growable: false),
         },
         cancelToken: cancelToken,
-        options: Options(receiveTimeout: _replyTimeout, sendTimeout: _replyTimeout),
+        options: Options(
+          receiveTimeout: _replyTimeout,
+          sendTimeout: _replyTimeout,
+        ),
       );
       final data = response.data;
       if (data == null) {
