@@ -15,6 +15,7 @@ frontend/.metadata
 backend/target/
 backend/.env
 *.log
+*.log.*
 
 # Docker
 .env

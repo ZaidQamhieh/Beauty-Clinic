@@ -7,8 +7,8 @@ import com.example.backend.dtos.PatientDetailResponse;
 import com.example.backend.dtos.PatientRecordResponse;
 import com.example.backend.dtos.ClinicalHistoryResponse;
 import com.example.backend.services.PatientProfileService;
-import com.example.backend.security.access.AdminOnly;
 import com.example.backend.security.access.ClinicStaffOnly;
+import com.example.backend.security.access.ClinicalListReader;
 import com.example.backend.security.access.ClinicalReader;
 import com.example.backend.security.access.ClinicalWriter;
 import com.example.backend.security.access.PatientOnly;
@@ -54,7 +54,7 @@ public class PatientController {
     }
 
     @GetMapping("/clinical")
-    @AdminOnly
+    @ClinicalListReader
     public Page<PatientRecordResponse> searchClinical(
             @RequestParam(name = "q", required = false) String term, Pageable pageable
     ) {
@@ -90,7 +90,7 @@ public class PatientController {
         return patients.updateOwnProfile(request);
     }
 
-    // The health form is the patient's own to fill; without this only an admin could.
+    // Patients fill their own health form.
     @PutMapping("/me/clinical")
     @PatientOnly
     public PatientRecordResponse updateOwnClinicalProfile(

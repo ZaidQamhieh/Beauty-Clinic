@@ -1,5 +1,7 @@
 package com.example.backend.security;
 
+import com.example.backend.entities.ActivityAction;
+import com.example.backend.services.ActivityLogService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -16,28 +18,28 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
-// Bounds one address against the endpoints that carry no token. The account lockout bounds
-// guesses at one password; this bounds breadth, which that never sees. In memory, so it
-// resets on restart and counts per instance.
+// Bounds one address against tokenless endpoints.
 class AuthRateLimitFilter extends OncePerRequestFilter {
 
-    // Not logout: a 429 there strands a live session.
+    // Not logout; a 429 strands sessions.
     private static final Set<String> GUARDED = Set.of(
             "/api/auth/register",
             "/api/auth/login",
             "/api/auth/refresh"
     );
 
-    // Past this, expired windows are swept, so many sources cannot grow the map unbounded.
+    // Past this, expired windows are swept.
     private static final int PRUNE_ABOVE = 10_000;
 
     private final Map<String, Window> windows = new ConcurrentHashMap<>();
     private final int maxRequests;
     private final Duration window;
+    private final ActivityLogService activityLogs;
 
-    AuthRateLimitFilter(RateLimitProperties properties) {
+    AuthRateLimitFilter(RateLimitProperties properties, ActivityLogService activityLogs) {
         this.maxRequests = properties.maxRequests();
         this.window = properties.window();
+        this.activityLogs = activityLogs;
     }
 
     @Override
@@ -50,11 +52,14 @@ class AuthRateLimitFilter extends OncePerRequestFilter {
             HttpServletRequest request, HttpServletResponse response, FilterChain chain
     ) throws ServletException, IOException {
 
-        // Per endpoint too, so refresh cannot starve login.
+        // Per endpoint, so refresh cannot starve login.
         if (withinLimit(request.getRequestURI() + "|" + request.getRemoteAddr())) {
             chain.doFilter(request, response);
             return;
         }
+
+        activityLogs.recordIndependently(
+                null, null, ActivityAction.AUTH_RATE_LIMITED, "auth_endpoint", null);
 
         response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
         response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);

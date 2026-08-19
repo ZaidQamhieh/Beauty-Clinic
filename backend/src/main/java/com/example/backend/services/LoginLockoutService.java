@@ -1,5 +1,6 @@
 package com.example.backend.services;
 
+import com.example.backend.entities.ActivityAction;
 import com.example.backend.entities.UserAccount;
 import com.example.backend.repositories.UserAccountRepository;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +27,7 @@ public class LoginLockoutService {
     );
 
     private final UserAccountRepository users;
+    private final ActivityLogService activityLogs;
 
     @Transactional(readOnly = true)
     public void assertNotLocked(String identifier) {
@@ -36,7 +38,7 @@ public class LoginLockoutService {
         });
     }
 
-    // Own transaction: login rethrows and rolls back, discarding the count.
+    // Own transaction; the rollback discards counts.
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void recordFailure(String identifier) {
         users.lockByEmail(identifier).ifPresent(account -> {
@@ -50,7 +52,7 @@ public class LoginLockoutService {
         });
     }
 
-    // Strikes clear too, or the ladder only ever climbs.
+    // Strikes clear, or the ladder only climbs.
     @Transactional
     public void recordSuccess(String identifier) {
         users.findByEmailIgnoreCase(identifier).ifPresent(account -> {
@@ -67,13 +69,17 @@ public class LoginLockoutService {
         account.setLockoutStrikes(account.getLockoutStrikes() + 1);
         account.setFailedLoginCount(0);
 
+        activityLogs.record(
+                account.getId(), null, ActivityAction.ACCOUNT_LOCKED,
+                "user_account", account.getId());
+
         log.warn(
                 "Login lockout triggered: identifier={} duration={} strike={}",
                 identifier, duration, account.getLockoutStrikes()
         );
     }
 
-    // Clamped: an attacker holds the last rung, never passes it.
+    // Clamped at the last rung.
     private Duration durationForStrike(int strike) {
         return LOCKOUT_LADDER.get(Math.min(strike, LOCKOUT_LADDER.size() - 1));
     }

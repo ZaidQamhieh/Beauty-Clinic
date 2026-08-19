@@ -20,6 +20,8 @@ import java.util.Map;
 @Validated
 public record ClinicProperties(
         @NotBlank String timezone,
+        // Prices are quoted in this currency.
+        String currency,
         @Valid Map<TreatmentName, Tariff> tariff,
         // How far ahead the calendar is open at all.
         Integer maxHorizonDays,
@@ -31,6 +33,7 @@ public record ClinicProperties(
         Integer cancellationCutoffMinutes
 ) {
 
+    public static final String DEFAULT_CURRENCY = "ILS";
     public static final int DEFAULT_MAX_HORIZON_DAYS = 180;
     public static final int DEFAULT_SLOT_GRANULARITY_MINUTES = 15;
     public static final int DEFAULT_TURNOVER_MINUTES = 10;
@@ -40,6 +43,10 @@ public record ClinicProperties(
         // Fail at startup on an unknown zone, not on the first booking.
         if (timezone != null && !timezone.isBlank()) {
             ZoneId.of(timezone);
+        }
+
+        if (currency == null || currency.isBlank()) {
+            currency = DEFAULT_CURRENCY;
         }
 
         if (maxHorizonDays == null) {

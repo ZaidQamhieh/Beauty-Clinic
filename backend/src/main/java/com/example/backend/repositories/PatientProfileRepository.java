@@ -23,7 +23,28 @@ public interface PatientProfileRepository extends JpaRepository<PatientProfile, 
             """)
     Page<PatientProfile> search(@Param("term") String term, Pageable pageable);
 
-    // One row, held for the booking transaction, so two bookings cannot both read "no clash".
+    // Doctors see only patients they treat.
+    @Query("""
+            select p from PatientProfile p
+            where (lower(p.user.firstName) like lower(concat('%', :term, '%'))
+               or lower(p.user.lastName) like lower(concat('%', :term, '%'))
+               or lower(p.user.email) like lower(concat('%', :term, '%'))
+               or p.user.phone like concat('%', :term, '%'))
+              and exists (
+                  select s from AppointmentSession s
+                  where s.appointment.patient.userId = p.userId
+                    and s.practitioner.userId = :doctorUserId
+                    and s.status <> CANCELLED
+                    and (s.appointment.createdBy is null
+                         or s.appointment.createdBy.id <> :doctorUserId)
+              )
+            """)
+    Page<PatientProfile> searchTreatedBy(
+            @Param("term") String term,
+            @Param("doctorUserId") UUID doctorUserId,
+            Pageable pageable);
+
+    // Row held so bookings cannot race.
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select p from PatientProfile p where p.userId = :userId")
     Optional<PatientProfile> lockForBooking(@Param("userId") UUID userId);

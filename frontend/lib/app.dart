@@ -18,6 +18,8 @@ import 'package:beauty_clinic_app/features/appointments/data/doctor_api.dart';
 import 'package:beauty_clinic_app/features/appointments/data/treatment_api.dart';
 import 'package:beauty_clinic_app/features/appointments/presentation/appointments_screen.dart';
 import 'package:beauty_clinic_app/features/appointments/presentation/booking_flow_sheet.dart';
+import 'package:beauty_clinic_app/features/chat/data/chat_api.dart';
+import 'package:beauty_clinic_app/features/chat/presentation/chat_launcher.dart';
 import 'package:beauty_clinic_app/features/forms/data/clinical_intake_api.dart';
 import 'package:beauty_clinic_app/features/forms/data/clinical_intake_schema.dart';
 import 'package:beauty_clinic_app/features/forms/data/dynamic_form_api.dart';
@@ -35,8 +37,7 @@ import 'package:beauty_clinic_app/screens/register_screen.dart';
 class BeautyClinicApp extends StatelessWidget {
   const BeautyClinicApp({super.key, this.authSession});
 
-  /// Injectable for tests; when omitted the app owns a production session
-  /// backed by the browser's secure storage and the backend API base URL.
+  /// Injectable for tests; production owns its own.
   final AuthSession? authSession;
 
   @override
@@ -50,7 +51,7 @@ class BeautyClinicApp extends StatelessWidget {
   }
 }
 
-/// Switches between the login screen and the clinic shell based on the session.
+/// Switches between login and the shell.
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key, this.authSession});
 
@@ -110,7 +111,7 @@ class _AuthGateState extends State<AuthGate> {
   }
 }
 
-/// Root State Controller managing Active Role and Selected Navigation View
+/// Holds the active role and view.
 class MainRootController extends StatefulWidget {
   const MainRootController({super.key, required this.authSession});
 
@@ -131,8 +132,12 @@ class _MainRootControllerState extends State<MainRootController> {
   late final DoctorApi _doctorApi;
   late final ClinicalIntakeApi _clinicalApi;
   late final DynamicFormApi _dynamicApi;
+  late final ChatApi _chatApi;
 
-  // Carries a just-booked visit to the list.
+  // Remounts the list after the bot writes.
+  int _chatRevision = 0;
+
+  // Carries a just-booked visit over.
   final ValueNotifier<Appointment?> _bookedSignal = ValueNotifier<Appointment?>(
     null,
   );
@@ -140,7 +145,7 @@ class _MainRootControllerState extends State<MainRootController> {
   @override
   void initState() {
     super.initState();
-    // The shell uses lowercase role names; the backend sends uppercase wire names.
+    // Shell roles are lowercase, wire names upper.
     _activeRole = widget.authSession.role?.wireName.toLowerCase() ?? 'admin';
     _activeView = 'dashboard';
 
@@ -151,13 +156,18 @@ class _MainRootControllerState extends State<MainRootController> {
     _doctorApi = DoctorApi(_apiClient);
     _clinicalApi = ClinicalIntakeApi(_apiClient);
     _dynamicApi = DynamicFormApi(_apiClient);
+    _chatApi = ChatApi(_apiClient);
+  }
+
+  void _afterChatWrite() {
+    setState(() => _chatRevision++);
   }
 
   @override
   void dispose() {
     _bookedSignal.dispose();
     _apiClient.close();
-    // Covers every way the session can end.
+    // Covers every session ending.
     ClinicTime.reset();
     super.dispose();
   }
@@ -166,7 +176,7 @@ class _MainRootControllerState extends State<MainRootController> {
     try {
       await widget.authSession.logout();
     } on AuthException {
-      // The session is already cleared locally; AuthGate returns to the login screen.
+      // Cleared locally; AuthGate returns to login.
     }
   }
 
@@ -190,7 +200,7 @@ class _MainRootControllerState extends State<MainRootController> {
   bool _fromBookingFlow = false;
 
   void _onViewChanged(String newView) {
-    // "Book" opens the sheet, not a view.
+    // Book opens the sheet, not a view.
     if (newView == 'book') {
       _openBookingModal();
       return;
@@ -428,7 +438,7 @@ class _MainRootControllerState extends State<MainRootController> {
         treatmentApi: _treatmentApi,
         appointmentApi: _appointmentApi,
         doctorApi: _doctorApi,
-        // Hand the new visit to the list.
+        // Hands the new visit over.
         onBooked: (appointment) => _bookedSignal.value = appointment,
       ),
     );
@@ -441,27 +451,40 @@ class _MainRootControllerState extends State<MainRootController> {
       activeView: _activeView,
       onViewChanged: _onViewChanged,
       onProfileTap: () => _onViewChanged('my_profile'),
-      // No onBookClick: booking belongs to the appointments page, which carries
-      // its own button, rather than following the user onto every screen.
+      // Booking lives in chat, not the header.
       onLogout: _logout,
-      child: Stack(
-        children: [
-          const FloatingPetals(),
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 250),
-            child: _buildCurrentView(),
-          ),
-        ],
+      child: _withChat(
+        Stack(
+          children: [
+            const FloatingPetals(),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 250),
+              child: _buildCurrentView(),
+            ),
+          ],
+        ),
       ),
     );
   }
 
+  // Patients only; staff never see it.
+  Widget _withChat(Widget page) {
+    if (_activeRole != 'patient') {
+      return page;
+    }
+    return ChatLauncher(
+      api: _chatApi,
+      onVisitsChanged: _afterChatWrite,
+      child: page,
+    );
+  }
+
   Widget _buildCurrentView() {
-    // Patients get their own list; staff keep dashboard.
+    // Patients get their own list.
     if (_activeRole == 'patient' &&
         (_activeView == 'dashboard' || _activeView == 'appointments')) {
       return AppointmentsScreen(
-        key: const ValueKey('my_appointments'),
+        key: ValueKey('my_appointments_$_chatRevision'),
         appointmentApi: _appointmentApi,
         treatmentApi: _treatmentApi,
         doctorApi: _doctorApi,

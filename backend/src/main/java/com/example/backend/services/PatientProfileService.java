@@ -6,8 +6,10 @@ import com.example.backend.dtos.PatientDetailsRequest;
 import com.example.backend.dtos.PatientDetailResponse;
 import com.example.backend.dtos.PatientRecordResponse;
 import com.example.backend.entities.UserAccount.AccountStatus;
+import com.example.backend.entities.PatientFormResponse;
 import com.example.backend.entities.PatientProfile;
 import com.example.backend.entities.UserAccount;
+import com.example.backend.repositories.PatientFormResponseRepository;
 import com.example.backend.repositories.PatientProfileRepository;
 import com.example.backend.repositories.UserAccountRepository;
 import com.example.backend.security.CurrentUser;
@@ -22,6 +24,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -29,9 +33,9 @@ import java.util.stream.Collectors;
 import com.example.backend.entities.ActivityAction;
 import com.example.backend.entities.ActivityLog;
 import com.example.backend.dtos.ClinicalHistoryResponse;
-import com.example.backend.repositories.ActivityLogRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 @Service
 @RequiredArgsConstructor
@@ -41,14 +45,15 @@ public class PatientProfileService {
     private final UserAccountRepository users;
     private final PasswordEncoder passwordEncoder;
     private final CurrentUser currentUser;
-    private final ActivityLogRepository activityLogs;
-    // Spring Boot 4's web stack uses Jackson 3, while the JSONB mapping below
-    // deliberately uses Jackson 2 for Hibernate's stable JsonNode support.
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ActivityLogService activityLogs;
+    private final PatientFormResponseRepository formResponses;
+    // Jackson 2 kept for Hibernate JsonNode.
+    private final ObjectMapper objectMapper = new ObjectMapper()
+            .registerModule(new JavaTimeModule());
 
     @Transactional
     public PatientDetailResponse register(PatientDetailsRequest request) {
-        // Taken at the desk, like the paper form. Without it, not bookable.
+        // Taken at the desk, like paper.
         if (request.clinical() == null) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST, "The patient's health form is required");
@@ -58,7 +63,7 @@ public class PatientProfileService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already registered");
         }
 
-        // Phone carries its own unique index, so it needs its own answer, not a bare conflict.
+        // Phone has its own unique index.
         if (request.phone() != null && users.existsByPhone(request.phone())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Phone number already registered");
         }
@@ -70,7 +75,7 @@ public class PatientProfileService {
         account.setPhone(request.phone());
         account.setGender(request.gender());
 
-        // A password means a live account; without one it is a walk-in record.
+        // No password means a walk-in record.
         if (request.password() == null) {
             account.setStatus(AccountStatus.INVITED);
         } else {
@@ -82,6 +87,12 @@ public class PatientProfileService {
         PatientProfile profile = new PatientProfile(account);
         applyClinical(profile, request.clinical());
         patients.save(profile);
+
+        // Not self-registration; the desk did this.
+        activityLogs.record(
+                currentUser.id().orElse(null), account.getId(),
+                ActivityAction.PATIENT_REGISTERED_BY_STAFF,
+                "user_account", account.getId());
 
         return PatientDetailResponse.of(profile);
     }
@@ -97,10 +108,21 @@ public class PatientProfileService {
                 .map(PatientDetailResponse::of);
     }
 
+    // Admins see everyone; doctors only their own.
     @Transactional(readOnly = true)
     public Page<PatientRecordResponse> searchClinical(String term, Pageable pageable) {
         String needle = term == null ? "" : term;
-        return patients.search(needle, pageable).map(PatientRecordResponse::of);
+
+        activityLogs.recordIndependently(
+                currentUser.id().orElse(null), null,
+                ActivityAction.CLINICAL_LIST_VIEWED, "patient_profile", null);
+
+        if (currentUser.hasRole(Role.ADMIN)) {
+            return patients.search(needle, pageable).map(PatientRecordResponse::of);
+        }
+
+        return patients.searchTreatedBy(needle, currentUser.requireId(), pageable)
+                .map(PatientRecordResponse::of);
     }
 
     @Transactional(readOnly = true)
@@ -110,29 +132,54 @@ public class PatientProfileService {
 
     @Transactional(readOnly = true)
     public PatientRecordResponse readClinical(UUID userId) {
-        return PatientRecordResponse.of(require(userId));
+        PatientRecordResponse record = PatientRecordResponse.of(require(userId));
+
+        activityLogs.recordIndependently(
+                currentUser.id().orElse(null), userId,
+                ActivityAction.CLINICAL_PROFILE_VIEWED, "patient_profile", userId);
+
+        return record;
     }
 
     @Transactional
     public PatientDetailResponse updateDemographics(UUID userId, PatientDetailsRequest request) {
         PatientProfile profile = require(userId);
         UserAccount account = profile.getUser();
+        JsonNode before = demographics(account);
+
         account.setFirstName(request.firstName());
         account.setLastName(request.lastName());
         account.setDateOfBirth(request.dateOfBirth());
         account.setPhone(request.phone());
         account.setEmail(request.email());
         account.setGender(request.gender());
+
+        activityLogs.record(
+                currentUser.id().orElse(null), userId,
+                ActivityAction.PATIENT_DEMOGRAPHICS_UPDATED,
+                "user_account", userId, before, demographics(account));
+
         return PatientDetailResponse.of(profile);
     }
 
+    private JsonNode demographics(UserAccount account) {
+        Map<String, Object> fields = new LinkedHashMap<>();
+        fields.put("email", account.getEmail());
+        fields.put("phone", account.getPhone());
+        fields.put("firstName", account.getFirstName());
+        fields.put("lastName", account.getLastName());
+        fields.put("dateOfBirth", account.getDateOfBirth());
+        fields.put("gender", account.getGender());
+        return objectMapper.valueToTree(fields);
+    }
+
     @Transactional
-    // Target from token, so patient cannot aim at someone else.
+    // Target from token, never from body.
     public PatientDetailResponse updateOwnProfile(EditOwnProfileRequest request) {
         PatientProfile profile = requireOwn();
         UserAccount account = profile.getUser();
 
-        // Vague on purpose: the unique index would otherwise answer "is this number registered".
+        // Vague, or the index answers queries.
         if (request.phone() != null
                 && !request.phone().equals(account.getPhone())
                 && users.existsByPhone(request.phone())) {
@@ -149,7 +196,7 @@ public class PatientProfileService {
         return PatientRecordResponse.of(requireOwn());
     }
 
-    // The patient filling their own form; no other route lets them write a clinical field.
+    // Only route a patient writes clinical.
     @Transactional
     public PatientRecordResponse updateOwnClinicalProfile(EditClinicalProfileRequest request) {
         return updateClinicalProfile(currentUser.requireId(), request);
@@ -158,19 +205,59 @@ public class PatientProfileService {
     @Transactional
     public PatientRecordResponse updateClinicalProfile(UUID userId, EditClinicalProfileRequest request) {
         PatientProfile profile = require(userId);
-        JsonNode before = objectMapper.valueToTree(PatientRecordResponse.of(profile));
+
+        Map<String, Object> before = ClinicalAnswers.of(profile);
         applyClinical(profile, request);
-        JsonNode after = objectMapper.valueToTree(PatientRecordResponse.of(profile));
-        activityLogs.save(ActivityLog.clinicalProfileUpdated(currentUser.requireId(), userId, before, after));
+        Map<String, Object> after = ClinicalAnswers.of(profile);
+
+        // Form copy must not go stale.
+        syncFormAnswers(userId, after);
+
+        // Nothing changed, so nothing happened.
+        if (!before.equals(after)) {
+            activityLogs.recordClinicalProfileUpdate(
+                    currentUser.requireId(), userId,
+                    objectMapper.valueToTree(before),
+                    objectMapper.valueToTree(after));
+        }
+
         return PatientRecordResponse.of(profile);
+    }
+
+    // Staff edits reach the form too.
+    @SuppressWarnings("unchecked")
+    private void syncFormAnswers(UUID patientUserId, Map<String, Object> answers) {
+        PatientFormResponse.Id key =
+                new PatientFormResponse.Id(patientUserId, DynamicFormService.CLINICAL_INTAKE);
+
+        PatientFormResponse stored = formResponses.findById(key).orElseGet(() -> {
+            PatientFormResponse created = new PatientFormResponse();
+            created.setId(key);
+            created.setAnswers(objectMapper.createObjectNode());
+            return created;
+        });
+
+        Map<String, Object> merged = new LinkedHashMap<>();
+
+        if (stored.getAnswers() != null) {
+            merged.putAll(objectMapper.convertValue(stored.getAnswers(), Map.class));
+        }
+
+        merged.putAll(answers);
+
+        stored.setAnswers(objectMapper.valueToTree(merged));
+        formResponses.save(stored);
     }
 
     @Transactional(readOnly = true)
     public Page<ClinicalHistoryResponse> clinicalHistory(UUID userId, Pageable pageable) {
         require(userId);
-        var page = activityLogs.findByPatientUserIdAndActionOrderByCreatedAtDesc(
-                userId, ActivityAction.CLINICAL_PROFILE_UPDATED, pageable
-        );
+
+        activityLogs.recordIndependently(
+                currentUser.id().orElse(null), userId,
+                ActivityAction.CLINICAL_HISTORY_VIEWED, "patient_profile", userId);
+
+        var page = activityLogs.clinicalHistory(userId, pageable);
 
         List<ActivityLog> logs = page.getContent();
         var actorIds = logs.stream()
@@ -192,7 +279,7 @@ public class PatientProfileService {
         return new org.springframework.data.domain.PageImpl<>(dto, pageable, page.getTotalElements());
     }
 
-    // Shared with register: one way to write the form.
+    // Shared with register, one write path.
     private static void applyClinical(PatientProfile profile, EditClinicalProfileRequest request) {
         profile.setPregnantBreastfeeding(request.pregnantBreastfeeding());
         profile.setSkinType(request.skinType());
@@ -202,7 +289,7 @@ public class PatientProfileService {
         profile.setChronicConditions(distinct(request.chronicConditions()));
     }
 
-    // The column CHECK only tests containment, so ['NUTS','NUTS'] passes. Copies, and never null.
+    // CHECK tests containment, so dedupe here.
     private static <T> List<T> distinct(List<T> values) {
         if (values == null) {
             return new ArrayList<>();

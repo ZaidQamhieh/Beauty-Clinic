@@ -2,7 +2,9 @@ package com.example.backend.security;
 
 import com.example.backend.entities.UserAccount;
 import com.example.backend.repositories.RefreshTokenRepository;
+import com.example.backend.entities.ActivityAction;
 import com.example.backend.services.AccessTokenService;
+import com.example.backend.services.ActivityLogService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.OAuth2TokenValidator;
@@ -13,7 +15,7 @@ import org.springframework.stereotype.Component;
 import java.util.Optional;
 import java.util.UUID;
 
-// Rejects an access token once its session is gone, or the account is disabled or re-roled.
+// Rejects tokens whose session or account changed.
 @Component
 @RequiredArgsConstructor
 class SessionTokenValidator implements OAuth2TokenValidator<Jwt> {
@@ -26,12 +28,13 @@ class SessionTokenValidator implements OAuth2TokenValidator<Jwt> {
             "invalid_token", "Token is missing a valid user claim", null
     );
 
-    // Deliberately vague: whoever holds this token is not necessarily the account holder.
+    // Vague: the holder may not be the owner.
     private static final OAuth2Error STALE = new OAuth2Error(
             "invalid_token", "Session is no longer valid", null
     );
 
     private final RefreshTokenRepository refreshTokens;
+    private final ActivityLogService activityLogs;
 
     @Override
     public OAuth2TokenValidatorResult validate(Jwt token) {
@@ -45,20 +48,37 @@ class SessionTokenValidator implements OAuth2TokenValidator<Jwt> {
             return OAuth2TokenValidatorResult.failure(MALFORMED_USER);
         }
 
-        // One read, and it ties the two claims: a session must belong to the id named.
-        boolean stillCurrent = refreshTokens.findSessionOwner(sessionId.get(), userId.get())
-                .filter(UserAccount::isEnabled)
-                .filter(account -> carriesCurrentRole(token, account))
-                .isPresent();
+        // One read ties the two claims together.
+        Optional<UserAccount> owner = refreshTokens.findSessionOwner(sessionId.get(), userId.get());
 
-        if (!stillCurrent) {
+        // Account may be gone; name no actor.
+        if (owner.isEmpty()) {
+            activityLogs.recordIndependently(
+                    null, null, ActivityAction.STALE_SESSION_REJECTED,
+                    "refresh_token", sessionId.get());
+            return OAuth2TokenValidatorResult.failure(STALE);
+        }
+
+        UserAccount account = owner.get();
+
+        if (!account.isEnabled()) {
+            activityLogs.recordIndependently(
+                    account.getId(), null, ActivityAction.DISABLED_ACCOUNT_REJECTED,
+                    "user_account", account.getId());
+            return OAuth2TokenValidatorResult.failure(STALE);
+        }
+
+        if (!carriesCurrentRole(token, account)) {
+            activityLogs.recordIndependently(
+                    account.getId(), null, ActivityAction.ROLE_CHANGE_REJECTED,
+                    "user_account", account.getId());
             return OAuth2TokenValidatorResult.failure(STALE);
         }
 
         return OAuth2TokenValidatorResult.success();
     }
 
-    // A role change invalidates the token; refreshing mints one carrying the new authorities.
+    // A role change invalidates the token.
     private boolean carriesCurrentRole(Jwt token, UserAccount account) {
         var authorities = token.getClaimAsStringList(AccessTokenService.AUTHORITIES_CLAIM);
         return authorities != null && authorities.contains(account.getRole().authority().getAuthority());

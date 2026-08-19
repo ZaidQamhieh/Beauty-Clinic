@@ -11,7 +11,7 @@ abstract final class ApiConfig {
     if (_configuredBaseUrl.isNotEmpty) {
       return _configuredBaseUrl;
     }
-    return kDebugMode ? 'http://localhost:8080' : '';
+    return kDebugMode ? 'http://localhost:8081' : '';
   }
 
   static Dio createDio({String? baseUrl}) {

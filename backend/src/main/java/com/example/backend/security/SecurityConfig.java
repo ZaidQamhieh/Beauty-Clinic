@@ -18,6 +18,7 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import com.example.backend.services.AccessTokenService;
+import com.example.backend.services.ActivityLogService;
 
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
@@ -34,7 +35,8 @@ class SecurityConfig {
     SecurityFilterChain filterChain(
             HttpSecurity http,
             CorsConfigurationSource corsConfigurationSource,
-            RateLimitProperties rateLimits
+            RateLimitProperties rateLimits,
+            ActivityLogService activityLogs
     ) throws Exception {
         return http
         // This REST API uses Bearer headers, not login cookies.
@@ -44,7 +46,7 @@ class SecurityConfig {
         .cors(cors -> cors.configurationSource(corsConfigurationSource))
 
         // Ahead of authentication; not a bean, or it would also run in the servlet chain.
-        .addFilterBefore(new AuthRateLimitFilter(rateLimits), UsernamePasswordAuthenticationFilter.class)
+        .addFilterBefore(new AuthRateLimitFilter(rateLimits, activityLogs), UsernamePasswordAuthenticationFilter.class)
 
         // Every request must carry its own access token.
         .sessionManagement(session -> session

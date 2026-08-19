@@ -8,7 +8,12 @@ import com.example.backend.entities.UserAccount;
 import com.example.backend.entities.UserAccount.AccountStatus;
 import com.example.backend.repositories.DoctorProfileRepository;
 import com.example.backend.repositories.UserAccountRepository;
+import com.example.backend.entities.ActivityAction;
+import com.example.backend.security.CurrentUser;
 import com.example.backend.security.Role;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -18,6 +23,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -33,6 +39,11 @@ public class AccountService {
     private final UserAccountRepository users;
     private final DoctorProfileRepository doctors;
     private final PasswordEncoder passwordEncoder;
+    private final ActivityLogService activityLogs;
+    private final CurrentUser currentUser;
+    // Jackson 2 kept for Hibernate JsonNode.
+    private final ObjectMapper objectMapper = new ObjectMapper()
+            .registerModule(new JavaTimeModule());
 
     @Transactional
     public AccountResponse create(CreateAccountRequest request) {
@@ -55,6 +66,11 @@ public class AccountService {
         account = users.save(account);
 
         DoctorProfileResponse doctorProfile = createDoctorProfile(account, request);
+
+        activityLogs.record(
+                actor(), null, ActivityAction.ACCOUNT_CREATED,
+                "user_account", account.getId(), null, snapshot(account));
+
         return AccountResponse.of(account, doctorProfile);
     }
 
@@ -72,6 +88,9 @@ public class AccountService {
         if (account.getRole() != request.role()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Account role cannot be changed");
         }
+
+        JsonNode before = snapshot(account);
+        AccountStatus previousStatus = account.getStatus();
 
         account.setEmail(request.email());
         account.setPhone(request.phone());
@@ -92,6 +111,24 @@ public class AccountService {
         account = users.save(account);
 
         DoctorProfileResponse doctorProfile = updateDoctorProfile(account, request);
+
+        UUID actor = actor();
+        activityLogs.record(
+                actor, null, ActivityAction.ACCOUNT_UPDATED,
+                "user_account", account.getId(), before, snapshot(account));
+
+        // A reset is not a field edit.
+        if (hasText(request.password())) {
+            activityLogs.record(actor, null, ActivityAction.PASSWORD_RESET, "user_account", account.getId());
+        }
+
+        if (previousStatus != account.getStatus()) {
+            activityLogs.record(
+                    actor, null, ActivityAction.ACCOUNT_STATUS_CHANGED,
+                    "user_account", account.getId(),
+                    text(previousStatus), text(account.getStatus()));
+        }
+
         return AccountResponse.of(account, doctorProfile);
     }
 
@@ -100,11 +137,39 @@ public class AccountService {
         UserAccount account = users.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found"));
 
+        JsonNode before = snapshot(account);
+
         if (account.getRole() == Role.DOCTOR) {
             doctors.deleteById(id);
         }
 
         users.deleteById(id);
+
+        activityLogs.record(
+                actor(), null, ActivityAction.ACCOUNT_DELETED,
+                "user_account", id, before, null);
+    }
+
+    private UUID actor() {
+        return currentUser.id().orElse(null);
+    }
+
+    // Never the password hash.
+    private JsonNode snapshot(UserAccount account) {
+        Map<String, Object> fields = new LinkedHashMap<>();
+        fields.put("email", account.getEmail());
+        fields.put("phone", account.getPhone());
+        fields.put("firstName", account.getFirstName());
+        fields.put("lastName", account.getLastName());
+        fields.put("dateOfBirth", account.getDateOfBirth());
+        fields.put("gender", account.getGender());
+        fields.put("role", account.getRole());
+        fields.put("status", account.getStatus());
+        return objectMapper.valueToTree(fields);
+    }
+
+    private JsonNode text(AccountStatus status) {
+        return objectMapper.valueToTree(Map.of("status", status));
     }
 
     private DoctorProfileResponse createDoctorProfile(

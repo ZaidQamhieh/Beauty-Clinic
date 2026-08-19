@@ -23,8 +23,10 @@ import com.example.backend.repositories.AppointmentRepository;
 import com.example.backend.repositories.AppointmentSessionRepository;
 import com.example.backend.repositories.DoctorAvailabilityRepository;
 import com.example.backend.repositories.DoctorProfileRepository;
+import com.example.backend.repositories.PatientFormResponseRepository;
 import com.example.backend.repositories.PatientProfileRepository;
 import com.example.backend.repositories.UserAccountRepository;
+import com.example.backend.services.ActivityCorrelation;
 import com.example.backend.services.ActivityLogService;
 import com.example.backend.services.AppointmentSessionService;
 import com.example.backend.services.CancellationPolicy;
@@ -90,6 +92,7 @@ class ChangedRulesTest {
                 mock(DoctorAvailabilityService.class),
                 clinicProperties(),
                 mock(ActivityLogService.class),
+                mock(ActivityCorrelation.class),
                 mock(CurrentUser.class),
                 mock(CancellationPolicy.class),
                 Clock.systemUTC()
@@ -192,7 +195,7 @@ class ChangedRulesTest {
         when(users.lockByEmail(any())).thenReturn(Optional.of(account));
         when(users.findByEmailIgnoreCase(any())).thenReturn(Optional.of(account));
 
-        return new Lockout(new LoginLockoutService(users), account);
+        return new Lockout(new LoginLockoutService(users, mock(ActivityLogService.class)), account);
     }
 
     @Test
@@ -245,7 +248,8 @@ class ChangedRulesTest {
         when(patients.save(any())).thenAnswer(saved -> saved.getArgument(0));
 
         return new Registration(
-                new PatientProfileService(patients, users, new BCryptPasswordEncoder(), mock(CurrentUser.class), mock(ActivityLogRepository.class)),
+                new PatientProfileService(patients, users, new BCryptPasswordEncoder(), mock(CurrentUser.class),
+                        mock(ActivityLogService.class), mock(PatientFormResponseRepository.class)),
                 users,
                 patients);
     }
@@ -345,7 +349,8 @@ class ChangedRulesTest {
         CurrentUser caller = mock(CurrentUser.class);
         when(caller.isClinicStaff()).thenReturn(staff);
 
-        return new DoctorAvailabilityService(availabilities, mock(DoctorProfileRepository.class), caller);
+        return new DoctorAvailabilityService(availabilities, mock(DoctorProfileRepository.class), caller,
+                mock(ActivityLogService.class));
     }
 
     private DoctorAvailability availability(AvailabilityKind kind, boolean available) {
@@ -436,7 +441,7 @@ class ChangedRulesTest {
 
     @Test
     void eachGuardedEndpointGetsItsOwnBudgetPerAddress() throws Exception {
-        AuthRateLimitFilter filter = new AuthRateLimitFilter(new RateLimitProperties(2, 60));
+        AuthRateLimitFilter filter = new AuthRateLimitFilter(new RateLimitProperties(2, 60), mock(ActivityLogService.class));
 
         assertThat(statusOf(filter, "/api/auth/refresh")).isEqualTo(HttpStatus.OK.value());
         assertThat(statusOf(filter, "/api/auth/refresh")).isEqualTo(HttpStatus.OK.value());
@@ -448,7 +453,7 @@ class ChangedRulesTest {
 
     @Test
     void logoutIsNotThrottled() throws Exception {
-        AuthRateLimitFilter filter = new AuthRateLimitFilter(new RateLimitProperties(1, 60));
+        AuthRateLimitFilter filter = new AuthRateLimitFilter(new RateLimitProperties(1, 60), mock(ActivityLogService.class));
 
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/auth/logout");
         assertThat(filter.shouldNotFilter(request)).isTrue();
@@ -469,7 +474,7 @@ class ChangedRulesTest {
             tariff.put(treatment, new Tariff(new BigDecimal("100.00"), 30));
         }
 
-        return new ClinicProperties("UTC", tariff, 180, 15, 10, 60);
+        return new ClinicProperties("UTC", "ILS", tariff, 180, 15, 10, 60);
     }
 
     // Keeps the unused-import check honest: PatientProfile is referenced by the service under test.
