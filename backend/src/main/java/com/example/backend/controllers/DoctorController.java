@@ -1,6 +1,7 @@
 package com.example.backend.controllers;
 
 import com.example.backend.dtos.CreateDoctorAvailabilityRequest;
+import com.example.backend.dtos.DoctorAvailabilityDayStatus;
 import com.example.backend.dtos.DoctorAvailabilityResponse;
 import com.example.backend.dtos.DoctorResponse;
 import com.example.backend.dtos.DoctorProfileRequest;
@@ -19,9 +20,11 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -51,8 +54,7 @@ public class DoctorController {
     @AdminOnly
     public DoctorResponse register(
             @PathVariable UUID userId,
-            @Valid @RequestBody DoctorProfileRequest request
-    ) {
+            @Valid @RequestBody DoctorProfileRequest request) {
         return doctors.register(userId, request);
     }
 
@@ -60,8 +62,7 @@ public class DoctorController {
     @DoctorSelfOrAdmin
     public DoctorResponse updateProfile(
             @PathVariable UUID userId,
-            @Valid @RequestBody DoctorProfileRequest request
-    ) {
+            @Valid @RequestBody DoctorProfileRequest request) {
         return doctors.updateProfile(userId, request);
     }
 
@@ -78,14 +79,31 @@ public class DoctorController {
         return availability.list(userId);
     }
 
+    @GetMapping("/{userId}/availability/calendar")
+    @Authenticated
+    public List<DoctorAvailabilityDayStatus> availabilityCalendar(
+            @PathVariable UUID userId,
+            @RequestParam LocalDate from,
+            @RequestParam LocalDate to) {
+        return availability.calendarStatus(userId, from, to);
+    }
+
     @PostMapping("/{userId}/availability")
     @ResponseStatus(HttpStatus.CREATED)
     @DoctorSelfOrAdmin
     public DoctorAvailabilityResponse addAvailability(
             @PathVariable UUID userId,
-            @Valid @RequestBody CreateDoctorAvailabilityRequest request
-    ) {
+            @Valid @RequestBody CreateDoctorAvailabilityRequest request) {
         return availability.add(userId, request);
+    }
+
+    @PutMapping("/{userId}/availability/{availabilityId}")
+    @DoctorSelfOrAdmin
+    public DoctorAvailabilityResponse updateAvailability(
+            @PathVariable UUID userId,
+            @PathVariable UUID availabilityId,
+            @Valid @RequestBody CreateDoctorAvailabilityRequest request) {
+        return availability.update(userId, availabilityId, request);
     }
 
     @DeleteMapping("/{userId}/availability/{availabilityId}")
@@ -93,8 +111,8 @@ public class DoctorController {
     @DoctorSelfOrAdmin
     public void removeAvailability(
             @PathVariable UUID userId,
-            @PathVariable UUID availabilityId
-    ) {
+            @PathVariable UUID availabilityId) {
         availability.remove(userId, availabilityId);
     }
+
 }

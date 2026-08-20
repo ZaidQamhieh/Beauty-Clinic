@@ -297,6 +297,11 @@ class _AppShellState extends State<AppShell> {
             'icon': Icons.badge_outlined,
           },
           {
+            'id': 'doctor_availability',
+            'label': 'Availability',
+            'icon': Icons.event_available_outlined,
+          },
+          {
             'id': 'consultations',
             'label': 'Consultations',
             'icon': Icons.video_call_outlined,
