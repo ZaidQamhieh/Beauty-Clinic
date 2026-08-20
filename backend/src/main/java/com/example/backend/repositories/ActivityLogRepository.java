@@ -15,4 +15,6 @@ public interface ActivityLogRepository
     // Id settles rows sharing a timestamp.
     Page<ActivityLog> findByPatientUserIdAndActionOrderByCreatedAtDescIdDesc(
             UUID patientUserId, ActivityAction action, Pageable pageable);
+
+    long countByAction(ActivityAction action);
 }
