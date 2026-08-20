@@ -510,7 +510,8 @@ class _DoctorAvailabilityScreenState extends State<DoctorAvailabilityScreen> {
                   .map(
                     (day) => Expanded(
                       child: Tooltip(
-                        message: 'Add a recurring schedule for ${_pretty(day.name)}',
+                        message:
+                            'Add a recurring schedule for ${_pretty(day.name)}',
                         child: InkWell(
                           borderRadius: BorderRadius.circular(6),
                           onTap: () => _edit(lockedDay: day),
@@ -560,7 +561,8 @@ class _DoctorAvailabilityScreenState extends State<DoctorAvailabilityScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text('${date.day}', style: AppTypography.bodySmall()),
-                        if (status != null && status != DayAvailabilityStatus.none)
+                        if (status != null &&
+                            status != DayAvailabilityStatus.none)
                           Container(
                             width: 4,
                             height: 4,
@@ -744,7 +746,9 @@ class _AvailabilityDialogState extends State<_AvailabilityDialog> {
 
     _kind =
         item?.kind ??
-        (lockedDate != null ? AvailabilityKind.override : AvailabilityKind.recurring);
+        (lockedDate != null
+            ? AvailabilityKind.override
+            : AvailabilityKind.recurring);
     _day = item?.dayOfWeek ?? lockedDay ?? AvailabilityDay.monday;
     _start = _parseTime(item?.startTime) ?? const TimeOfDay(hour: 9, minute: 0);
     _end = _parseTime(item?.endTime) ?? const TimeOfDay(hour: 17, minute: 0);
