@@ -2,6 +2,9 @@ package com.example.backend.security;
 
 import com.example.backend.config.ClinicProperties;
 import com.example.backend.config.ClinicProperties.Tariff;
+import com.example.backend.dtos.CreateDoctorAvailabilityRequest;
+import com.example.backend.dtos.DayAvailabilityStatus;
+import com.example.backend.dtos.DoctorAvailabilityDayStatus;
 import com.example.backend.dtos.DoctorAvailabilityResponse;
 import com.example.backend.dtos.EditClinicalProfileRequest;
 import com.example.backend.dtos.FreeSlotQuery;
@@ -393,6 +396,69 @@ class ChangedRulesTest {
         assertThat(visible).hasSize(3);
         assertThat(visible).anyMatch(window ->
                 window.kind() == AvailabilityKind.OVERRIDE && !window.available());
+    }
+
+    // ─── Overlap policy no longer keys off the available flag; new calendar status ───
+
+    @Test
+    void overlappingWindowsAreRejectedEvenWithDifferentAvailableFlags() {
+        UUID doctorId = UUID.randomUUID();
+        DoctorAvailability existing = availability(AvailabilityKind.RECURRING, true); // Monday 09:00-17:00, available
+        existing.setId(UUID.randomUUID());
+        DoctorAvailabilityRepository availabilities = mock(DoctorAvailabilityRepository.class);
+        when(availabilities.findByDoctorUserId(doctorId)).thenReturn(List.of(existing));
+
+        DoctorProfileRepository doctors = mock(DoctorProfileRepository.class);
+        when(doctors.findById(doctorId)).thenReturn(Optional.of(mock(DoctorProfile.class)));
+
+        DoctorAvailabilityService service =
+                new DoctorAvailabilityService(availabilities, doctors, mock(CurrentUser.class));
+
+        CreateDoctorAvailabilityRequest conflicting = new CreateDoctorAvailabilityRequest(
+                AvailabilityKind.RECURRING, java.time.DayOfWeek.MONDAY,
+                LocalTime.of(12, 0), LocalTime.of(13, 0),
+                false, // different available flag than the existing row - must still conflict now
+                LocalDate.now(), null);
+
+        assertThatThrownBy(() -> service.add(doctorId, conflicting))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("overlaps an existing window");
+    }
+
+    @Test
+    void calendarStatusReflectsTheResolvedMergeNotJustRuleExistence() {
+        UUID doctorId = UUID.randomUUID();
+        LocalDate monday = nextMonday();
+
+        DoctorAvailability recurring = availability(AvailabilityKind.RECURRING, true); // Monday 09:00-17:00, open
+        DoctorAvailability fullClosure = new DoctorAvailability(
+                mock(DoctorProfile.class),
+                AvailabilityKind.OVERRIDE,
+                null,
+                LocalTime.of(9, 0),
+                LocalTime.of(17, 0),
+                monday);
+        fullClosure.setEffectiveTo(monday);
+        fullClosure.setAvailable(false);
+
+        DoctorAvailabilityRepository availabilities = mock(DoctorAvailabilityRepository.class);
+        when(availabilities.findByDoctorUserId(doctorId)).thenReturn(List.of(recurring, fullClosure));
+
+        DoctorAvailabilityService service = new DoctorAvailabilityService(
+                availabilities, mock(DoctorProfileRepository.class), mock(CurrentUser.class));
+
+        List<DoctorAvailabilityDayStatus> days = service.calendarStatus(doctorId, monday, monday.plusDays(1));
+
+        assertThat(days.get(0).status()).isEqualTo(DayAvailabilityStatus.UNAVAILABLE); // Monday: rule exists, no open time
+        assertThat(days.get(1).status()).isEqualTo(DayAvailabilityStatus.NONE); // Tuesday: no rule at all
+    }
+
+    private LocalDate nextMonday() {
+        LocalDate date = LocalDate.now();
+        while (date.getDayOfWeek() != java.time.DayOfWeek.MONDAY) {
+            date = date.plusDays(1);
+        }
+        return date;
     }
 
     // ─── Scheduling: no lead time left to configure or apply ─────────────────

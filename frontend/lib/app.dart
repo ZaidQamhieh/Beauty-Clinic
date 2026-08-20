@@ -7,6 +7,8 @@ import 'package:beauty_clinic_app/core/widgets/floating_petals.dart';
 import 'package:beauty_clinic_app/features/shell/presentation/app_shell.dart';
 import 'package:beauty_clinic_app/features/dashboard/presentation/dashboard_screen.dart';
 import 'package:beauty_clinic_app/features/doctor_profile/presentation/doctor_profile_screen.dart';
+import 'package:beauty_clinic_app/features/doctor_availability/data/doctor_availability_api.dart';
+import 'package:beauty_clinic_app/features/doctor_availability/presentation/doctor_availability_screen.dart';
 import 'package:beauty_clinic_app/features/patient_profile/presentation/patient_profile_screen.dart';
 import 'package:beauty_clinic_app/features/user_profile/presentation/user_profile_screen.dart';
 import 'package:beauty_clinic_app/features/activity_log/presentation/activity_log_screen.dart';
@@ -130,6 +132,7 @@ class _MainRootControllerState extends State<MainRootController> {
   late final TreatmentApi _treatmentApi;
   late final AppointmentApi _appointmentApi;
   late final DoctorApi _doctorApi;
+  late final DoctorAvailabilityApi _availabilityApi;
   late final ClinicalIntakeApi _clinicalApi;
   late final DynamicFormApi _dynamicApi;
   late final ChatApi _chatApi;
@@ -154,6 +157,7 @@ class _MainRootControllerState extends State<MainRootController> {
     _treatmentApi = TreatmentApi(_apiClient);
     _appointmentApi = AppointmentApi(_apiClient);
     _doctorApi = DoctorApi(_apiClient);
+    _availabilityApi = DoctorAvailabilityApi(_apiClient);
     _clinicalApi = ClinicalIntakeApi(_apiClient);
     _dynamicApi = DynamicFormApi(_apiClient);
     _chatApi = ChatApi(_apiClient);
@@ -222,6 +226,7 @@ class _MainRootControllerState extends State<MainRootController> {
       'patients',
       'clinical_forms',
       'doctor_profile',
+      'doctor_availability',
       'consultations',
       'products',
     },
@@ -557,6 +562,12 @@ class _MainRootControllerState extends State<MainRootController> {
           key: const ValueKey('doctor_profile'),
           onBack: () => setState(() => _activeView = 'dashboard'),
           onPatientClick: _onViewPatient,
+        );
+      case 'doctor_availability':
+        return DoctorAvailabilityScreen(
+          key: const ValueKey('doctor_availability'),
+          api: _availabilityApi,
+          onBack: () => setState(() => _activeView = 'dashboard'),
         );
       case 'patient_profile':
         return PatientProfileScreen(
