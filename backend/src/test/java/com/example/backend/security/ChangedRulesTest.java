@@ -412,7 +412,8 @@ class ChangedRulesTest {
         when(doctors.findById(doctorId)).thenReturn(Optional.of(mock(DoctorProfile.class)));
 
         DoctorAvailabilityService service =
-                new DoctorAvailabilityService(availabilities, doctors, mock(CurrentUser.class));
+                new DoctorAvailabilityService(availabilities, doctors, mock(CurrentUser.class),
+                        mock(ActivityLogService.class));
 
         CreateDoctorAvailabilityRequest conflicting = new CreateDoctorAvailabilityRequest(
                 AvailabilityKind.RECURRING, java.time.DayOfWeek.MONDAY,
@@ -445,7 +446,8 @@ class ChangedRulesTest {
         when(availabilities.findByDoctorUserId(doctorId)).thenReturn(List.of(recurring, fullClosure));
 
         DoctorAvailabilityService service = new DoctorAvailabilityService(
-                availabilities, mock(DoctorProfileRepository.class), mock(CurrentUser.class));
+                availabilities, mock(DoctorProfileRepository.class), mock(CurrentUser.class),
+                mock(ActivityLogService.class));
 
         List<DoctorAvailabilityDayStatus> days = service.calendarStatus(doctorId, monday, monday.plusDays(1));
 
