@@ -113,8 +113,7 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
       final specialization = _specializationFilter;
       if (specialization != null) {
         result = result.where(
-          (member) =>
-              member.specializations.contains(specialization.apiValue),
+          (member) => member.specializations.contains(specialization.apiValue),
         );
       }
       result = result.where(
@@ -462,13 +461,10 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
                                           child: Text('All specializations'),
                                         ),
                                         ..._DoctorSpecialization.values.map(
-                                          (specialization) =>
-                                              DropdownMenuItem(
-                                                value: specialization,
-                                                child: Text(
-                                                  specialization.label,
-                                                ),
-                                              ),
+                                          (specialization) => DropdownMenuItem(
+                                            value: specialization,
+                                            child: Text(specialization.label),
+                                          ),
                                         ),
                                       ],
                                       onChanged: (value) => setState(
@@ -478,33 +474,34 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
                               ),
                               SizedBox(
                                 width: 200,
-                                child: DropdownButtonFormField<
-                                  _ExperienceFilter
-                                >(
-                                  initialValue: _experienceFilter,
-                                  decoration: InputDecoration(
-                                    labelText: 'Years of experience',
-                                    isDense: true,
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                  items: _ExperienceFilter.values
-                                      .map(
-                                        (experience) => DropdownMenuItem(
-                                          value: experience,
-                                          child: Text(experience.label),
+                                child:
+                                    DropdownButtonFormField<_ExperienceFilter>(
+                                      initialValue: _experienceFilter,
+                                      decoration: InputDecoration(
+                                        labelText: 'Years of experience',
+                                        isDense: true,
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
                                         ),
-                                      )
-                                      .toList(),
-                                  onChanged: (value) {
-                                    if (value != null) {
-                                      setState(
-                                        () => _experienceFilter = value,
-                                      );
-                                    }
-                                  },
-                                ),
+                                      ),
+                                      items: _ExperienceFilter.values
+                                          .map(
+                                            (experience) => DropdownMenuItem(
+                                              value: experience,
+                                              child: Text(experience.label),
+                                            ),
+                                          )
+                                          .toList(),
+                                      onChanged: (value) {
+                                        if (value != null) {
+                                          setState(
+                                            () => _experienceFilter = value,
+                                          );
+                                        }
+                                      },
+                                    ),
                               ),
                             ],
                           ),
