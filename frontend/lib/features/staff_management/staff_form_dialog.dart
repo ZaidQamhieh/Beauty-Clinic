@@ -123,7 +123,7 @@ class _StaffFormDialogState extends State<_StaffFormDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final accent = _isDoctor ? AppColors.lavDark : AppColors.rose;
+    final accent = _isDoctor ? AppColors.lavDark : AppColors.gold;
     final title = _isEditing
         ? (_isDoctor ? 'Edit Doctor' : 'Edit Receptionist')
         : (_isDoctor ? 'Register New Doctor' : 'Register New Receptionist');

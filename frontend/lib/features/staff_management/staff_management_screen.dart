@@ -5,7 +5,6 @@ import '../../auth/auth_session.dart';
 import '../../core/constants/country_dial_codes.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
-import '../../core/widgets/yasmine_logo.dart';
 import '../../network/api_client.dart';
 
 part 'staff_form_dialog.dart';
@@ -17,10 +16,12 @@ class StaffManagementScreen extends StatefulWidget {
     super.key,
     required this.apiClient,
     required this.authSession,
+    required this.onBack,
   });
 
   final ApiClient apiClient;
   final AuthSession authSession;
+  final VoidCallback onBack;
 
   @override
   State<StaffManagementScreen> createState() => _StaffManagementScreenState();
@@ -29,11 +30,26 @@ class StaffManagementScreen extends StatefulWidget {
 class _StaffManagementScreenState extends State<StaffManagementScreen> {
   late Future<List<StaffMember>> _staffFuture;
   _StaffFilter _selectedFilter = _StaffFilter.all;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+  _DoctorSpecialization? _specializationFilter;
+  _ExperienceFilter _experienceFilter = _ExperienceFilter.all;
 
   @override
   void initState() {
     super.initState();
     _staffFuture = _loadStaff();
+    _searchController.addListener(() {
+      setState(() {
+        _searchQuery = _searchController.text.trim().toLowerCase();
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<List<StaffMember>> _loadStaff() async {
@@ -69,17 +85,43 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
   void _setFilter(_StaffFilter filter) {
     setState(() {
       _selectedFilter = filter;
+      if (filter != _StaffFilter.doctor) {
+        _specializationFilter = null;
+        _experienceFilter = _ExperienceFilter.all;
+      }
     });
   }
 
   List<StaffMember> _applyFilter(List<StaffMember> staff) {
-    return switch (_selectedFilter) {
+    Iterable<StaffMember> result = switch (_selectedFilter) {
       _StaffFilter.all => staff,
-      _StaffFilter.doctor =>
-        staff.where((member) => member.role == 'DOCTOR').toList(),
-      _StaffFilter.receptionist =>
-        staff.where((member) => member.role == 'RECEPTIONIST').toList(),
+      _StaffFilter.doctor => staff.where((member) => member.role == 'DOCTOR'),
+      _StaffFilter.receptionist => staff.where(
+        (member) => member.role == 'RECEPTIONIST',
+      ),
     };
+
+    if (_searchQuery.isNotEmpty) {
+      result = result.where(
+        (member) =>
+            member.fullName.toLowerCase().contains(_searchQuery) ||
+            member.email.toLowerCase().contains(_searchQuery),
+      );
+    }
+
+    if (_selectedFilter == _StaffFilter.doctor) {
+      final specialization = _specializationFilter;
+      if (specialization != null) {
+        result = result.where(
+          (member) => member.specializations.contains(specialization.apiValue),
+        );
+      }
+      result = result.where(
+        (member) => _experienceFilter.matches(member.yearsOfExperience),
+      );
+    }
+
+    return result.toList();
   }
 
   String _roleLabel(String role) {
@@ -187,65 +229,10 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
     return Scaffold(
       backgroundColor: AppColors.bg,
       appBar: AppBar(
-        titleSpacing: 0,
-        title: Row(
-          children: [
-            const YasmineLogo(size: 28),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'YASMINE',
-                  style: AppTypography.labelSmall(
-                    color: AppColors.rose,
-                  ).copyWith(letterSpacing: 2, fontWeight: FontWeight.w700),
-                ),
-                Text(
-                  'Staff Management',
-                  style: AppTypography.displaySubtitle(),
-                ),
-              ],
-            ),
-          ],
-        ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded),
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: widget.onBack,
         ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: OutlinedButton.icon(
-              onPressed: () => _openFormDialog(role: _StaffRole.receptionist),
-              icon: const Icon(Icons.add, size: 18),
-              label: const Text('Register Receptionist'),
-              style: OutlinedButton.styleFrom(
-                backgroundColor: AppColors.bgRose,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: ElevatedButton.icon(
-              onPressed: () => _openFormDialog(role: _StaffRole.doctor),
-              icon: const Icon(Icons.add, size: 18, color: Colors.white),
-              label: const Text('Register Doctor'),
-              style: ElevatedButton.styleFrom(
-                foregroundColor: Colors.white,
-                backgroundColor: AppColors.lavDark,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-          ),
-        ],
       ),
       body: SafeArea(
         child: FutureBuilder<List<StaffMember>>(
@@ -289,33 +276,103 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
                 children: [
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.all(24),
+                    padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
                       color: AppColors.bgRose,
-                      borderRadius: BorderRadius.circular(24),
+                      borderRadius: BorderRadius.circular(20),
                       border: Border.all(color: AppColors.borderRose),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    child: Row(
                       children: [
-                        Text(
-                          'Clinic team overview',
-                          style: AppTypography.displayTitle(),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: const BoxDecoration(
+                            color: AppColors.bgCard,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.badge_outlined,
+                            color: AppColors.rose,
+                            size: 24,
+                          ),
                         ),
-                        const SizedBox(height: 10),
-                        Text(
-                          'Manage doctors and receptionists with the same Yasmine visual language used across the dashboard and landing experience.',
-                          style: AppTypography.bodyLarge(
-                            color: AppColors.textSub,
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Staff Management',
+                                style: AppTypography.displaySubtitle(
+                                  color: AppColors.text,
+                                ).copyWith(fontSize: 20),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Register, edit, and remove doctor and receptionist accounts, and manage each doctor\'s specializations and experience.',
+                                style: AppTypography.bodySmall(
+                                  color: AppColors.textSub,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 24),
-                  Text(
-                    'Manage clinic staff - doctors and receptionists',
-                    style: AppTypography.bodyMedium(color: AppColors.textMuted),
+                  const SizedBox(height: 16),
+                  Wrap(
+                    alignment: WrapAlignment.end,
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: () =>
+                            _openFormDialog(role: _StaffRole.receptionist),
+                        icon: const Icon(
+                          Icons.add,
+                          size: 18,
+                          color: AppColors.gold,
+                        ),
+                        label: const Text(
+                          'Register Receptionist',
+                          style: TextStyle(
+                            color: AppColors.gold,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          backgroundColor: AppColors.goldPale,
+                          side: const BorderSide(color: AppColors.gold),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: () =>
+                            _openFormDialog(role: _StaffRole.doctor),
+                        icon: const Icon(
+                          Icons.add,
+                          size: 18,
+                          color: AppColors.lavDark,
+                        ),
+                        label: const Text(
+                          'Register Doctor',
+                          style: TextStyle(
+                            color: AppColors.lavDark,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          backgroundColor: AppColors.lavPale,
+                          side: const BorderSide(color: AppColors.lavDark),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 24),
                   Wrap(
@@ -350,6 +407,107 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
                         onTap: () => _setFilter(_StaffFilter.receptionist),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 24),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.bgCard,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        TextField(
+                          controller: _searchController,
+                          decoration: InputDecoration(
+                            hintText: 'Search staff by name or email...',
+                            prefixIcon: const Icon(Icons.search, size: 18),
+                            isDense: true,
+                            filled: true,
+                            fillColor: AppColors.bgAlt,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                        ),
+                        if (_selectedFilter == _StaffFilter.doctor) ...[
+                          const SizedBox(height: 14),
+                          Wrap(
+                            spacing: 12,
+                            runSpacing: 12,
+                            children: [
+                              SizedBox(
+                                width: 240,
+                                child:
+                                    DropdownButtonFormField<
+                                      _DoctorSpecialization?
+                                    >(
+                                      initialValue: _specializationFilter,
+                                      decoration: InputDecoration(
+                                        labelText: 'Specialization',
+                                        isDense: true,
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                        ),
+                                      ),
+                                      items: [
+                                        const DropdownMenuItem(
+                                          value: null,
+                                          child: Text('All specializations'),
+                                        ),
+                                        ..._DoctorSpecialization.values.map(
+                                          (specialization) => DropdownMenuItem(
+                                            value: specialization,
+                                            child: Text(specialization.label),
+                                          ),
+                                        ),
+                                      ],
+                                      onChanged: (value) => setState(
+                                        () => _specializationFilter = value,
+                                      ),
+                                    ),
+                              ),
+                              SizedBox(
+                                width: 200,
+                                child:
+                                    DropdownButtonFormField<_ExperienceFilter>(
+                                      initialValue: _experienceFilter,
+                                      decoration: InputDecoration(
+                                        labelText: 'Years of experience',
+                                        isDense: true,
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                        ),
+                                      ),
+                                      items: _ExperienceFilter.values
+                                          .map(
+                                            (experience) => DropdownMenuItem(
+                                              value: experience,
+                                              child: Text(experience.label),
+                                            ),
+                                          )
+                                          .toList(),
+                                      onChanged: (value) {
+                                        if (value != null) {
+                                          setState(
+                                            () => _experienceFilter = value,
+                                          );
+                                        }
+                                      },
+                                    ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 24),
                   Container(
