@@ -155,8 +155,9 @@ class _ReceptionPatientsScreenState extends State<ReceptionPatientsScreen> {
   }
 
   Widget _buildList() {
-    if (_patients.isEmpty)
+    if (_patients.isEmpty) {
       return const Center(child: Text('No patients found.'));
+    }
     return ListView.separated(
       itemCount: _patients.length,
       separatorBuilder: (_, _) => const SizedBox(height: 8),
@@ -291,13 +292,16 @@ class _AppointmentHistory extends StatelessWidget {
     return FutureBuilder<List<Appointment>>(
       future: _load(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done)
+        if (snapshot.connectionState != ConnectionState.done) {
           return const Center(child: CircularProgressIndicator());
-        if (snapshot.hasError)
+        }
+        if (snapshot.hasError) {
           return const Text('Appointment history unavailable.');
+        }
         final appointments = snapshot.data ?? const <Appointment>[];
-        if (appointments.isEmpty)
+        if (appointments.isEmpty) {
           return const Text('No appointments recorded.');
+        }
         return ListView.separated(
           itemCount: appointments.length,
           separatorBuilder: (_, _) => const Divider(height: 1),

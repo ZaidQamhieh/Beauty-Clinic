@@ -193,7 +193,7 @@ class _BookingFlowSheetState extends State<BookingFlowSheet>
 
       // One wait; a failure can't orphan others.
       final results = await Future.wait([
-        if (patientCall != null) patientCall,
+        ?patientCall,
         treatmentsCall,
         rulesCall,
         doctorsCall,
