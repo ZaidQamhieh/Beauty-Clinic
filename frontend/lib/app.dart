@@ -551,6 +551,7 @@ class _MainRootControllerState extends State<MainRootController> {
           key: const ValueKey('staff_management'),
           apiClient: _apiClient,
           authSession: widget.authSession,
+          onBack: () => setState(() => _activeView = 'dashboard'),
         );
       case 'activity_log':
         return ActivityLogScreen(

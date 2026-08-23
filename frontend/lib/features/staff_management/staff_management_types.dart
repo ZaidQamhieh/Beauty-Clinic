@@ -71,3 +71,43 @@ enum _DoctorSpecialization {
   injectables,
   aestheticMedicine,
 }
+
+extension _DoctorSpecializationLabels on _DoctorSpecialization {
+  String get apiValue => switch (this) {
+    _DoctorSpecialization.dermatology => 'DERMATOLOGY',
+    _DoctorSpecialization.cosmeticDermatology => 'COSMETIC_DERMATOLOGY',
+    _DoctorSpecialization.laserTherapy => 'LASER_THERAPY',
+    _DoctorSpecialization.injectables => 'INJECTABLES',
+    _DoctorSpecialization.aestheticMedicine => 'AESTHETIC_MEDICINE',
+  };
+
+  String get label => switch (this) {
+    _DoctorSpecialization.dermatology => 'Dermatology',
+    _DoctorSpecialization.cosmeticDermatology => 'Cosmetic Dermatology',
+    _DoctorSpecialization.laserTherapy => 'Laser Therapy',
+    _DoctorSpecialization.injectables => 'Injectables',
+    _DoctorSpecialization.aestheticMedicine => 'Aesthetic Medicine',
+  };
+}
+
+enum _ExperienceFilter { all, junior, mid, senior, expert }
+
+extension _ExperienceFilterLabels on _ExperienceFilter {
+  String get label => switch (this) {
+    _ExperienceFilter.all => 'All experience',
+    _ExperienceFilter.junior => '0-2 years',
+    _ExperienceFilter.mid => '3-5 years',
+    _ExperienceFilter.senior => '6-10 years',
+    _ExperienceFilter.expert => '10+ years',
+  };
+
+  bool matches(int? years) {
+    return switch (this) {
+      _ExperienceFilter.all => true,
+      _ExperienceFilter.junior => years != null && years <= 2,
+      _ExperienceFilter.mid => years != null && years >= 3 && years <= 5,
+      _ExperienceFilter.senior => years != null && years >= 6 && years <= 10,
+      _ExperienceFilter.expert => years != null && years > 10,
+    };
+  }
+}

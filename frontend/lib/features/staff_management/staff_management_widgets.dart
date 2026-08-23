@@ -65,10 +65,10 @@ class _StaffRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool isDoctor = item.role == 'DOCTOR';
-    final Color roleAccent = isDoctor ? AppColors.lavDark : AppColors.roseDark;
+    final Color roleAccent = isDoctor ? AppColors.lavDark : AppColors.gold;
     final Color roleBackground = isDoctor
         ? AppColors.lavPale
-        : AppColors.rosePale;
+        : AppColors.goldPale;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -90,10 +90,11 @@ class _StaffRow extends StatelessWidget {
                 Text(item.fullName, style: AppTypography.labelLarge()),
                 const SizedBox(height: 6),
                 if (isDoctor && item.specializations.isNotEmpty)
-                  _buildSpecializationChips(
-                    item.specializations,
-                    roleAccent,
-                    roleBackground,
+                  Text(
+                    item.specializations
+                        .map(_formatSpecializationLabel)
+                        .join(', '),
+                    style: TextStyle(fontSize: 12, color: roleAccent),
                   )
                 else
                   Text(
@@ -132,10 +133,14 @@ class _StaffRow extends StatelessWidget {
           ),
           const SizedBox(width: 16),
           Text(
-            item.role == 'DOCTOR' && item.yearsOfExperience != null
+            isDoctor && item.yearsOfExperience != null
                 ? '${item.yearsOfExperience} yrs'
                 : '-',
-            style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textMuted,
+            ),
           ),
           const SizedBox(width: 12),
           IconButton(
@@ -182,57 +187,6 @@ class _StaffRow extends StatelessWidget {
       return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
     }
     return fullName.isEmpty ? 'DR' : fullName.substring(0, 1).toUpperCase();
-  }
-
-  Widget _buildSpecializationChips(
-    List<String> specializations,
-    Color roleAccent,
-    Color roleBackground,
-  ) {
-    const int maxVisible = 2;
-    final visible = specializations.take(maxVisible).toList();
-    final hiddenCount = specializations.length - visible.length;
-
-    return Wrap(
-      spacing: 6,
-      runSpacing: 6,
-      children: [
-        for (final specialization in visible)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: roleBackground,
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: roleAccent.withValues(alpha: 0.28)),
-            ),
-            child: Text(
-              _formatSpecializationLabel(specialization),
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: roleAccent,
-              ),
-            ),
-          ),
-        if (hiddenCount > 0)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: AppColors.bgAlt,
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: AppColors.border),
-            ),
-            child: Text(
-              '+$hiddenCount more',
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textSub,
-              ),
-            ),
-          ),
-      ],
-    );
   }
 
   String _formatSpecializationLabel(String raw) {
