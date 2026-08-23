@@ -4,11 +4,13 @@ class DoctorSummary {
     required this.userId,
     required this.fullName,
     required this.specializations,
+    required this.yearsOfExperience,
   });
 
   final String userId;
   final String fullName;
   final List<String> specializations;
+  final int? yearsOfExperience;
 
   factory DoctorSummary.fromJson(Map<String, dynamic> json) {
     final specs = (json['specializations'] as List?) ?? const [];
@@ -16,6 +18,7 @@ class DoctorSummary {
       userId: json['userId'] as String,
       fullName: json['fullName'] as String? ?? '',
       specializations: specs.map((s) => s as String).toList(),
+      yearsOfExperience: (json['yearsOfExperience'] as num?)?.toInt(),
     );
   }
 

@@ -9,8 +9,11 @@ import 'package:beauty_clinic_app/features/dashboard/presentation/dashboard_scre
 import 'package:beauty_clinic_app/features/doctor_profile/presentation/doctor_profile_screen.dart';
 import 'package:beauty_clinic_app/features/doctor_availability/data/doctor_availability_api.dart';
 import 'package:beauty_clinic_app/features/doctor_availability/presentation/doctor_availability_screen.dart';
+import 'package:beauty_clinic_app/features/doctor_directory/presentation/doctor_directory_screen.dart';
 import 'package:beauty_clinic_app/features/patient_profile/presentation/patient_profile_screen.dart';
+import 'package:beauty_clinic_app/features/patient_dashboard/presentation/patient_dashboard_screen.dart';
 import 'package:beauty_clinic_app/features/user_profile/presentation/user_profile_screen.dart';
+import 'package:beauty_clinic_app/features/user_profile/data/user_profile_api.dart';
 import 'package:beauty_clinic_app/features/activity_log/presentation/activity_log_screen.dart';
 import 'package:beauty_clinic_app/features/landing/presentation/landing_screen.dart';
 import 'package:beauty_clinic_app/features/appointments/data/appointment.dart';
@@ -19,6 +22,7 @@ import 'package:beauty_clinic_app/features/appointments/data/clinic_time.dart';
 import 'package:beauty_clinic_app/features/appointments/data/doctor_api.dart';
 import 'package:beauty_clinic_app/features/appointments/data/treatment_api.dart';
 import 'package:beauty_clinic_app/features/appointments/presentation/appointments_screen.dart';
+import 'package:beauty_clinic_app/features/appointments/presentation/clinic_appointments_screen.dart';
 import 'package:beauty_clinic_app/features/appointments/presentation/booking_flow_sheet.dart';
 import 'package:beauty_clinic_app/features/chat/data/chat_api.dart';
 import 'package:beauty_clinic_app/features/chat/presentation/chat_launcher.dart';
@@ -28,6 +32,7 @@ import 'package:beauty_clinic_app/features/forms/data/dynamic_form_api.dart';
 import 'package:beauty_clinic_app/features/forms/presentation/admin_clinical_intake_screen.dart';
 import 'package:beauty_clinic_app/features/forms/presentation/form_builder_admin_screen.dart';
 import 'package:beauty_clinic_app/features/patients/presentation/patients_directory_screen.dart';
+import 'package:beauty_clinic_app/features/patients/presentation/reception_patients_screen.dart';
 import 'package:beauty_clinic_app/features/products/data/product_api.dart';
 import 'package:beauty_clinic_app/features/products/presentation/product_catalog_screen.dart';
 import 'package:beauty_clinic_app/features/staff_management/staff_management_screen.dart';
@@ -136,6 +141,7 @@ class _MainRootControllerState extends State<MainRootController> {
   late final ClinicalIntakeApi _clinicalApi;
   late final DynamicFormApi _dynamicApi;
   late final ChatApi _chatApi;
+  String? _userName;
 
   // Remounts the list after the bot writes.
   int _chatRevision = 0;
@@ -161,6 +167,19 @@ class _MainRootControllerState extends State<MainRootController> {
     _clinicalApi = ClinicalIntakeApi(_apiClient);
     _dynamicApi = DynamicFormApi(_apiClient);
     _chatApi = ChatApi(_apiClient);
+    _loadUserName();
+  }
+
+  Future<void> _loadUserName() async {
+    try {
+      final profile = await UserProfileApi(_apiClient).me();
+      if (!mounted) return;
+      setState(() {
+        _userName = '${profile.firstName} ${profile.lastName}'.trim();
+      });
+    } catch (_) {
+      // Keep the shared header usable when the profile request fails.
+    }
   }
 
   void _afterChatWrite() {
@@ -193,8 +212,6 @@ class _MainRootControllerState extends State<MainRootController> {
       _activeRole = authenticatedRole;
       _activeView = authenticatedRole == 'patient'
           ? 'patient_profile'
-          : authenticatedRole == 'doctor'
-          ? 'doctor_profile'
           : 'dashboard';
     }
   }
@@ -202,6 +219,7 @@ class _MainRootControllerState extends State<MainRootController> {
   String? _selectedPatientId;
   int _patientProfileTabIndex = 0;
   bool _fromBookingFlow = false;
+  String? _focusedAppointmentId;
 
   void _onViewChanged(String newView) {
     // Book opens the sheet, not a view.
@@ -223,19 +241,19 @@ class _MainRootControllerState extends State<MainRootController> {
     'doctor' => {
       'dashboard',
       'my_profile',
+      'doctor_availability',
       'patients',
       'clinical_forms',
-      'doctor_profile',
-      'doctor_availability',
       'consultations',
       'products',
     },
     'patient' => {
+      'landing',
+      'dashboard',
       'my_profile',
       'patient_profile',
-      'dashboard',
+      'appointments',
       'products',
-      'landing',
     },
     'receptionist' => {
       'dashboard',
@@ -247,14 +265,14 @@ class _MainRootControllerState extends State<MainRootController> {
     },
     _ => {
       'dashboard',
+      'my_profile',
+      'patients',
       'clinical_forms',
       'form_builder',
       'appointments',
-      'patients',
-      'doctors',
       'staff_management',
+      'doctors',
       'activity_log',
-      'my_profile',
       'patient_profile',
       'doctor_profile',
       'products',
@@ -456,6 +474,7 @@ class _MainRootControllerState extends State<MainRootController> {
       activeView: _activeView,
       onViewChanged: _onViewChanged,
       onProfileTap: () => _onViewChanged('my_profile'),
+      userName: _userName,
       // Booking lives in chat, not the header.
       onLogout: _logout,
       child: _withChat(
@@ -485,28 +504,84 @@ class _MainRootControllerState extends State<MainRootController> {
   }
 
   Widget _buildCurrentView() {
-    // Patients get their own list.
-    if (_activeRole == 'patient' &&
-        (_activeView == 'dashboard' || _activeView == 'appointments')) {
-      return AppointmentsScreen(
-        key: ValueKey('my_appointments_$_chatRevision'),
-        appointmentApi: _appointmentApi,
-        treatmentApi: _treatmentApi,
-        doctorApi: _doctorApi,
-        bookedSignal: _bookedSignal,
-        clinicalApi: _clinicalApi,
-        onNavigateToForms: () => setState(() {
-          _fromBookingFlow = true;
-          _patientProfileTabIndex = PatientProfileScreen.clinicFormsTabIndex;
-          _activeView = 'patient_profile';
-        }),
-      );
-    }
-
     switch (_activeView) {
       case 'dashboard':
+        if (_activeRole == 'patient') {
+          return PatientDashboardScreen(
+            key: ValueKey('patient_dashboard_$_chatRevision'),
+            appointmentApi: _appointmentApi,
+            clinicalApi: _clinicalApi,
+            onOpenProfile: () => setState(() {
+              _patientProfileTabIndex = PatientProfileScreen.overviewTabIndex;
+              _activeView = 'patient_profile';
+            }),
+            onOpenClinicalForm: () => setState(() {
+              _fromBookingFlow = false;
+              _patientProfileTabIndex =
+                  PatientProfileScreen.clinicFormsTabIndex;
+              _activeView = 'patient_profile';
+            }),
+            onOpenAppointments: (appointmentId) {
+              _focusedAppointmentId = appointmentId;
+              _onViewChanged('appointments');
+            },
+            onBookTreatment: _openBookingModal,
+          );
+        }
+        return DashboardScreen(
+          key: ValueKey('dashboard_$_activeRole'),
+          activeRole: _activeRole,
+          onViewPatient: _onViewPatient,
+          onViewDoctor: _onViewDoctor,
+          apiClient: _apiClient,
+          onBookAppointment: _activeRole == 'receptionist'
+              ? () => _onViewChanged('appointments')
+              : _openBookingModal,
+          onCheckInPatient: () => _onViewChanged('appointments'),
+          onViewDoctors: () => _onViewChanged('doctors'),
+        );
       case 'appointments':
+        if (_activeRole == 'admin' || _activeRole == 'receptionist') {
+          return ClinicAppointmentsScreen(
+            key: const ValueKey('clinic_appointments'),
+            appointmentApi: _appointmentApi,
+            treatmentApi: _treatmentApi,
+            doctorApi: _doctorApi,
+            apiClient: _apiClient,
+          );
+        }
+        if (_activeRole == 'patient') {
+          return AppointmentsScreen(
+            key: ValueKey('my_appointments_$_chatRevision'),
+            appointmentApi: _appointmentApi,
+            treatmentApi: _treatmentApi,
+            doctorApi: _doctorApi,
+            bookedSignal: _bookedSignal,
+            clinicalApi: _clinicalApi,
+            focusedAppointmentId: _focusedAppointmentId,
+            onNavigateToForms: () => setState(() {
+              _fromBookingFlow = true;
+              _patientProfileTabIndex =
+                  PatientProfileScreen.clinicFormsTabIndex;
+              _activeView = 'patient_profile';
+            }),
+          );
+        }
+        return DashboardScreen(
+          key: ValueKey('dashboard_$_activeRole'),
+          activeRole: _activeRole,
+          onViewPatient: _onViewPatient,
+          onViewDoctor: _onViewDoctor,
+          apiClient: _apiClient,
+        );
       case 'doctors':
+        if (_activeRole == 'receptionist') {
+          return DoctorDirectoryScreen(
+            key: const ValueKey('doctor_directory'),
+            doctorApi: _doctorApi,
+            availabilityApi: _availabilityApi,
+          );
+        }
         return DashboardScreen(
           key: ValueKey('dashboard_$_activeRole'),
           activeRole: _activeRole,
@@ -515,6 +590,15 @@ class _MainRootControllerState extends State<MainRootController> {
           apiClient: _apiClient,
         );
       case 'patients':
+        if (_activeRole == 'receptionist') {
+          return ReceptionPatientsScreen(
+            key: const ValueKey('reception_patients'),
+            apiClient: _apiClient,
+            appointmentApi: _appointmentApi,
+            treatmentApi: _treatmentApi,
+            doctorApi: _doctorApi,
+          );
+        }
         if (_selectedPatientId != null) {
           return PatientProfileScreen(
             key: ValueKey('admin_patient_$_selectedPatientId'),
@@ -533,9 +617,19 @@ class _MainRootControllerState extends State<MainRootController> {
           onSelectPatient: (patientId) => setState(() {
             _selectedPatientId = patientId;
           }),
+          title: _activeRole == 'doctor' ? 'My Patients' : null,
+          subtitle: _activeRole == 'doctor'
+              ? 'Review patient intake status, treatment context, and clinical records.'
+              : null,
         );
       case 'clinical_forms':
-        return AdminClinicalIntakeScreen(api: _clinicalApi);
+        return AdminClinicalIntakeScreen(
+          api: _clinicalApi,
+          title: _activeRole == 'doctor' ? 'Patient Forms History' : null,
+          subtitle: _activeRole == 'doctor'
+              ? 'Review the latest patient form revisions and clinical activity.'
+              : null,
+        );
       case 'form_builder':
         return FormBuilderAdminScreen(api: _dynamicApi);
       case 'products':

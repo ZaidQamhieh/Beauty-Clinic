@@ -27,6 +27,9 @@ public interface AppointmentRepository extends JpaRepository<Appointment, UUID> 
 
     List<Appointment> findByPatientUserId(UUID patientUserId);
 
+        @EntityGraph(attributePaths = {"patient", "patient.user"})
+        Page<Appointment> findAllByOrderByScheduledAtDesc(Pageable pageable);
+
     // Ordered in SQL, so a page is a slice of the run, not sorted alone.
     Page<Appointment> findByPatientUserIdOrderByScheduledAtAsc(UUID patientUserId, Pageable pageable);
 

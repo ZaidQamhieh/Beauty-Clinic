@@ -29,6 +29,7 @@ class AppointmentsScreen extends StatefulWidget {
     required this.bookedSignal,
     this.clinicalApi,
     this.onNavigateToForms,
+    this.focusedAppointmentId,
   });
 
   final AppointmentApi appointmentApi;
@@ -36,6 +37,7 @@ class AppointmentsScreen extends StatefulWidget {
   final DoctorApi doctorApi;
   final ClinicalIntakeApi? clinicalApi;
   final VoidCallback? onNavigateToForms;
+  final String? focusedAppointmentId;
 
   /// Fires when booked elsewhere; cleared once read.
   final ValueNotifier<Appointment?> bookedSignal;
@@ -130,6 +132,14 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
       if (!mounted || run != _loadRun) return;
       setState(() {
         _upcoming = results[0].items.toList();
+        final focusedId = widget.focusedAppointmentId;
+        if (focusedId != null) {
+          _upcoming!.sort((a, b) {
+            if (a.id == focusedId) return -1;
+            if (b.id == focusedId) return 1;
+            return a.scheduledAt.compareTo(b.scheduledAt);
+          });
+        }
         _history = results[1].items.toList();
         _upcomingPage = 0;
         _historyPage = 0;

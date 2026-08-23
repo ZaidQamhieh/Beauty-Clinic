@@ -8,9 +8,16 @@ import '../data/clinical_intake_api.dart';
 
 /// Admin Directory & Patient Activity Log for Clinic Forms
 class AdminClinicalIntakeScreen extends StatefulWidget {
-  const AdminClinicalIntakeScreen({super.key, required this.api});
+  const AdminClinicalIntakeScreen({
+    super.key,
+    required this.api,
+    this.title,
+    this.subtitle,
+  });
 
   final ClinicalIntakeApi api;
+  final String? title;
+  final String? subtitle;
 
   @override
   State<AdminClinicalIntakeScreen> createState() =>
@@ -119,14 +126,15 @@ class _AdminClinicalIntakeScreenState extends State<AdminClinicalIntakeScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Patient Forms History & Activity Log',
+                  widget.title ?? 'Patient Forms History & Activity Log',
                   style: AppTypography.displaySubtitle(
                     color: AppColors.text,
                   ).copyWith(fontSize: 20),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Track every clinic health form modification — who changed it, when, and exact field values.',
+                  widget.subtitle ??
+                      'Track every clinic health form modification — who changed it, when, and exact field values.',
                   style: AppTypography.bodySmall(color: AppColors.textSub),
                 ),
               ],

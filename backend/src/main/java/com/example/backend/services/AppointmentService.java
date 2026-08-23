@@ -274,6 +274,11 @@ public class AppointmentService {
     }
 
     @Transactional(readOnly = true)
+    public Page<AppointmentResponse> readAllForStaff(Pageable pageable) {
+        return withSessions(appointments.findAllByOrderByScheduledAtDesc(pageable));
+    }
+
+    @Transactional(readOnly = true)
     public Page<AppointmentResponse> readOwnAsPatient(Pageable pageable) {
         return withSessions(
                 appointments.findNotSupersededForPatient(currentUser.requireId(), pageable));
