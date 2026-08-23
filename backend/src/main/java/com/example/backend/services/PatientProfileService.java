@@ -53,7 +53,6 @@ public class PatientProfileService {
 
     @Transactional
     public PatientDetailResponse register(PatientDetailsRequest request) {
-        // Taken at the desk, like paper.
         if (request.clinical() == null) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST, "The patient's health form is required");

@@ -4,7 +4,9 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/widgets/status_pill.dart';
 import '../../../../network/api_client.dart';
+import '../../appointments/data/appointment.dart';
 import '../data/admin_analytics_models.dart';
+import '../data/doctor_dashboard_models.dart';
 import 'widgets/admin_analytics_charts.dart';
 import 'widgets/admin_date_filter_bar.dart';
 
@@ -14,6 +16,9 @@ class DashboardScreen extends StatefulWidget {
   final ValueChanged<String> onViewPatient;
   final ValueChanged<String> onViewDoctor;
   final ApiClient? apiClient;
+  final VoidCallback? onBookAppointment;
+  final VoidCallback? onCheckInPatient;
+  final VoidCallback? onViewDoctors;
 
   const DashboardScreen({
     super.key,
@@ -21,6 +26,9 @@ class DashboardScreen extends StatefulWidget {
     required this.onViewPatient,
     required this.onViewDoctor,
     this.apiClient,
+    this.onBookAppointment,
+    this.onCheckInPatient,
+    this.onViewDoctors,
   });
 
   @override
@@ -28,20 +36,60 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  String _selectedPatientQueue = 'Nour Al-Khalil';
-  final Set<String> _approvedProducts = {'NovaClear Enzyme Peel'};
-
   // Admin Dashboard Date Filter State
   AdminDateRangeType _adminDateRange = AdminDateRangeType.days30;
   DateTimeRange? _customDateRange;
+  AdminDateRangeType _doctorDateRange = AdminDateRangeType.days30;
+  DateTimeRange? _doctorCustomDateRange;
   AdminDashboardData? _adminDashboardData;
+  DoctorDashboardData? _doctorDashboardData;
   bool _isLoadingAnalytics = false;
+  late Future<List<Appointment>> _receptionAppointments;
+  late Future<int> _receptionDoctorCount;
+  String _receptionStatusFilter = 'ALL';
 
   @override
   void initState() {
     super.initState();
     if (widget.activeRole == 'admin') {
       _loadAnalytics();
+    } else if (widget.activeRole == 'doctor') {
+      _loadDoctorAnalytics();
+    } else if (widget.activeRole == 'receptionist') {
+      _receptionAppointments = _loadReceptionAppointments();
+      _receptionDoctorCount = _loadReceptionDoctorCount();
+    }
+  }
+
+  Future<List<Appointment>> _loadReceptionAppointments() async {
+    final response = await widget.apiClient!.get<Map<String, dynamic>>(
+      '/api/appointments/all',
+      queryParameters: {'page': 0, 'size': 100},
+    );
+    return AppointmentPage.fromJson(response.data!).items;
+  }
+
+  Future<int> _loadReceptionDoctorCount() async {
+    final response = await widget.apiClient!.get<List<dynamic>>('/api/doctors');
+    return response.data?.length ?? 0;
+  }
+
+  Future<void> _loadDoctorAnalytics() async {
+    setState(() => _isLoadingAnalytics = true);
+    try {
+      final data = await DoctorDashboardRepository.fetchDashboardData(
+        widget.apiClient,
+        rangeType: _doctorDateRange,
+        customRange: _doctorCustomDateRange,
+      );
+      if (!mounted) return;
+      setState(() {
+        _doctorDashboardData = data;
+        _isLoadingAnalytics = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isLoadingAnalytics = false);
     }
   }
 
@@ -86,34 +134,53 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildWelcomeBanner() {
     final Map<String, String> titles = {
       'admin': 'Overview Dashboard',
-      'doctor': 'Doctor Portal',
-      'receptionist': 'Front Desk & Reception',
+      'doctor': 'Dashboard',
+      'receptionist': 'Receptionist Dashboard',
       'patient': 'My Health & Beauty Portal',
     };
 
     final Map<String, String> subtitles = {
       'admin': 'Real-time clinic analytics, appointments, and operations.',
-      'doctor': 'Today\'s clinical schedule, appointments, and patient care.',
+      'doctor':
+          'Your clinical workspace — appointments, analytics, and patient care.',
       'receptionist':
-          'Manage patient check-ins, queue status, and practitioner schedules.',
+          'Daily operations, appointments, patients, and practitioner schedules.',
       'patient':
           'View upcoming appointments, treatment history, and skin progress.',
     };
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: AppColors.bgRose,
+        gradient: const LinearGradient(
+          colors: [AppColors.bgRose, AppColors.bgLavender],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.borderRose),
+        border: Border.all(color: AppColors.borderRose.withValues(alpha: 0.6)),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.rose.withValues(alpha: 0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(12),
-            decoration: const BoxDecoration(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
               color: AppColors.bgCard,
               shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.rose.withValues(alpha: 0.12),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
             child: const Icon(
               Icons.auto_awesome,
@@ -130,7 +197,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   titles[widget.activeRole] ?? 'Clinic Dashboard',
                   style: AppTypography.displaySubtitle(
                     color: AppColors.text,
-                  ).copyWith(fontSize: 20),
+                  ).copyWith(fontSize: 20, fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -438,6 +505,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             (appt) => _buildAppointmentRow(
                               time: appt.time,
                               patient: appt.patientName,
+                              patientId: appt.patientId,
                               treatment: appt.treatmentName,
                               doctor: appt.doctorName,
                               status: appt.status,
@@ -556,257 +624,192 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // DOCTOR DASHBOARD
   // ───────────────────────────────────────────────────────────────────────────
   Widget _buildDoctorDashboard() {
-    final patients = [
-      {
-        'name': 'Nour Al-Khalil',
-        'tx': 'Laser Resurfacing',
-        'time': '09:15',
-        'skin': 'Sensitive / Dry',
-        'status': 'In Room',
-      },
-      {
-        'name': 'Layla Mansour',
-        'tx': 'HydroGlow Facial',
-        'time': '10:00',
-        'skin': 'Oily / Combo',
-        'status': 'Waiting',
-      },
-      {
-        'name': 'Samia Barakat',
-        'tx': 'Body Contour',
-        'time': '10:30',
-        'skin': 'Normal',
-        'status': 'Confirmed',
-      },
-      {
-        'name': 'Rania Jaber',
-        'tx': 'Chemical Peel',
-        'time': '11:15',
-        'skin': 'Dry / Mature',
-        'status': 'Confirmed',
-      },
-    ];
+    if (_isLoadingAnalytics || _doctorDashboardData == null) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 64),
+        child: Center(child: CircularProgressIndicator(color: AppColors.rose)),
+      );
+    }
 
-    final activePatient = patients.firstWhere(
-      (p) => p['name'] == _selectedPatientQueue,
-      orElse: () => patients[0],
-    );
+    final todayAppts = _doctorDashboardData!.todayAppointments;
+    final now = DateTime.now();
+    final doctorStart =
+        _doctorCustomDateRange?.start ??
+        switch (_doctorDateRange) {
+          AdminDateRangeType.days7 => now.subtract(const Duration(days: 7)),
+          AdminDateRangeType.days30 => now.subtract(const Duration(days: 30)),
+          AdminDateRangeType.months3 => now.subtract(const Duration(days: 90)),
+          AdminDateRangeType.custom => now.subtract(const Duration(days: 30)),
+        };
+    final doctorEnd = _doctorCustomDateRange?.end ?? now;
 
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final int crossAxisCount = constraints.maxWidth > 900 ? 4 : 2;
-            return GridView.count(
-              crossAxisCount: crossAxisCount,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisSpacing: 16,
-              mainAxisSpacing: 16,
-              childAspectRatio: 1.8,
-              children: const [
-                _StatCard(
-                  label: "Today's Patients",
-                  value: "8",
-                  sub: "4 remaining",
-                  icon: Icons.calendar_today,
-                  color: AppColors.rose,
-                ),
-                _StatCard(
-                  label: "Under My Care",
-                  value: "142",
-                  sub: "Active patients",
-                  icon: Icons.people,
-                  color: AppColors.lav,
-                ),
-                _StatCard(
-                  label: "Pending Approvals",
-                  value: "5",
-                  sub: "Product matches",
-                  icon: Icons.auto_awesome,
-                  color: AppColors.gold,
-                  trend: "!",
-                ),
-                _StatCard(
-                  label: "Avg Rating",
-                  value: "4.9",
-                  sub: "From 142 reviews",
-                  icon: Icons.star,
-                  color: AppColors.sage,
-                ),
-              ],
-            );
+        AdminDateFilterBar(
+          selectedRangeType: _doctorDateRange,
+          customDateRange: _doctorCustomDateRange,
+          formattedRange:
+              '${DateFormat('d MMM yyyy').format(doctorStart)} – ${DateFormat('d MMM yyyy').format(doctorEnd)}',
+          onRangeSelected: (type, customRange) {
+            setState(() {
+              _doctorDateRange = type;
+              _doctorCustomDateRange = customRange;
+            });
+            _loadDoctorAnalytics();
           },
         ),
-
-        const SizedBox(height: 24),
-
+        if (_isLoadingAnalytics)
+          const LinearProgressIndicator(
+            color: AppColors.rose,
+            backgroundColor: AppColors.bgRose,
+            minHeight: 2,
+          ),
+        const SizedBox(height: 20),
+        // 1. STATS OVERVIEW + TODAY'S APPOINTMENTS (side by side on desktop)
         LayoutBuilder(
           builder: (context, constraints) {
-            final bool isDesktop = constraints.maxWidth > 850;
+            final bool isWide = constraints.maxWidth > 880;
             return Flex(
-              direction: isDesktop ? Axis.horizontal : Axis.vertical,
+              direction: isWide ? Axis.horizontal : Axis.vertical,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Queue Selector
+                // Stats Cards Column
                 Expanded(
-                  flex: isDesktop ? 2 : 0,
-                  child: Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: AppColors.bgCard,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: AppColors.border),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Today\'s Consultation Queue',
-                          style: AppTypography.labelLarge(),
-                        ),
-                        const SizedBox(height: 16),
-                        ...patients.map((p) {
-                          final isSelected = p['name'] == _selectedPatientQueue;
-                          return InkWell(
-                            onTap: () {
-                              setState(() {
-                                _selectedPatientQueue = p['name']!;
-                              });
-                            },
-                            child: Container(
-                              margin: const EdgeInsets.only(bottom: 8),
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: isSelected
-                                    ? AppColors.bgRose
-                                    : AppColors.bgAlt,
-                                borderRadius: BorderRadius.circular(14),
-                                border: Border.all(
-                                  color: isSelected
-                                      ? AppColors.borderRose
-                                      : AppColors.border,
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Text(
-                                    p['time']!,
-                                    style: AppTypography.labelSmall(),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          p['name']!,
-                                          style: AppTypography.labelMedium(),
-                                        ),
-                                        Text(
-                                          p['tx']!,
-                                          style: AppTypography.bodySmall(),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  StatusPill(status: p['status']!),
-                                ],
-                              ),
-                            ),
-                          );
-                        }),
-                      ],
-                    ),
+                  flex: isWide ? 1 : 0,
+                  child: Column(
+                    children: [
+                      _StatCard(
+                        label: "Today's Patients",
+                        value: _doctorDashboardData!.todayPatientsCount
+                            .toString(),
+                        sub:
+                            "${todayAppts.where((a) => a.status == 'PLANNED').length} remaining",
+                        icon: Icons.calendar_today,
+                        color: AppColors.rose,
+                        valueBesideLabel: true,
+                      ),
+                      const SizedBox(height: 16),
+                      _StatCard(
+                        label: "Active patients under my care",
+                        value: _doctorDashboardData!.activePatientsCount
+                            .toString(),
+                        sub: "",
+                        icon: Icons.people,
+                        color: AppColors.lav,
+                        valueBesideLabel: true,
+                      ),
+                    ],
                   ),
                 ),
-
-                if (isDesktop)
+                if (isWide)
                   const SizedBox(width: 20)
                 else
                   const SizedBox(height: 20),
 
-                // Patient Clinical Summary & Prescriptions
+                // Today's Appointments List
                 Expanded(
-                  flex: isDesktop ? 3 : 0,
+                  flex: isWide ? 2 : 0,
                   child: Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
                       color: AppColors.bgCard,
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(color: AppColors.border),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: AppColors.shadow,
+                          blurRadius: 12,
+                          offset: Offset(0, 4),
+                        ),
+                      ],
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  activePatient['name']!,
-                                  style: AppTypography.displaySubtitle(),
-                                ),
-                                const SizedBox(height: 4),
-                                Row(
-                                  children: [
-                                    Text(
-                                      'Skin Type: ${activePatient['skin']}',
-                                      style: AppTypography.bodySmall(
-                                        color: AppColors.rose,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 2,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: AppColors.bgSage,
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Text(
-                                        '✓ Clinic Forms Verified',
-                                        style: AppTypography.labelSmall(
-                                          color: AppColors.sage,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                            ElevatedButton.icon(
-                              onPressed: () =>
-                                  widget.onViewPatient(activePatient['name']!),
-                              icon: const Icon(
-                                Icons.description_outlined,
-                                size: 16,
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: AppColors.rose.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(10),
                               ),
-                              label: const Text('Open Clinic Forms & EHR'),
+                              child: const Icon(
+                                Icons.calendar_today_outlined,
+                                size: 18,
+                                color: AppColors.rose,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Today\'s Appointments',
+                                    style:
+                                        AppTypography.displaySubtitle(
+                                          color: AppColors.text,
+                                        ).copyWith(
+                                          fontSize: 17,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                  ),
+                                  Text(
+                                    '${todayAppts.length} consultation${todayAppts.length == 1 ? '' : 's'} · Click to open EHR',
+                                    style: AppTypography.bodySmall(
+                                      color: AppColors.textMuted,
+                                    ).copyWith(fontSize: 11),
+                                  ),
+                                ],
+                              ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 20),
-                        const Divider(),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Recommended Product Approvals',
-                          style: AppTypography.labelLarge(),
-                        ),
-                        const SizedBox(height: 12),
-                        _buildProductApprovalItem(
-                          'NovaClear Enzyme Peel',
-                          'Exfoliating serum for sensitive skin',
-                        ),
-                        _buildProductApprovalItem(
-                          'HydraBoost HA Serum',
-                          'Deep hydration post-laser session',
-                        ),
+                        const SizedBox(height: 14),
+                        const Divider(height: 1),
+                        const SizedBox(height: 8),
+                        if (todayAppts.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 28),
+                            child: Center(
+                              child: Column(
+                                children: [
+                                  Icon(
+                                    Icons.event_available_outlined,
+                                    size: 36,
+                                    color: AppColors.textMuted.withValues(
+                                      alpha: 0.5,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'No consultations scheduled for today.',
+                                    style: AppTypography.bodySmall(
+                                      color: AppColors.textMuted,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        else
+                          ...todayAppts.map((appt) {
+                            return InkWell(
+                              borderRadius: BorderRadius.circular(12),
+                              onTap: () => widget.onViewPatient(appt.patientId),
+                              child: _buildAppointmentRow(
+                                time: appt.time,
+                                patient: appt.patientName,
+                                patientId: appt.patientId,
+                                treatment: appt.treatmentName,
+                                doctor: null,
+                                status: appt.status,
+                                isClickable: true,
+                              ),
+                            );
+                          }),
                       ],
                     ),
                   ),
@@ -815,6 +818,56 @@ class _DashboardScreenState extends State<DashboardScreen> {
             );
           },
         ),
+
+        const SizedBox(height: 28),
+
+        // 2. MY ANALYTICS SECTION
+        _buildSectionHeader(
+          title: 'My Analytics',
+          subtitle:
+              'Fulfillment outcomes, appointment counts, and treatments performed under your care',
+          icon: Icons.analytics_outlined,
+          color: AppColors.rose,
+        ),
+        const SizedBox(height: 16),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final bool isDesktop = constraints.maxWidth > 960;
+            return Flex(
+              direction: isDesktop ? Axis.horizontal : Axis.vertical,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  flex: isDesktop ? 1 : 0,
+                  child: AppointmentOutcomesDonut(
+                    data: _doctorDashboardData!.appointmentOutcomes,
+                  ),
+                ),
+                if (isDesktop)
+                  const SizedBox(width: 20)
+                else
+                  const SizedBox(height: 20),
+                Expanded(
+                  flex: isDesktop ? 1 : 0,
+                  child: PatientGrowthLineChart(
+                    data: _doctorDashboardData!.appointmentsOverTime,
+                    title: 'Completed Sessions Over Time',
+                    subtitle:
+                        'Number of completed patient consultations per day in the selected period',
+                    badgeText: 'Completed only',
+                    badgeColor: AppColors.sage,
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+        const SizedBox(height: 20),
+        ServiceBookingsBarChart(
+          data: _doctorDashboardData!.treatmentsPerformed,
+          showTopService: false,
+        ),
+        const SizedBox(height: 28),
       ],
     );
   }
@@ -823,72 +876,169 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // RECEPTIONIST DASHBOARD
   // ───────────────────────────────────────────────────────────────────────────
   Widget _buildReceptionistDashboard() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: AppColors.bgCard,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: AppColors.border),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Quick Patient Check-in', style: AppTypography.labelLarge()),
-              const SizedBox(height: 16),
-              Row(
+    return FutureBuilder<List<Appointment>>(
+      future: _receptionAppointments,
+      builder: (context, snapshot) {
+        final appointments = snapshot.data ?? const <Appointment>[];
+        final today = DateTime.now();
+        final todayAllAppointments = appointments.where((appointment) {
+          final date = appointment.scheduledAt.toLocal();
+          return date.year == today.year &&
+              date.month == today.month &&
+              date.day == today.day;
+        }).toList();
+        final todayAppointments = todayAllAppointments.where((appointment) {
+          return _receptionStatusFilter == 'ALL' ||
+              appointment.status == _receptionStatusFilter;
+        }).toList()..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+        final weekEnd = today.add(const Duration(days: 7));
+        final upcoming = appointments.where((appointment) {
+          return appointment.status == 'BOOKED' &&
+              appointment.scheduledAt.isAfter(today) &&
+              appointment.scheduledAt.isBefore(weekEnd);
+        }).length;
+        final cancelledToday = todayAllAppointments
+            .where((appointment) => appointment.status == 'CANCELLED')
+            .length;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
                 children: [
-                  Expanded(
-                    child: TextField(
-                      decoration: InputDecoration(
-                        hintText: 'Enter Patient Name or Phone Number...',
-                        prefixIcon: const Icon(Icons.search, size: 18),
-                      ),
+                  SizedBox(
+                    width: 240,
+                    child: _StatCard(
+                      label: "Today's appointments",
+                      value: '${todayAllAppointments.length}',
+                      sub: '',
+                      icon: Icons.today_outlined,
+                      color: AppColors.rose,
                     ),
                   ),
                   const SizedBox(width: 12),
-                  ElevatedButton(
-                    onPressed: () {},
-                    child: const Text('Check In'),
+                  SizedBox(
+                    width: 240,
+                    child: _StatCard(
+                      label: 'Upcoming this week',
+                      value: '$upcoming',
+                      sub: 'Booked visits',
+                      icon: Icons.date_range_outlined,
+                      color: AppColors.lavDark,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  SizedBox(
+                    width: 240,
+                    child: _StatCard(
+                      label: 'Cancellations today',
+                      value: '$cancelledToday',
+                      sub: '',
+                      icon: Icons.event_busy_outlined,
+                      color: AppColors.gold,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  SizedBox(
+                    width: 240,
+                    child: FutureBuilder<int>(
+                      future: _receptionDoctorCount,
+                      builder: (_, doctorSnapshot) => _StatCard(
+                        label: 'Doctors',
+                        value: '${doctorSnapshot.data ?? 0}',
+                        sub: 'Check availability',
+                        icon: Icons.medical_information_outlined,
+                        color: AppColors.sageDark,
+                        onTap: widget.onViewDoctors,
+                      ),
+                    ),
                   ),
                 ],
               ),
-            ],
-          ),
-        ),
-
-        const SizedBox(height: 24),
-
-        Text(
-          'Front Desk Queue (12 Waiting / In Session)',
-          style: AppTypography.displaySubtitle(),
-        ),
-        const SizedBox(height: 16),
-        _buildAppointmentRow(
-          time: '09:15',
-          patient: 'Nour Al-Khalil',
-          treatment: 'Laser Resurfacing',
-          doctor: 'Dr. Hana',
-          status: 'In Room',
-          isClickable: true,
-        ),
-        _buildAppointmentRow(
-          time: '10:00',
-          patient: 'Layla Mansour',
-          treatment: 'HydroGlow Facial',
-          doctor: 'Dr. Reem',
-          status: 'Waiting',
-        ),
-        _buildAppointmentRow(
-          time: '10:30',
-          patient: 'Samia Barakat',
-          treatment: 'Body Contour',
-          doctor: 'Dr. Sana',
-          status: 'Confirmed',
-        ),
-      ],
+            ),
+            const SizedBox(height: 20),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                FilledButton.icon(
+                  onPressed: widget.onBookAppointment,
+                  icon: const Icon(Icons.add),
+                  label: const Text('Book appointment'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: widget.onCheckInPatient,
+                  icon: const Icon(Icons.how_to_reg_outlined),
+                  label: const Text('Check in patient'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            Text("Today's schedule", style: AppTypography.displaySubtitle()),
+            const SizedBox(height: 12),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (final status in const ['ALL', 'BOOKED', 'CANCELLED'])
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ChoiceChip(
+                        label: Text(
+                          status == 'ALL'
+                              ? 'All statuses'
+                              : status == 'BOOKED'
+                              ? 'Confirmed'
+                              : 'Cancelled',
+                        ),
+                        selected: _receptionStatusFilter == status,
+                        onSelected: (_) =>
+                            setState(() => _receptionStatusFilter = status),
+                        selectedColor: AppColors.rose,
+                        checkmarkColor: Colors.white,
+                        labelStyle: AppTypography.labelMedium(
+                          color: _receptionStatusFilter == status
+                              ? Colors.white
+                              : AppColors.textSub,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            if (snapshot.connectionState != ConnectionState.done)
+              const Center(child: CircularProgressIndicator())
+            else if (todayAppointments.isEmpty)
+              Text(
+                'No appointments scheduled today.',
+                style: AppTypography.bodyMedium(color: AppColors.textMuted),
+              )
+            else
+              ...todayAppointments.map(
+                (appointment) => _buildAppointmentRow(
+                  time: DateFormat(
+                    'HH:mm',
+                  ).format(appointment.scheduledAt.toLocal()),
+                  patient: appointment.patientName,
+                  treatment: appointment.sessions.isEmpty
+                      ? 'Appointment'
+                      : appointment.sessions
+                            .map((session) => session.treatmentLabel)
+                            .join(', '),
+                  doctor: appointment.sessions.isEmpty
+                      ? null
+                      : appointment.sessions.first.practitionerName,
+                  status: appointment.status == 'BOOKED'
+                      ? 'Confirmed'
+                      : 'Cancelled',
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 
@@ -950,8 +1100,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildAppointmentRow({
     required String time,
     required String patient,
+    String? patientId,
     required String treatment,
-    required String doctor,
+    String? doctor,
     required String status,
     bool isClickable = false,
   }) {
@@ -984,7 +1135,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(width: 12),
           Expanded(
             child: InkWell(
-              onTap: isClickable ? () => widget.onViewPatient(patient) : null,
+              onTap: isClickable && patientId != null && patientId.isNotEmpty
+                  ? () => widget.onViewPatient(patientId)
+                  : null,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -1005,10 +1158,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ),
           ),
-          Text(
-            doctor,
-            style: AppTypography.bodySmall(color: AppColors.textSub),
-          ),
+          if (doctor != null)
+            Text(
+              doctor,
+              style: AppTypography.bodySmall(color: AppColors.textSub),
+            ),
           const SizedBox(width: 12),
           StatusPill(status: status),
         ],
@@ -1063,59 +1217,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     );
   }
-
-  Widget _buildProductApprovalItem(String title, String desc) {
-    final bool isApproved = _approvedProducts.contains(title);
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.bgAlt,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        children: [
-          const Icon(
-            Icons.medication_outlined,
-            color: AppColors.rose,
-            size: 20,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: AppTypography.labelMedium()),
-                Text(desc, style: AppTypography.bodySmall()),
-              ],
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              setState(() {
-                if (isApproved) {
-                  _approvedProducts.remove(title);
-                } else {
-                  _approvedProducts.add(title);
-                }
-              });
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: isApproved ? AppColors.sage : AppColors.rose,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              minimumSize: Size.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-            child: Text(
-              isApproved ? 'Approved ✓' : 'Approve',
-              style: AppTypography.labelSmall(color: AppColors.white),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _StatCard extends StatelessWidget {
@@ -1125,6 +1226,8 @@ class _StatCard extends StatelessWidget {
   final IconData icon;
   final Color color;
   final String? trend;
+  final bool valueBesideLabel;
+  final VoidCallback? onTap;
 
   const _StatCard({
     required this.label,
@@ -1133,69 +1236,138 @@ class _StatCard extends StatelessWidget {
     required this.icon,
     required this.color,
     this.trend,
+    this.valueBesideLabel = false,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      // Grid cells can be fractionally shorter in a browser. Slightly smaller
-      // vertical padding keeps the four text rows inside at every zoom level.
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: AppColors.bgCard,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(icon, color: color, size: 20),
-              ),
-              if (trend != null)
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+        decoration: BoxDecoration(
+          color: AppColors.bgCard,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppColors.border),
+          boxShadow: [
+            BoxShadow(
+              color: color.withValues(alpha: 0.06),
+              blurRadius: 14,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 2,
-                  ),
+                  padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: trend!.startsWith('+')
-                        ? const Color(0xFFDCFCE7)
-                        : const Color(0xFFFEE2E2),
-                    borderRadius: BorderRadius.circular(12),
+                    gradient: LinearGradient(
+                      colors: [
+                        color.withValues(alpha: 0.18),
+                        color.withValues(alpha: 0.08),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(14),
                   ),
-                  child: Text(
-                    trend!,
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: trend!.startsWith('+')
-                          ? const Color(0xFF16A34A)
-                          : const Color(0xFFDC2626),
+                  child: Icon(icon, color: color, size: 22),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (valueBesideLabel)
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  label,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: AppTypography.labelMedium(
+                                    color: AppColors.text,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                value,
+                                style: AppTypography.displayStat(
+                                  color: AppColors.text,
+                                ).copyWith(fontSize: 24),
+                              ),
+                            ],
+                          )
+                        else ...[
+                          Text(
+                            label,
+                            style: AppTypography.labelSmall(
+                              color: AppColors.text,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Text(
+                                value,
+                                style: AppTypography.displayStat(
+                                  color: AppColors.text,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: Text(
+                                  sub,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: AppTypography.labelSmall(
+                                    color: color,
+                                  ).copyWith(fontSize: 10),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                        if (valueBesideLabel && sub.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            sub,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTypography.labelSmall(
+                              color: color,
+                            ).copyWith(fontSize: 10),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(value, style: AppTypography.displayStat(color: AppColors.text)),
-          Text(label, style: AppTypography.labelSmall(color: AppColors.text)),
-          Text(
-            sub,
-            style: AppTypography.labelSmall(
-              color: color,
-            ).copyWith(fontSize: 10),
-          ),
-        ],
+                if (trend != null) ...[
+                  const SizedBox(width: 8),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      trend!,
+                      style: AppTypography.labelSmall(
+                        color: color,
+                      ).copyWith(fontSize: 10, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -14,6 +14,7 @@ import 'widgets/clinical_intake_tab.dart';
 /// Patient EHR & Profile View Screen (100% Database-Driven)
 class PatientProfileScreen extends StatefulWidget {
   static const int overviewTabIndex = 0;
+  static const int upcomingTreatmentsTabIndex = 0;
   static const int treatmentHistoryTabIndex = 1;
   static const int productsTabIndex = 2;
   static const int clinicFormsTabIndex = 3;
@@ -38,7 +39,7 @@ class PatientProfileScreen extends StatefulWidget {
     this.productApi,
     this.apiClient,
     this.patientId,
-    this.initialTabIndex = overviewTabIndex,
+    this.initialTabIndex = 0,
   });
 
   @override
@@ -52,8 +53,12 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
   bool _loading = true;
 
   List<Appointment> _treatmentHistory = [];
+  List<Appointment> _upcomingTreatments = [];
   bool _loadingHistory = false;
+  bool _loadingUpcoming = false;
   String? _historyError;
+  String? _upcomingError;
+  String _historyFilter = 'ALL';
 
   List<dynamic> _patientProducts = [];
   bool _loadingProducts = false;
@@ -65,14 +70,41 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
   void initState() {
     super.initState();
     final tabCount = _isOwnProfile ? 4 : 3;
+    final resolvedInitialIndex = _isOwnProfile && widget.initialTabIndex == 3
+        ? 3
+        : widget.initialTabIndex.clamp(0, tabCount - 1);
+
     _tabController = TabController(
       length: tabCount,
       vsync: this,
-      initialIndex: widget.initialTabIndex.clamp(0, tabCount - 1),
+      initialIndex: resolvedInitialIndex,
     );
     _loadPatientData();
+    _loadUpcomingTreatments();
     _loadTreatmentHistory();
     _loadProducts();
+  }
+
+  Future<void> _loadUpcomingTreatments() async {
+    if (widget.appointmentApi == null || widget.patientId != null) return;
+    setState(() {
+      _loadingUpcoming = true;
+      _upcomingError = null;
+    });
+    try {
+      final page = await widget.appointmentApi!.upcoming(page: 0, size: 50);
+      if (!mounted) return;
+      setState(() {
+        _upcomingTreatments = page.items;
+        _loadingUpcoming = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _upcomingError = 'Could not load upcoming treatments.';
+        _loadingUpcoming = false;
+      });
+    }
   }
 
   Future<void> _loadPatientData() async {
@@ -198,7 +230,7 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (widget.onBack != null)
+          if (widget.onBack != null && widget.patientId != null)
             Padding(
               padding: const EdgeInsets.only(bottom: 16),
               child: OutlinedButton.icon(
@@ -233,12 +265,18 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
             indicatorColor: AppColors.rose,
             labelStyle: AppTypography.labelMedium(),
             unselectedLabelStyle: AppTypography.labelMedium(),
-            tabs: [
-              const Tab(text: 'Overview & Info'),
-              const Tab(text: 'Treatment History'),
-              const Tab(text: 'Prescriptions & Products'),
-              if (_isOwnProfile) const Tab(text: 'Clinic Forms'),
-            ],
+            tabs: _isOwnProfile
+                ? const [
+                    Tab(text: 'Upcoming Treatments'),
+                    Tab(text: 'Treatment History'),
+                    Tab(text: 'Prescriptions & Products'),
+                    Tab(text: 'Clinic Forms'),
+                  ]
+                : const [
+                    Tab(text: 'Overview & Info'),
+                    Tab(text: 'Treatment History'),
+                    Tab(text: 'Prescriptions & Products'),
+                  ],
           ),
 
           const SizedBox(height: 20),
@@ -248,22 +286,27 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
             height: 520,
             child: TabBarView(
               controller: _tabController,
-              children: [
-                _buildOverviewTab(),
-                _buildHistoryTab(),
-                _buildProductsTab(),
-                if (_isOwnProfile)
-                  ClinicalIntakeTab(
-                    clinicalApi: widget.clinicalApi,
-                    dynamicApi: widget.dynamicApi,
-                    patientId: widget.patientId,
-                    onBackToAppointments: widget.onBackToAppointments,
-                    onSaved: () {
-                      _loadPatientData();
-                      _loadProducts();
-                    },
-                  ),
-              ],
+              children: _isOwnProfile
+                  ? [
+                      _buildUpcomingTreatmentsTab(),
+                      _buildHistoryTab(),
+                      _buildProductsTab(),
+                      ClinicalIntakeTab(
+                        clinicalApi: widget.clinicalApi,
+                        dynamicApi: widget.dynamicApi,
+                        patientId: widget.patientId,
+                        onBackToAppointments: widget.onBackToAppointments,
+                        onSaved: () {
+                          _loadPatientData();
+                          _loadProducts();
+                        },
+                      ),
+                    ]
+                  : [
+                      _buildOverviewTab(),
+                      _buildHistoryTab(),
+                      _buildProductsTab(),
+                    ],
             ),
           ),
         ],
@@ -449,49 +492,190 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
       );
     }
 
-    return ListView.builder(
-      itemCount: _treatmentHistory.length,
-      itemBuilder: (context, index) {
-        final appt = _treatmentHistory[index];
-        final session = appt.sessions.isNotEmpty ? appt.sessions.first : null;
-        final txName = session != null
-            ? _humanizeEnum(session.treatmentName)
-            : 'Treatment Visit';
-        final doctorName = session?.practitionerName ?? 'Clinic Specialist';
-        final dateStr = session != null
-            ? '${BookingFormat.dayWithYear(session.startTime)} · ${BookingFormat.time12(session.startTime)}'
-            : BookingFormat.dayWithYear(appt.scheduledAt);
-        final status = _humanizeEnum(appt.status);
+    final filteredHistory = _treatmentHistory.where((appointment) {
+      if (!_isOwnProfile) return _historyStatus(appointment) == 'COMPLETED';
+      return _historyFilter == 'ALL' ||
+          _historyStatus(appointment) == _historyFilter;
+    }).toList();
 
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (_isOwnProfile)
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final filter in const [
+                'ALL',
+                'COMPLETED',
+                'CANCELLED',
+                'MISSED',
+                'PENDING',
+              ])
+                ChoiceChip(
+                  label: Text(_humanizeEnum(filter)),
+                  selected: _historyFilter == filter,
+                  onSelected: (_) => setState(() => _historyFilter = filter),
+                  showCheckmark: false,
+                  selectedColor: AppColors.rose,
+                  labelStyle: AppTypography.labelSmall(
+                    color: _historyFilter == filter
+                        ? Colors.white
+                        : AppColors.textSub,
+                  ),
+                ),
+            ],
+          ),
+        const SizedBox(height: 12),
+        Expanded(
+          child: filteredHistory.isEmpty
+              ? Center(
+                  child: Text(
+                    'No visits match this status.',
+                    style: AppTypography.bodySmall(color: AppColors.textMuted),
+                  ),
+                )
+              : ListView.builder(
+                  itemCount: filteredHistory.length,
+                  itemBuilder: (context, index) {
+                    final appt = filteredHistory[index];
+                    final session = appt.sessions.isNotEmpty
+                        ? appt.sessions.first
+                        : null;
+                    final txName = session != null
+                        ? _humanizeEnum(session.treatmentName)
+                        : 'Treatment Visit';
+                    final doctorName =
+                        session?.practitionerName ?? 'Clinic Specialist';
+                    final dateStr = session != null
+                        ? '${BookingFormat.dayWithYear(session.startTime)} · ${BookingFormat.time12(session.startTime)}'
+                        : BookingFormat.dayWithYear(appt.scheduledAt);
+                    final status = _historyStatus(appt);
+
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppColors.bgCard,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(txName, style: AppTypography.labelLarge()),
+                              const SizedBox(height: 4),
+                              Text(
+                                '$dateStr · $doctorName',
+                                style: AppTypography.bodySmall(
+                                  color: AppColors.textMuted,
+                                ),
+                              ),
+                            ],
+                          ),
+                          _buildTag(
+                            status,
+                            status == 'COMPLETED'
+                                ? AppColors.sage
+                                : AppColors.rose,
+                            status == 'COMPLETED'
+                                ? AppColors.sage.withValues(alpha: 0.12)
+                                : AppColors.bgRose,
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+
+  String _historyStatus(Appointment appointment) {
+    if (appointment.status == 'CANCELLED') return 'CANCELLED';
+    if (appointment.sessions.any((session) => session.status == 'COMPLETED')) {
+      return 'COMPLETED';
+    }
+    if (appointment.sessions.isNotEmpty &&
+        appointment.sessions.every(
+          (session) => session.status == 'CANCELLED',
+        )) {
+      return 'CANCELLED';
+    }
+    if (appointment.sessions.isNotEmpty &&
+        appointment.sessions.every((session) => session.status == 'NO_SHOW')) {
+      return 'MISSED';
+    }
+    return 'PENDING';
+  }
+
+  Widget _buildUpcomingTreatmentsTab() {
+    if (_loadingUpcoming) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_upcomingError != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(_upcomingError!, style: AppTypography.bodySmall()),
+            TextButton(
+              onPressed: _loadUpcomingTreatments,
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+    if (_upcomingTreatments.isEmpty) {
+      return Center(
+        child: Text(
+          'No upcoming treatments scheduled.',
+          style: AppTypography.bodySmall(color: AppColors.textMuted),
+        ),
+      );
+    }
+    return ListView.separated(
+      itemCount: _upcomingTreatments.length,
+      separatorBuilder: (_, _) => const SizedBox(height: 12),
+      itemBuilder: (context, index) {
+        final appointment = _upcomingTreatments[index];
         return Container(
-          margin: const EdgeInsets.only(bottom: 10),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: AppColors.bgCard,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: AppColors.border),
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(txName, style: AppTypography.labelLarge()),
-                  const SizedBox(height: 4),
-                  Text(
-                    '$dateStr · $doctorName',
-                    style: AppTypography.bodySmall(color: AppColors.textMuted),
+                  Expanded(
+                    child: Text(
+                      '${BookingFormat.dayWithYear(appointment.scheduledAt)} · ${BookingFormat.time12(appointment.scheduledAt)}',
+                      style: AppTypography.labelLarge(),
+                    ),
                   ),
+                  _buildTag('CONFIRMED', AppColors.sage, AppColors.bgSage),
                 ],
               ),
-              _buildTag(
-                status,
-                appt.status == 'COMPLETED' ? AppColors.sage : AppColors.rose,
-                appt.status == 'COMPLETED'
-                    ? AppColors.sage.withValues(alpha: 0.12)
-                    : AppColors.bgRose,
-              ),
+              const Divider(height: 24),
+              for (final session in appointment.plannedSessions)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Text(
+                    '${_humanizeEnum(session.treatmentName)} · ${session.practitionerName}',
+                    style: AppTypography.bodySmall(color: AppColors.textSub),
+                  ),
+                ),
             ],
           ),
         );

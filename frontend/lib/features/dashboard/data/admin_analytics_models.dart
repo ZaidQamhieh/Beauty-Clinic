@@ -619,6 +619,7 @@ class PatientAnalyticsData {
 /// 6. Live Daily Operations Data
 class TodayAppointmentItem {
   final String id;
+  final String patientId;
   final String time;
   final String patientName;
   final String treatmentName;
@@ -627,6 +628,7 @@ class TodayAppointmentItem {
 
   const TodayAppointmentItem({
     required this.id,
+    required this.patientId,
     required this.time,
     required this.patientName,
     required this.treatmentName,
@@ -637,6 +639,7 @@ class TodayAppointmentItem {
   factory TodayAppointmentItem.fromJson(Map<String, dynamic> json) {
     return TodayAppointmentItem(
       id: json['id'] as String? ?? '',
+      patientId: json['patientId'] as String? ?? '',
       time: json['time'] as String? ?? '',
       patientName: json['patientName'] as String? ?? '',
       treatmentName: json['treatmentName'] as String? ?? '',

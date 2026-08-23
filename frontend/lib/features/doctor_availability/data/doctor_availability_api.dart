@@ -128,6 +128,23 @@ class DoctorAvailabilityApi {
     }
   }
 
+  Future<List<DoctorAvailability>> listForDoctor(String doctorId) async {
+    try {
+      final response = await _client.get<List<dynamic>>(
+        '/api/doctors/$doctorId/availability',
+      );
+      return (response.data ?? const [])
+          .map(
+            (json) => DoctorAvailability.fromJson(
+              Map<String, dynamic>.from(json as Map),
+            ),
+          )
+          .toList();
+    } on DioException catch (error) {
+      throw _mapError(error);
+    }
+  }
+
   Future<List<DoctorAvailabilityDayStatus>> calendar({
     required DateTime from,
     required DateTime to,

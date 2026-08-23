@@ -135,6 +135,11 @@ class AppointmentApi {
     return _page('/api/appointments/me/history', page, size);
   }
 
+  /// The clinic-wide appointment list for staff dashboards.
+  Future<AppointmentPage> allForStaff({int page = 0, int size = 100}) {
+    return _page('/api/appointments/all', page, size);
+  }
+
   /// Cancels the whole visit.
   Future<Appointment> cancel(String appointmentId) async {
     try {
