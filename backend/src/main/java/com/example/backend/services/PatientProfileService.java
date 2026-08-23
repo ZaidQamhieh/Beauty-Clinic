@@ -53,12 +53,6 @@ public class PatientProfileService {
 
     @Transactional
     public PatientDetailResponse register(PatientDetailsRequest request) {
-        // Taken at the desk, like paper.
-        if (request.clinical() == null) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST, "The patient's health form is required");
-        }
-
         if (users.findByEmailIgnoreCase(request.email()).isPresent()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already registered");
         }
@@ -281,6 +275,9 @@ public class PatientProfileService {
 
     // Shared with register, one write path.
     private static void applyClinical(PatientProfile profile, EditClinicalProfileRequest request) {
+        if (request == null) {
+            return;
+        }
         profile.setPregnantBreastfeeding(request.pregnantBreastfeeding());
         profile.setSkinType(request.skinType());
         profile.setSmokingStatus(request.smokingStatus());

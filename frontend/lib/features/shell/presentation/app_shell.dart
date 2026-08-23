@@ -17,6 +17,7 @@ class AppShell extends StatefulWidget {
   final VoidCallback? onBookClick;
   final VoidCallback? onLogout;
   final VoidCallback? onProfileTap;
+  final String? userName;
 
   const AppShell({
     super.key,
@@ -27,6 +28,7 @@ class AppShell extends StatefulWidget {
     this.onBookClick,
     this.onLogout,
     this.onProfileTap,
+    this.userName,
   });
 
   @override
@@ -48,6 +50,7 @@ class _AppShellState extends State<AppShell> {
         onBookClick: widget.onBookClick,
         onLogout: widget.onLogout,
         onProfileTap: widget.onProfileTap,
+        userName: widget.userName,
         isMobile: isMobile,
       ),
       drawer: isMobile ? _buildDrawer(context) : null,
@@ -276,25 +279,18 @@ class _AppShellState extends State<AppShell> {
           },
           {
             'id': 'dashboard',
-            'label': 'Today\'s Schedule',
+            'label': 'Dashboard',
             'icon': Icons.calendar_today_outlined,
-            'badge': '8',
           },
           {
             'id': 'patients',
             'label': 'My Patients',
             'icon': Icons.people_outline,
-            'badge': '24',
           },
           {
             'id': 'clinical_forms',
             'label': 'Patient Forms History',
             'icon': Icons.assignment_outlined,
-          },
-          {
-            'id': 'doctor_profile',
-            'label': 'Doctor Profile',
-            'icon': Icons.badge_outlined,
           },
           {
             'id': 'doctor_availability',
@@ -316,18 +312,24 @@ class _AppShellState extends State<AppShell> {
         return [
           {
             'id': 'landing',
-            'label': 'Clinic Homepage',
+            'label': 'Clinic Landing Page',
             'icon': Icons.home_outlined,
           },
+          {'id': 'dashboard', 'label': 'Dashboard', 'icon': Icons.spa_outlined},
           {
             'id': 'my_profile',
             'label': 'My Profile',
             'icon': Icons.person_outline,
           },
           {
-            'id': 'dashboard',
+            'id': 'patient_profile',
+            'label': 'My Medical Profile',
+            'icon': Icons.health_and_safety_outlined,
+          },
+          {
+            'id': 'appointments',
             'label': 'Treatments & Visits',
-            'icon': Icons.spa_outlined,
+            'icon': Icons.calendar_today_outlined,
           },
           {
             'id': 'products',
@@ -344,23 +346,22 @@ class _AppShellState extends State<AppShell> {
           },
           {
             'id': 'dashboard',
-            'label': 'Front Desk Desk',
+            'label': 'Dashboard',
             'icon': Icons.meeting_room_outlined,
-            'badge': '12',
           },
           {
             'id': 'appointments',
-            'label': 'All Appointments',
+            'label': 'Appointments',
             'icon': Icons.event_note_outlined,
           },
           {
             'id': 'patients',
-            'label': 'Patient Directory',
+            'label': 'Patients',
             'icon': Icons.folder_shared_outlined,
           },
           {
             'id': 'doctors',
-            'label': 'Doctor Rosters',
+            'label': 'Doctors',
             'icon': Icons.medical_information_outlined,
           },
           {
@@ -373,19 +374,39 @@ class _AppShellState extends State<AppShell> {
       default:
         return [
           {
-            'id': 'my_profile',
-            'label': 'My Profile',
-            'icon': Icons.person_outline,
-          },
-          {
             'id': 'landing',
             'label': 'Clinic Landing Page',
             'icon': Icons.space_dashboard_outlined,
           },
           {
+            'id': 'my_profile',
+            'label': 'My Profile',
+            'icon': Icons.person_outline,
+          },
+          {
             'id': 'dashboard',
             'label': 'Overview Dashboard',
             'icon': Icons.grid_view_rounded,
+          },
+          {
+            'id': 'staff_management',
+            'label': 'Staff Management',
+            'icon': Icons.groups_rounded,
+          },
+          {
+            'id': 'patients',
+            'label': 'Patients Directory',
+            'icon': Icons.people_alt_outlined,
+          },
+          {
+            'id': 'appointments',
+            'label': 'Appointments',
+            'icon': Icons.calendar_today_outlined,
+          },
+          {
+            'id': 'activity_log',
+            'label': 'Activity Log',
+            'icon': Icons.history_rounded,
           },
           {
             'id': 'clinical_forms',
@@ -401,32 +422,6 @@ class _AppShellState extends State<AppShell> {
             'id': 'products',
             'label': 'Products',
             'icon': Icons.inventory_2_outlined,
-          },
-          {
-            'id': 'appointments',
-            'label': 'Appointments',
-            'icon': Icons.calendar_today_outlined,
-            'badge': '14',
-          },
-          {
-            'id': 'patients',
-            'label': 'Patients Directory',
-            'icon': Icons.people_alt_outlined,
-          },
-          {
-            'id': 'doctors',
-            'label': 'Doctors & Specialists',
-            'icon': Icons.health_and_safety_outlined,
-          },
-          {
-            'id': 'staff_management',
-            'label': 'Staff Management',
-            'icon': Icons.groups_rounded,
-          },
-          {
-            'id': 'activity_log',
-            'label': 'Activity Log',
-            'icon': Icons.history_rounded,
           },
         ];
     }

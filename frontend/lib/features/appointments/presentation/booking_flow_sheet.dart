@@ -33,6 +33,7 @@ class BookingFlowSheet extends StatefulWidget {
     required this.appointmentApi,
     required this.doctorApi,
     this.replacesAppointmentId,
+    this.patientUserId,
     this.initialSessions = const [],
     this.onBooked,
   });
@@ -42,6 +43,7 @@ class BookingFlowSheet extends StatefulWidget {
   final DoctorApi doctorApi;
 
   final String? replacesAppointmentId;
+  final String? patientUserId;
 
   /// Kept as-is; a new day drops them.
   final List<AppointmentSession> initialSessions;
@@ -182,24 +184,32 @@ class _BookingFlowSheetState extends State<BookingFlowSheet>
       // Times leave first; nothing gates them.
       final probeCall = _prefetchSlots();
 
-      final patientCall = widget.appointmentApi.me();
+      final patientCall = widget.patientUserId == null
+          ? widget.appointmentApi.me()
+          : null;
       final treatmentsCall = widget.treatmentApi.list();
       final rulesCall = widget.treatmentApi.rules();
       final doctorsCall = widget.doctorApi.list();
 
       // One wait; a failure can't orphan others.
       final results = await Future.wait([
-        patientCall,
+        if (patientCall != null) patientCall,
         treatmentsCall,
         rulesCall,
         doctorsCall,
       ]);
       if (!mounted) return;
 
-      final patient = results[0] as BookingPatient;
-      final treatments = results[1] as List<Treatment>;
-      final rules = results[2] as BookingRules;
-      final doctors = results[3] as List<DoctorSummary>;
+      final offset = widget.patientUserId == null ? 0 : -1;
+      final patient = widget.patientUserId == null
+          ? results[0] as BookingPatient
+          : BookingPatient(
+              userId: widget.patientUserId!,
+              healthFormComplete: true,
+            );
+      final treatments = results[1 + offset] as List<Treatment>;
+      final rules = results[2 + offset] as BookingRules;
+      final doctors = results[3 + offset] as List<DoctorSummary>;
 
       _patient = patient;
       _treatments = treatments;
@@ -212,7 +222,7 @@ class _BookingFlowSheetState extends State<BookingFlowSheet>
       // Unset on purpose; patient picks, not inherits.
       _selectedTreatment = null;
 
-      if (!patient.healthFormComplete) {
+      if (widget.patientUserId == null && !patient.healthFormComplete) {
         setState(() => _step = _Step.gateBlocked);
         return;
       }

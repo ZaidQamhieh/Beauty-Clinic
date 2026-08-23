@@ -8,11 +8,15 @@ import '../../forms/data/clinical_intake_api.dart';
 class PatientsDirectoryScreen extends StatefulWidget {
   final ClinicalIntakeApi clinicalApi;
   final ValueChanged<String> onSelectPatient;
+  final String? title;
+  final String? subtitle;
 
   const PatientsDirectoryScreen({
     super.key,
     required this.clinicalApi,
     required this.onSelectPatient,
+    this.title,
+    this.subtitle,
   });
 
   @override
@@ -135,10 +139,14 @@ class _PatientsDirectoryScreenState extends State<PatientsDirectoryScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Patients Directory', style: AppTypography.displayTitle()),
+                Text(
+                  widget.title ?? 'Patients Directory',
+                  style: AppTypography.displayTitle(),
+                ),
                 const SizedBox(height: 4),
                 Text(
-                  'Browse registered clinic patients, inspect medical histories, and update clinical intake forms.',
+                  widget.subtitle ??
+                      'Browse registered clinic patients, inspect medical histories, and review clinical intake records.',
                   style: AppTypography.bodySmall(color: AppColors.textSub),
                 ),
               ],

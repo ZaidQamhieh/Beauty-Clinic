@@ -11,8 +11,13 @@ import '../../data/admin_analytics_models.dart';
 /// Service Bookings Bar Chart (Luxury interactive bar breakdown)
 class ServiceBookingsBarChart extends StatelessWidget {
   final ServiceAnalyticsData data;
+  final bool showTopService;
 
-  const ServiceBookingsBarChart({super.key, required this.data});
+  const ServiceBookingsBarChart({
+    super.key,
+    required this.data,
+    this.showTopService = true,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -20,14 +25,20 @@ class ServiceBookingsBarChart extends StatelessWidget {
       title: 'Bookings by Service',
       subtitle: 'Distribution of patient treatments & service popularity',
       icon: Icons.bar_chart_rounded,
-      badgeText: data.topService,
+      badgeText: showTopService ? data.topService : null,
       badgeColor: AppColors.rose,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // List of Services with animated progress bars
-          ...data.bookingsByService.map((item) => _buildServiceRow(item)),
-        ],
+        children: data.bookingsByService.isEmpty
+            ? [
+                Text(
+                  'No completed bookings in this period.',
+                  style: AppTypography.bodySmall(color: AppColors.textMuted),
+                ),
+              ]
+            : data.bookingsByService
+                  .map((item) => _buildServiceRow(item))
+                  .toList(),
       ),
     );
   }
@@ -1155,17 +1166,29 @@ class NewVsReturningDonut extends StatelessWidget {
 /// Patient Growth Over Time Line Chart
 class PatientGrowthLineChart extends StatelessWidget {
   final List<PatientGrowthPoint> data;
+  final String title;
+  final String subtitle;
+  final String? badgeText;
+  final Color? badgeColor;
 
-  const PatientGrowthLineChart({super.key, required this.data});
+  const PatientGrowthLineChart({
+    super.key,
+    required this.data,
+    this.title = 'Patient Growth',
+    this.subtitle =
+        'Cumulative patient database expansion over selected window',
+    this.badgeText = '+12% Database Growth',
+    this.badgeColor = AppColors.sage,
+  });
 
   @override
   Widget build(BuildContext context) {
     return _AnalyticsCard(
-      title: 'Patient Growth',
-      subtitle: 'Cumulative patient database expansion over selected window',
+      title: title,
+      subtitle: subtitle,
       icon: Icons.trending_up_rounded,
-      badgeText: '+12% Database Growth',
-      badgeColor: AppColors.sage,
+      badgeText: badgeText,
+      badgeColor: badgeColor,
       child: Column(
         children: [
           SizedBox(
@@ -1203,10 +1226,18 @@ class PatientGrowthLineChart extends StatelessWidget {
                     sideTitles: SideTitles(
                       showTitles: true,
                       reservedSize: 28,
-                      interval: 1,
+                      interval: data.length > 8
+                          ? (data.length / 6).ceilToDouble()
+                          : 1,
                       getTitlesWidget: (value, meta) {
                         final int index = value.toInt();
-                        if (index >= 0 && index < data.length) {
+                        final int labelInterval = data.length > 8
+                            ? (data.length / 6).ceil()
+                            : 1;
+                        if (index >= 0 &&
+                            index < data.length &&
+                            (index % labelInterval == 0 ||
+                                index == data.length - 1)) {
                           return Padding(
                             padding: const EdgeInsets.only(top: 8),
                             child: Text(

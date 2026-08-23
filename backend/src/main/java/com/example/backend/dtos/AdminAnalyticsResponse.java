@@ -157,6 +157,7 @@ public record AdminAnalyticsResponse(
 
     public record TodayAppointmentItemDto(
             String id,
+            String patientId,
             String time,
             String patientName,
             String treatmentName,

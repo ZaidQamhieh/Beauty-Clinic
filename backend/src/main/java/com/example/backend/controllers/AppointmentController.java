@@ -55,6 +55,12 @@ public class AppointmentController {
         return appointments.readSchedule(doctorId, date);
     }
 
+    @GetMapping("/all")
+    @ClinicStaffOnly
+    public Page<AppointmentResponse> readAllForStaff(Pageable pageable) {
+        return appointments.readAllForStaff(pageable);
+    }
+
     @GetMapping("/me")
     @PatientOnly
     public Page<AppointmentResponse> readOwn(Pageable pageable) {

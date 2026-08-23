@@ -27,6 +27,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 import java.util.UUID;
 
@@ -40,6 +41,7 @@ public class PatientController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @ClinicStaffOnly
+    @PreAuthorize("hasAnyRole('DOCTOR', 'ADMIN')")
     public PatientDetailResponse register(@Valid @RequestBody PatientDetailsRequest request) {
         return patients.register(request);
     }
@@ -69,6 +71,7 @@ public class PatientController {
 
     @PutMapping("/{id}")
     @ClinicStaffOnly
+    @PreAuthorize("hasAnyRole('DOCTOR', 'ADMIN')")
     public PatientDetailResponse updateDemographics(
             @PathVariable UUID id,
             @Valid @RequestBody PatientDetailsRequest request
