@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
@@ -817,7 +818,22 @@ class _AvailabilityDialogState extends State<_AvailabilityDialog> {
     }
     _to = item?.effectiveTo;
     _available = item?.available ?? true;
+    _initialSnapshot = _snapshot();
   }
+
+  late List<Object?> _initialSnapshot;
+
+  List<Object?> _snapshot() => [
+    _kind,
+    _day,
+    _start,
+    _end,
+    _from,
+    _to,
+    _available,
+  ];
+
+  bool get _isDirty => !listEquals(_snapshot(), _initialSnapshot);
 
   TimeOfDay? _parseTime(String? value) {
     if (value == null) {
@@ -1040,7 +1056,10 @@ class _AvailabilityDialogState extends State<_AvailabilityDialog> {
           onPressed: () => Navigator.pop(context),
           child: const Text('Cancel'),
         ),
-        FilledButton(onPressed: _save, child: const Text('Save')),
+        FilledButton(
+          onPressed: _isDirty ? _save : null,
+          child: const Text('Save'),
+        ),
       ],
     );
   }

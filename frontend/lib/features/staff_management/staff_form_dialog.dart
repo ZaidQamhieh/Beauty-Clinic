@@ -37,6 +37,36 @@ class _StaffFormDialogState extends State<_StaffFormDialog> {
   bool get _isDoctor => widget.role == _StaffRole.doctor;
   bool get _isEditing => widget.initialStaff != null;
 
+  late List<Object?> _initialSnapshot;
+
+  // Every editable field, in a stable order.
+  List<Object?> _snapshot() => [
+    _firstNameController.text,
+    _lastNameController.text,
+    _emailController.text,
+    _mobileNumberController.text,
+    _passwordController.text,
+    _yearsOfExperienceController.text,
+    _dateOfBirthController.text,
+    _selectedGender,
+    _selectedStatus,
+    _selectedDateOfBirth,
+    _selectedCountryCode,
+    ..._selectedSpecializations.map((s) => s.name).toList()..sort(),
+  ];
+
+  bool get _isDirty => !listEquals(_snapshot(), _initialSnapshot);
+
+  Listenable get _textFields => Listenable.merge([
+    _firstNameController,
+    _lastNameController,
+    _emailController,
+    _mobileNumberController,
+    _passwordController,
+    _yearsOfExperienceController,
+    _dateOfBirthController,
+  ]);
+
   @override
   void initState() {
     super.initState();
@@ -61,6 +91,7 @@ class _StaffFormDialogState extends State<_StaffFormDialog> {
       }
       _splitPhone(staff.phone);
     }
+    _initialSnapshot = _snapshot();
   }
 
   @override
@@ -323,29 +354,32 @@ class _StaffFormDialogState extends State<_StaffFormDialog> {
                       child: const Text('Cancel'),
                     ),
                     const SizedBox(width: 8),
-                    ElevatedButton(
-                      onPressed: _isSubmitting ? null : _submit,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: accent,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                    ListenableBuilder(
+                      listenable: _textFields,
+                      builder: (context, _) => ElevatedButton(
+                        onPressed: _isSubmitting || !_isDirty ? null : _submit,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: accent,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                         ),
-                      ),
-                      child: _isSubmitting
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
+                        child: _isSubmitting
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : Text(
+                                _isEditing
+                                    ? 'Update Staff Member'
+                                    : 'Save Staff Member',
                               ),
-                            )
-                          : Text(
-                              _isEditing
-                                  ? 'Update Staff Member'
-                                  : 'Save Staff Member',
-                            ),
+                      ),
                     ),
                   ],
                 ),

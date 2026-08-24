@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -1461,7 +1462,19 @@ class _SessionRecordDialogState extends State<_SessionRecordDialog> {
     _followUpDate = widget.initial?.followUpDate == null
         ? null
         : DateTime.tryParse(widget.initial!.followUpDate!);
+    _initialSnapshot = _snapshot();
   }
+
+  late List<Object?> _initialSnapshot;
+
+  List<Object?> _snapshot() => [
+    _noteController.text,
+    _skinReaction,
+    _followUpDate,
+    ..._selectedProductIds.toList()..sort(),
+  ];
+
+  bool get _isDirty => !listEquals(_snapshot(), _initialSnapshot);
 
   @override
   void dispose() {
@@ -1572,9 +1585,12 @@ class _SessionRecordDialogState extends State<_SessionRecordDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Cancel'),
         ),
-        FilledButton(
-          onPressed: _submit,
-          child: const Text('Save session record'),
+        ListenableBuilder(
+          listenable: _noteController,
+          builder: (context, _) => FilledButton(
+            onPressed: _isDirty ? _submit : null,
+            child: const Text('Save session record'),
+          ),
         ),
       ],
     );

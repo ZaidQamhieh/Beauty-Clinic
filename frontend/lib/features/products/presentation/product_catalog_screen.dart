@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
@@ -210,6 +211,12 @@ class _ProductFormState extends State<_ProductForm> {
   late String _type = widget.product?.productType ?? Product.types.first;
   List<String> get _ingredients => Product.ingredientsByType[_type] ?? const [];
 
+  late final List<Object?> _initialSnapshot = _snapshot();
+
+  List<Object?> _snapshot() => [_category.text, _stock.text, _brand, _type];
+
+  bool get _isDirty => !listEquals(_snapshot(), _initialSnapshot);
+
   @override
   void dispose() {
     _category.dispose();
@@ -317,7 +324,13 @@ class _ProductFormState extends State<_ProductForm> {
           onPressed: () => Navigator.pop(context),
           child: const Text('Cancel'),
         ),
-        ElevatedButton(onPressed: _submit, child: const Text('Save')),
+        ListenableBuilder(
+          listenable: Listenable.merge([_category, _stock]),
+          builder: (context, _) => ElevatedButton(
+            onPressed: _isDirty ? _submit : null,
+            child: const Text('Save'),
+          ),
+        ),
       ],
     );
   }

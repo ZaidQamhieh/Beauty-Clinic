@@ -146,6 +146,8 @@ class _ClinicalIntakeTabState extends State<ClinicalIntakeTab> {
 
       if (!mounted) return;
 
+      _initialValues = {..._controller.values};
+      _controller.markSaved();
       widget.onSaved?.call();
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -253,70 +255,60 @@ class _ClinicalIntakeTabState extends State<ClinicalIntakeTab> {
         ),
         const SizedBox(height: 16),
         if (!isReadOnly)
-          Row(
-            children: [
-              if (widget.onBackToAppointments != null) ...[
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: widget.onBackToAppointments,
-                    icon: const Icon(Icons.arrow_back, size: 16),
-                    label: const Text('Back to Appointments'),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-              ],
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: _isSaving ? null : _handleCancel,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.textSub,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: const Text('Cancel edits'),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: _isSaving ? null : _handleSave,
-                  icon: _isSaving ? null : const Icon(Icons.check, size: 16),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.rose,
-                    foregroundColor: Colors.white,
-                    disabledBackgroundColor: AppColors.textMuted,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  label: _isSaving
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              Colors.white,
-                            ),
-                          ),
-                        )
-                      : Text(
-                          'Save Clinical Form',
-                          style: AppTypography.labelLarge(color: Colors.white),
-                        ),
-                ),
-              ),
-            ],
+          AnimatedBuilder(
+            animation: _controller,
+            builder: (context, _) => _buildActions(),
           ),
+      ],
+    );
+  }
+
+  Widget _buildActions() {
+    final dirty = _controller.isDirty;
+    return Row(
+      children: [
+        Expanded(
+          child: OutlinedButton(
+            onPressed: _isSaving || !dirty ? null : _handleCancel,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.textSub,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Text('Cancel edits'),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: ElevatedButton.icon(
+            onPressed: _isSaving || !dirty ? null : _handleSave,
+            icon: _isSaving ? null : const Icon(Icons.check, size: 16),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.rose,
+              foregroundColor: Colors.white,
+              disabledBackgroundColor: AppColors.textMuted,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            label: _isSaving
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                : Text(
+                    'Save Clinical Form',
+                    style: AppTypography.labelLarge(color: Colors.white),
+                  ),
+          ),
+        ),
       ],
     );
   }
