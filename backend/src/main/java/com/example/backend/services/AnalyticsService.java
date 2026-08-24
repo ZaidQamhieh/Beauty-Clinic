@@ -22,6 +22,7 @@ import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.Instant;
+import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -37,6 +38,7 @@ public class AnalyticsService {
     private final DoctorProfileRepository doctors;
     private final AppointmentRepository appointments;
     private final AppointmentSessionRepository sessions;
+    private final DoctorAvailabilityService availability;
     private final Clock clock;
 
     private static final ZoneId CLINIC_ZONE = ZoneId.of("Asia/Hebron");
@@ -76,6 +78,12 @@ public class AnalyticsService {
         int todaySessionsCount = todaySessionsList.size();
         int completedSessionsCount = (int) todaySessionsList.stream().filter(s -> s.getStatus() == SessionStatus.COMPLETED).count();
         int ongoingSessionsCount = (int) todaySessionsList.stream().filter(s -> s.getStatus() == SessionStatus.PLANNED).count();
+        // findBetweenWithDetails has no status filter, so cancelled/no-show rows are
+        // still in todaySessionsList above; exclude them wherever a session's presence
+        // implies it's actually happening (the live feed, "in session" status).
+        List<AppointmentSession> activeTodaySessionsList = todaySessionsList.stream()
+                .filter(s -> s.getStatus() != SessionStatus.CANCELLED && s.getStatus() != SessionStatus.NO_SHOW)
+                .toList();
 
         // Calculate patient growth in window vs previous period
         long windowDays = Math.max(1, ChronoUnit.DAYS.between(effectiveFrom, effectiveTo));
@@ -352,7 +360,7 @@ public class AnalyticsService {
         // ─────────────────────────────────────────────────────────────────────
         DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm");
         List<TodayAppointmentItemDto> todayAppointmentItems = new ArrayList<>();
-        for (AppointmentSession s : todaySessionsList) {
+        for (AppointmentSession s : activeTodaySessionsList) {
             ZonedDateTime zdt = s.getStartTime().atZone(CLINIC_ZONE);
             String time = timeFormatter.format(zdt);
             String patientName = s.getAppointment().getPatient().getUser().getFirstName() + " " + s.getAppointment().getPatient().getUser().getLastName();
@@ -372,18 +380,34 @@ public class AnalyticsService {
             ));
         }
 
+        LocalTime nowTime = now.atZone(CLINIC_ZONE).toLocalTime();
+        Map<UUID, List<TimeRange>> todaysWindows = availability.openWindowsOn(
+                allDoctors.stream().map(DoctorProfile::getUserId).toList(),
+                todayStart.toLocalDate());
+
         List<StaffDutyItemDto> staffList = new ArrayList<>();
         for (DoctorProfile doc : allDoctors) {
             String docName = "Dr. " + doc.getUser().getFirstName() + " " + doc.getUser().getLastName();
-            String role = doc.getSpecializations().isEmpty() ? "Specialist" : humanize(doc.getSpecializations().iterator().next().name());
-            long apptsToday = todaySessionsList.stream()
+            // The account's actual role, not a specialization guess.
+            String role = "Doctor";
+            long apptsToday = activeTodaySessionsList.stream()
                     .filter(s -> s.getPractitioner().getUserId().equals(doc.getUserId()))
                     .count();
-            boolean hasSessionNow = todaySessionsList.stream()
+            boolean hasSessionNow = activeTodaySessionsList.stream()
                     .anyMatch(s -> s.getPractitioner().getUserId().equals(doc.getUserId()) && s.getStartTime().isBefore(now) && s.getEndTime().isAfter(now));
-            String status = hasSessionNow ? "In Session" : (apptsToday > 0 ? "Available" : "On Duty");
+            // "Available" means actually within a configured availability window right
+            // now - recurring rules set up in the past (open-ended or not) and
+            // overrides whose date range spans today both resolve into
+            // todaysWindows via the same openWindowsOn used to gate real bookings.
+            // A doctor between sessions or on a break is neither in a session nor
+            // truly available, and status is never inferred from appointment counts.
+            boolean withinAvailabilityNow = todaysWindows.getOrDefault(doc.getUserId(), List.of())
+                    .stream()
+                    .anyMatch(window -> window.covers(nowTime, nowTime));
+            String status = dutyStatus(hasSessionNow, withinAvailabilityNow);
 
             staffList.add(new StaffDutyItemDto(
+                    doc.getUserId(),
                     docName,
                     role,
                     (int) apptsToday,
@@ -540,6 +564,37 @@ public class AnalyticsService {
             case BODY -> "#059669"; // Sage
             case CONSULTATION -> "#2563EB"; // Blue
         };
+    }
+
+    // Shared with the "Staff Today" list, so the two surfaces never disagree.
+    private static String dutyStatus(boolean hasSessionNow, boolean withinAvailabilityNow) {
+        return hasSessionNow ? "In Session" : (withinAvailabilityNow ? "Available" : "Off Duty");
+    }
+
+    // A single doctor's live status, cheap enough to call from a detail view
+    // without pulling the full admin analytics aggregate.
+    @Transactional(readOnly = true)
+    public com.example.backend.dtos.DoctorStatusResponse getDoctorStatus(UUID doctorUserId) {
+        Instant now = clock.instant();
+        ZonedDateTime todayStart = now.atZone(CLINIC_ZONE).truncatedTo(ChronoUnit.DAYS);
+        Instant todayFrom = todayStart.toInstant();
+        Instant todayTo = todayStart.plusDays(1).toInstant();
+        LocalTime nowTime = now.atZone(CLINIC_ZONE).toLocalTime();
+
+        List<AppointmentSession> todaySessions = sessions
+                .findForPractitionerBetweenWithDetails(doctorUserId, todayFrom, todayTo).stream()
+                .filter(s -> s.getStatus() != SessionStatus.CANCELLED && s.getStatus() != SessionStatus.NO_SHOW)
+                .toList();
+
+        boolean hasSessionNow = todaySessions.stream()
+                .anyMatch(s -> s.getStartTime().isBefore(now) && s.getEndTime().isAfter(now));
+        boolean withinAvailabilityNow = availability.openWindowsOn(doctorUserId, todayStart.toLocalDate())
+                .stream()
+                .anyMatch(window -> window.covers(nowTime, nowTime));
+
+        return new com.example.backend.dtos.DoctorStatusResponse(
+                dutyStatus(hasSessionNow, withinAvailabilityNow),
+                todaySessions.size());
     }
 
     @Transactional(readOnly = true)

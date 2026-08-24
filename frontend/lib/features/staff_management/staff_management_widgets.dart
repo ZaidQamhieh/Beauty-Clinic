@@ -56,11 +56,13 @@ class _StaffRow extends StatelessWidget {
     required this.item,
     required this.onEdit,
     required this.onDelete,
+    this.onOpenDoctor,
   });
 
   final StaffMember item;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+  final VoidCallback? onOpenDoctor;
 
   @override
   Widget build(BuildContext context) {
@@ -74,34 +76,47 @@ class _StaffRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 19,
-            backgroundColor: roleBackground,
-            child: Text(
-              _initials(item.fullName),
-              style: TextStyle(color: roleAccent, fontWeight: FontWeight.w800),
-            ),
-          ),
-          const SizedBox(width: 12),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(item.fullName, style: AppTypography.labelLarge()),
-                const SizedBox(height: 6),
-                if (isDoctor && item.specializations.isNotEmpty)
-                  Text(
-                    item.specializations
-                        .map(_formatSpecializationLabel)
-                        .join(', '),
-                    style: TextStyle(fontSize: 12, color: roleAccent),
-                  )
-                else
-                  Text(
-                    _roleLabel(item.role),
-                    style: TextStyle(fontSize: 12, color: roleAccent),
+            child: InkWell(
+              onTap: onOpenDoctor,
+              borderRadius: BorderRadius.circular(12),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 19,
+                    backgroundColor: roleBackground,
+                    child: Text(
+                      _initials(item.fullName),
+                      style: TextStyle(
+                        color: roleAccent,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
                   ),
-              ],
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(item.fullName, style: AppTypography.labelLarge()),
+                        const SizedBox(height: 6),
+                        if (isDoctor && item.specializations.isNotEmpty)
+                          Text(
+                            item.specializations
+                                .map(_formatSpecializationLabel)
+                                .join(', '),
+                            style: TextStyle(fontSize: 12, color: roleAccent),
+                          )
+                        else
+                          Text(
+                            _roleLabel(item.role),
+                            style: TextStyle(fontSize: 12, color: roleAccent),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           Container(

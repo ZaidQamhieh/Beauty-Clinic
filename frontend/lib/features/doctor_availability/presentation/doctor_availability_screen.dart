@@ -4,12 +4,21 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_dropdown.dart';
 import '../../../core/widgets/skeleton.dart';
+import '../../appointments/data/appointment.dart';
+import '../../appointments/data/appointment_api.dart';
 import '../data/doctor_availability_api.dart';
+import 'widgets/availability_sessions_view.dart';
 
 class DoctorAvailabilityScreen extends StatefulWidget {
-  const DoctorAvailabilityScreen({super.key, required this.api, this.onBack});
+  const DoctorAvailabilityScreen({
+    super.key,
+    required this.api,
+    required this.appointmentApi,
+    this.onBack,
+  });
 
   final DoctorAvailabilityApi api;
+  final AppointmentApi appointmentApi;
   final VoidCallback? onBack;
 
   @override
@@ -27,12 +36,34 @@ class _DoctorAvailabilityScreenState extends State<DoctorAvailabilityScreen> {
     DateTime.now().month,
   );
   Map<String, DayAvailabilityStatus> _calendarStatus = {};
+  List<AppointmentSession> _selectedDaySessions = const [];
 
   @override
   void initState() {
     super.initState();
     _load();
     _loadCalendarStatus();
+    _loadSelectedDaySessions();
+  }
+
+  Future<void> _loadSelectedDaySessions() async {
+    final requestedDate = _selectedDate;
+    try {
+      final appointments = await widget.appointmentApi.myScheduleFor(
+        requestedDate,
+      );
+      if (!mounted || requestedDate != _selectedDate) return;
+      setState(() {
+        _selectedDaySessions = appointments
+            .expand((appointment) => appointment.sessions)
+            .where((session) => session.status != 'CANCELLED')
+            .toList();
+      });
+    } catch (_) {
+      // Rule list already surfaces load errors.
+      if (!mounted || requestedDate != _selectedDate) return;
+      setState(() => _selectedDaySessions = const []);
+    }
   }
 
   Future<void> _loadCalendarStatus() async {
@@ -194,67 +225,77 @@ class _DoctorAvailabilityScreenState extends State<DoctorAvailabilityScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (widget.onBack != null)
-          TextButton.icon(
-            onPressed: widget.onBack,
-            icon: const Icon(Icons.arrow_back, size: 16),
-            label: const Text('Dashboard'),
-          ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(24, 12, 24, 18),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final narrow = constraints.maxWidth < 520;
-              final titleBlock = Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Doctor availability',
-                    style: AppTypography.displaySubtitle(),
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (widget.onBack != null)
+            TextButton.icon(
+              onPressed: widget.onBack,
+              icon: const Icon(Icons.arrow_back, size: 16),
+              label: const Text('Dashboard'),
+            ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 12, 24, 18),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final narrow = constraints.maxWidth < 520;
+                final titleBlock = Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Doctor availability',
+                      style: AppTypography.displaySubtitle(),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Tap a weekday below for a recurring schedule, or select a '
+                      'date to add a one-time override.',
+                      style: AppTypography.bodySmall(
+                        color: AppColors.textMuted,
+                      ),
+                    ),
+                  ],
+                );
+                final actions = Tooltip(
+                  message:
+                      'Create a rule manually, with full control over kind, '
+                      'day, and dates',
+                  child: FilledButton.icon(
+                    onPressed: () => _edit(),
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('Add availability'),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Tap a weekday below for a recurring schedule, or select a '
-                    'date to add a one-time override.',
-                    style: AppTypography.bodySmall(color: AppColors.textMuted),
-                  ),
-                ],
-              );
-              final actions = Tooltip(
-                message:
-                    'Create a rule manually, with full control over kind, '
-                    'day, and dates',
-                child: FilledButton.icon(
-                  onPressed: () => _edit(),
-                  icon: const Icon(Icons.add, size: 18),
-                  label: const Text('Add availability'),
-                ),
-              );
-              return narrow
-                  ? Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        titleBlock,
-                        const SizedBox(height: 12),
-                        actions,
-                      ],
-                    )
-                  : Row(
-                      children: [
-                        Expanded(child: titleBlock),
-                        actions,
-                      ],
-                    );
-            },
+                );
+                return narrow
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          titleBlock,
+                          const SizedBox(height: 12),
+                          actions,
+                        ],
+                      )
+                    : Row(
+                        children: [
+                          Expanded(child: titleBlock),
+                          actions,
+                        ],
+                      );
+              },
+            ),
           ),
-        ),
-        _buildCalendar(),
-        Expanded(
-          child: _loading
+          _buildCalendar(),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+            child: DayHoursBar(
+              date: _selectedDate,
+              availability: _items,
+              sessions: _selectedDaySessions,
+            ),
+          ),
+          _loading
               ? const SkeletonList(itemCount: 5)
               : _loadError != null
               ? Center(
@@ -295,6 +336,8 @@ class _DoctorAvailabilityScreenState extends State<DoctorAvailabilityScreen> {
                   ),
                 )
               : ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
                   padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
                   itemCount: _itemsForDate(_selectedDate).length,
                   separatorBuilder: (_, _) => const SizedBox(height: 10),
@@ -303,8 +346,8 @@ class _DoctorAvailabilityScreenState extends State<DoctorAvailabilityScreen> {
                     return _buildRuleCard(item);
                   },
                 ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -546,7 +589,10 @@ class _DoctorAvailabilityScreenState extends State<DoctorAvailabilityScreen> {
                 final selected = _sameDate(date, _selectedDate);
                 final status = _calendarStatus[_date(date)];
                 return GestureDetector(
-                  onTap: () => setState(() => _selectedDate = date),
+                  onTap: () {
+                    setState(() => _selectedDate = date);
+                    _loadSelectedDaySessions();
+                  },
                   child: Container(
                     margin: const EdgeInsets.all(1),
                     decoration: BoxDecoration(
@@ -728,6 +774,10 @@ class _AvailabilityDialog extends StatefulWidget {
 }
 
 class _AvailabilityDialogState extends State<_AvailabilityDialog> {
+  // Clinic operating day, 7:00 to midnight.
+  static const TimeOfDay _clinicOpens = TimeOfDay(hour: 7, minute: 0);
+  static const TimeOfDay _clinicCloses = TimeOfDay(hour: 23, minute: 59);
+
   late AvailabilityKind _kind;
   AvailabilityDay? _day;
   late TimeOfDay _start;
@@ -813,6 +863,13 @@ class _AvailabilityDialogState extends State<_AvailabilityDialog> {
     if (selected == null) {
       return;
     }
+    if (_minutes(selected) < _minutes(_clinicOpens) ||
+        _minutes(selected) > _minutes(_clinicCloses)) {
+      _showError(
+        'Clinic hours are 7:00 AM - 12:00 AM; pick a time within that range.',
+      );
+      return;
+    }
     setState(() {
       if (start) {
         _start = selected;
@@ -821,6 +878,8 @@ class _AvailabilityDialogState extends State<_AvailabilityDialog> {
       }
     });
   }
+
+  int _minutes(TimeOfDay value) => value.hour * 60 + value.minute;
 
   String _dayLabel(AvailabilityDay value) =>
       value.name[0].toUpperCase() + value.name.substring(1);
@@ -987,10 +1046,15 @@ class _AvailabilityDialogState extends State<_AvailabilityDialog> {
   }
 
   void _save() {
-    final endMinutes = _end.hour * 60 + _end.minute;
-    final startMinutes = _start.hour * 60 + _start.minute;
-    if (endMinutes <= startMinutes) {
+    if (_minutes(_end) <= _minutes(_start)) {
       _showError('End time must be after start time.');
+      return;
+    }
+    if (_minutes(_start) < _minutes(_clinicOpens) ||
+        _minutes(_end) > _minutes(_clinicCloses)) {
+      _showError(
+        'Availability must be within clinic hours (7:00 AM - 12:00 AM).',
+      );
       return;
     }
     if (_kind == AvailabilityKind.recurring && _day == null) {

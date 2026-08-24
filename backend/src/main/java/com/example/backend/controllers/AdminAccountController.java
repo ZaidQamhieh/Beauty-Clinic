@@ -38,6 +38,12 @@ public class AdminAccountController {
         return accounts.list(role);
     }
 
+    @GetMapping("/{id}")
+    @AdminOnly
+    public AccountResponse get(@PathVariable UUID id) {
+        return accounts.get(id);
+    }
+
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @AdminOnly

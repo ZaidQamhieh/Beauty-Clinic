@@ -236,6 +236,18 @@ public class AccountService {
     }
 
     @Transactional(readOnly = true)
+    public AccountResponse get(UUID id) {
+        UserAccount account = users.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found"));
+
+        DoctorProfileResponse doctorProfile = account.getRole() == Role.DOCTOR
+                ? doctors.findById(id).map(DoctorProfileResponse::of).orElse(null)
+                : null;
+
+        return AccountResponse.of(account, doctorProfile);
+    }
+
+    @Transactional(readOnly = true)
     public List<AccountResponse> list(Role role) {
         if (role != null && !STAFF_ROLES.contains(role)) {
             throw new ResponseStatusException(

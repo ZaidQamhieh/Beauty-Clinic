@@ -9,6 +9,7 @@ import 'package:beauty_clinic_app/features/dashboard/presentation/dashboard_scre
 import 'package:beauty_clinic_app/features/doctor_profile/presentation/doctor_profile_screen.dart';
 import 'package:beauty_clinic_app/features/doctor_availability/data/doctor_availability_api.dart';
 import 'package:beauty_clinic_app/features/doctor_availability/presentation/doctor_availability_screen.dart';
+import 'package:beauty_clinic_app/features/doctor_availability/presentation/my_calendar_screen.dart';
 import 'package:beauty_clinic_app/features/doctor_directory/presentation/doctor_directory_screen.dart';
 import 'package:beauty_clinic_app/features/patient_profile/presentation/patient_profile_screen.dart';
 import 'package:beauty_clinic_app/features/patient_dashboard/presentation/patient_dashboard_screen.dart';
@@ -70,6 +71,7 @@ class _BeautyClinicAppState extends State<BeautyClinicApp> {
   late final DynamicFormApi _dynamicApi;
   late final ChatApi _chatApi;
   String? _userName;
+  String? _selectedDoctorId;
 
   // Remounts the list after the bot writes.
   int _chatRevision = 0;
@@ -266,7 +268,8 @@ class _BeautyClinicAppState extends State<BeautyClinicApp> {
     _router.go(AppRoutes.patientDetail(patientId));
   }
 
-  void _onViewDoctor(String doctorName) {
+  void _onViewDoctor(String doctorId) {
+    _selectedDoctorId = doctorId;
     _router.go(AppRoutes.pathFor('doctor_profile'));
   }
 
@@ -477,7 +480,7 @@ class _BeautyClinicAppState extends State<BeautyClinicApp> {
           key: const ValueKey('staff_management'),
           apiClient: _apiClient,
           authSession: _session,
-          onBack: () => _router.go(AppRoutes.pathFor('dashboard')),
+          onOpenDoctor: _onViewDoctor,
         );
       case 'activity_log':
         return ActivityLogScreen(
@@ -485,15 +488,41 @@ class _BeautyClinicAppState extends State<BeautyClinicApp> {
           authSession: _session,
         );
       case 'doctor_profile':
+        final doctorId = _selectedDoctorId;
+        if (doctorId == null) {
+          return Center(
+            child: TextButton(
+              onPressed: () =>
+                  _router.go(AppRoutes.pathFor('staff_management')),
+              child: const Text(
+                'No doctor selected. Back to Staff Management.',
+              ),
+            ),
+          );
+        }
         return DoctorProfileScreen(
-          key: const ValueKey('doctor_profile'),
-          onBack: () => _router.go(AppRoutes.pathFor('dashboard')),
-          onPatientClick: _onViewPatient,
+          key: ValueKey('doctor_profile_$doctorId'),
+          doctorId: doctorId,
+          apiClient: _apiClient,
+          appointmentApi: _appointmentApi,
+          availabilityApi: _availabilityApi,
+          onBack: () {
+            _selectedDoctorId = null;
+            _router.go(AppRoutes.pathFor('staff_management'));
+          },
         );
       case 'doctor_availability':
         return DoctorAvailabilityScreen(
           key: const ValueKey('doctor_availability'),
           api: _availabilityApi,
+          appointmentApi: _appointmentApi,
+          onBack: () => _router.go(AppRoutes.pathFor('dashboard')),
+        );
+      case 'my_calendar':
+        return MyCalendarScreen(
+          key: const ValueKey('my_calendar'),
+          appointmentApi: _appointmentApi,
+          availabilityApi: _availabilityApi,
           onBack: () => _router.go(AppRoutes.pathFor('dashboard')),
         );
       case 'patient_profile':

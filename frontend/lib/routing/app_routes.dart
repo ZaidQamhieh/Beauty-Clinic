@@ -29,6 +29,7 @@ abstract class AppRoutes {
     AppRouteSpec('activity_log', '/activity-log'),
     AppRouteSpec('doctor_profile', '/doctor-profile'),
     AppRouteSpec('doctor_availability', '/doctor-availability'),
+    AppRouteSpec('my_calendar', '/my-calendar'),
     AppRouteSpec('patient_profile', '/patient-profile'),
     AppRouteSpec('my_profile', '/my-profile'),
     AppRouteSpec('consultations', '/consultations'),
@@ -72,6 +73,7 @@ abstract class AppRoutes {
     'doctor' => {
       'dashboard',
       'my_profile',
+      'my_calendar',
       'doctor_availability',
       'patients',
       'appointments',
