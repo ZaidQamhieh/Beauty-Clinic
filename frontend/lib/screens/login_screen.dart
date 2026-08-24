@@ -399,7 +399,10 @@ class _TopAlertState extends State<_TopAlert>
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.lock_clock_outlined, color: Colors.white),
+                      const Icon(
+                        Icons.lock_clock_outlined,
+                        color: Colors.white,
+                      ),
                       const SizedBox(width: 12),
                       Flexible(
                         child: Text(

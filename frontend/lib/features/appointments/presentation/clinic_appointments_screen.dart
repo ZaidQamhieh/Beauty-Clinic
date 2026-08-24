@@ -358,7 +358,10 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
   }
 
   // Uppercase label over a chip row.
-  Widget _quietFilterGroup({required String label, required List<Widget> chips}) {
+  Widget _quietFilterGroup({
+    required String label,
+    required List<Widget> chips,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -448,9 +451,7 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
                   : AppColors.border,
             ),
             labelStyle: AppTypography.labelMedium(
-              color: _statusFilter == status
-                  ? Colors.white
-                  : AppColors.textSub,
+              color: _statusFilter == status ? Colors.white : AppColors.textSub,
             ),
           ),
       ],

@@ -18,10 +18,7 @@ class GuestLandingScreen extends StatelessWidget {
       body: Stack(
         children: [
           const FloatingPetals(),
-          LandingScreen(
-            onBookClick: onLogin,
-            onViewDoctor: (_) => onLogin(),
-          ),
+          LandingScreen(onBookClick: onLogin, onViewDoctor: (_) => onLogin()),
         ],
       ),
     );
@@ -72,10 +69,7 @@ class _GuestHeaderBar extends StatelessWidget implements PreferredSizeWidget {
             key: const Key('guestLoginButton'),
             onPressed: onLogin,
             style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 20,
-                vertical: 10,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
               ),

@@ -1002,10 +1002,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             const SizedBox(height: 12),
             if (snapshot.connectionState != ConnectionState.done)
-              const SizedBox(
-                height: 320,
-                child: SkeletonList(itemCount: 4),
-              )
+              const SizedBox(height: 320, child: SkeletonList(itemCount: 4))
             else if (todayAppointments.isEmpty)
               Text(
                 'No appointments scheduled today.',

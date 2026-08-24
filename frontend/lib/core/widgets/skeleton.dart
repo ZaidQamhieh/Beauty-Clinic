@@ -4,12 +4,7 @@ import '../theme/app_colors.dart';
 
 // A shimmering placeholder box for loading content.
 class Skeleton extends StatefulWidget {
-  const Skeleton({
-    super.key,
-    this.width,
-    this.height = 14,
-    this.radius = 6,
-  });
+  const Skeleton({super.key, this.width, this.height = 14, this.radius = 6});
 
   const Skeleton.circle({super.key, required double size})
     : width = size,

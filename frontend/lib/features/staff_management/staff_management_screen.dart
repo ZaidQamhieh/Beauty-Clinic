@@ -443,67 +443,57 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
                             children: [
                               SizedBox(
                                 width: 240,
-                                child:
-                                    AppDropdownField<
-                                      _DoctorSpecialization?
-                                    >(
-                                      initialValue: _specializationFilter,
-                                      decoration: InputDecoration(
-                                        labelText: 'Specialization',
-                                        isDense: true,
-                                        border: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            12,
-                                          ),
-                                        ),
-                                      ),
-                                      items: [
-                                        const DropdownMenuItem(
-                                          value: null,
-                                          child: Text('All specializations'),
-                                        ),
-                                        ..._DoctorSpecialization.values.map(
-                                          (specialization) => DropdownMenuItem(
-                                            value: specialization,
-                                            child: Text(specialization.label),
-                                          ),
-                                        ),
-                                      ],
-                                      onChanged: (value) => setState(
-                                        () => _specializationFilter = value,
+                                child: AppDropdownField<_DoctorSpecialization?>(
+                                  initialValue: _specializationFilter,
+                                  decoration: InputDecoration(
+                                    labelText: 'Specialization',
+                                    isDense: true,
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  items: [
+                                    const DropdownMenuItem(
+                                      value: null,
+                                      child: Text('All specializations'),
+                                    ),
+                                    ..._DoctorSpecialization.values.map(
+                                      (specialization) => DropdownMenuItem(
+                                        value: specialization,
+                                        child: Text(specialization.label),
                                       ),
                                     ),
+                                  ],
+                                  onChanged: (value) => setState(
+                                    () => _specializationFilter = value,
+                                  ),
+                                ),
                               ),
                               SizedBox(
                                 width: 200,
-                                child:
-                                    AppDropdownField<_ExperienceFilter>(
-                                      initialValue: _experienceFilter,
-                                      decoration: InputDecoration(
-                                        labelText: 'Years of experience',
-                                        isDense: true,
-                                        border: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            12,
-                                          ),
-                                        ),
-                                      ),
-                                      items: _ExperienceFilter.values
-                                          .map(
-                                            (experience) => DropdownMenuItem(
-                                              value: experience,
-                                              child: Text(experience.label),
-                                            ),
-                                          )
-                                          .toList(),
-                                      onChanged: (value) {
-                                        if (value != null) {
-                                          setState(
-                                            () => _experienceFilter = value,
-                                          );
-                                        }
-                                      },
+                                child: AppDropdownField<_ExperienceFilter>(
+                                  initialValue: _experienceFilter,
+                                  decoration: InputDecoration(
+                                    labelText: 'Years of experience',
+                                    isDense: true,
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
                                     ),
+                                  ),
+                                  items: _ExperienceFilter.values
+                                      .map(
+                                        (experience) => DropdownMenuItem(
+                                          value: experience,
+                                          child: Text(experience.label),
+                                        ),
+                                      )
+                                      .toList(),
+                                  onChanged: (value) {
+                                    if (value != null) {
+                                      setState(() => _experienceFilter = value);
+                                    }
+                                  },
+                                ),
                               ),
                             ],
                           ),

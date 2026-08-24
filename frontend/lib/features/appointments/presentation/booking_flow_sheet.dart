@@ -628,8 +628,9 @@ class _BookingFlowSheetState extends State<BookingFlowSheet>
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
               ),
-              textStyle: AppTypography.labelMedium(color: AppColors.roseDark)
-                  .copyWith(fontWeight: FontWeight.w700),
+              textStyle: AppTypography.labelMedium(
+                color: AppColors.roseDark,
+              ).copyWith(fontWeight: FontWeight.w700),
             ),
           ),
           const SizedBox(width: 8),
