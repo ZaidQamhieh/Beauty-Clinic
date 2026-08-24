@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/widgets/app_dropdown.dart';
+import '../../../core/widgets/skeleton.dart';
 import '../../appointments/data/appointment.dart';
 import '../../appointments/data/appointment_api.dart';
 import '../data/doctor_availability_api.dart';
@@ -58,8 +60,7 @@ class _DoctorAvailabilityScreenState extends State<DoctorAvailabilityScreen> {
             .toList();
       });
     } catch (_) {
-      // The hours bar is a summary on top of the rule list, which has its
-      // own error handling - fail silently rather than blocking the screen.
+      // Rule list already surfaces load errors.
       if (!mounted || requestedDate != _selectedDate) return;
       setState(() => _selectedDaySessions = const []);
     }
@@ -83,8 +84,7 @@ class _DoctorAvailabilityScreenState extends State<DoctorAvailabilityScreen> {
         _calendarStatus = {for (final row in rows) _date(row.date): row.status};
       });
     } catch (_) {
-      // Dots are an enhancement on top of the rule list, which has its own
-      // error handling - fail silently rather than blocking the screen.
+      // Dots are decorative; fail silently.
     }
   }
 
@@ -296,10 +296,7 @@ class _DoctorAvailabilityScreenState extends State<DoctorAvailabilityScreen> {
             ),
           ),
           _loading
-              ? const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 32),
-                  child: Center(child: CircularProgressIndicator()),
-                )
+              ? const SkeletonList(itemCount: 5)
               : _loadError != null
               ? Center(
                   child: Padding(
@@ -768,18 +765,16 @@ class _AvailabilityDialog extends StatefulWidget {
   });
   final DoctorAvailability? initial;
   final DateTime selectedDate;
-  // Set only when creating from the weekday header - locks kind to recurring
-  // and day to this value.
+  // Set from the weekday header only.
   final AvailabilityDay? lockedDay;
-  // Set only when creating from the "Add override" affordance - locks kind to
-  // override and effectiveFrom to this date.
+  // Locks kind to override, from "Add override".
   final DateTime? lockedDate;
   @override
   State<_AvailabilityDialog> createState() => _AvailabilityDialogState();
 }
 
 class _AvailabilityDialogState extends State<_AvailabilityDialog> {
-  // The clinic's operating day: 7:00 AM through midnight.
+  // Clinic operating day, 7:00 to midnight.
   static const TimeOfDay _clinicOpens = TimeOfDay(hour: 7, minute: 0);
   static const TimeOfDay _clinicCloses = TimeOfDay(hour: 23, minute: 59);
 
@@ -931,7 +926,7 @@ class _AvailabilityDialogState extends State<_AvailabilityDialog> {
                         ],
                       ),
                     )
-                  : DropdownButtonFormField<AvailabilityKind>(
+                  : AppDropdownField<AvailabilityKind>(
                       initialValue: _kind,
                       decoration: const InputDecoration(labelText: 'Kind'),
                       items: AvailabilityKind.values
@@ -972,7 +967,7 @@ class _AvailabilityDialogState extends State<_AvailabilityDialog> {
                           ],
                         ),
                       )
-                    : DropdownButtonFormField<AvailabilityDay>(
+                    : AppDropdownField<AvailabilityDay>(
                         initialValue: _day,
                         decoration: const InputDecoration(
                           labelText: 'Day of week',

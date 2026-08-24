@@ -5,15 +5,14 @@ import '../../../../core/widgets/yasmine_logo.dart';
 import 'widgets/header_bar.dart';
 import 'widgets/sidebar_item.dart';
 
-/// Main App Shell Component for Yasmine Beauty Clinic
-/// Manages top-level layout, drawer/sidebar, and role-specific view routing.
+/// Top-level layout: sidebar, drawer, header, content.
 class AppShell extends StatefulWidget {
   final Widget child;
   final String activeRole;
   final String activeView;
   final ValueChanged<String> onViewChanged;
 
-  /// Null on pages that own their own booking action, which is most of them.
+  /// Null where the page owns booking itself.
   final VoidCallback? onBookClick;
   final VoidCallback? onLogout;
   final VoidCallback? onProfileTap;
@@ -99,7 +98,7 @@ class _AppShellState extends State<AppShell> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
           child: Row(
             children: [
-              // Collapsed rail has no room; logo expands it.
+              // Tapping the logo expands the rail.
               if (!isDrawer && isCollapsed)
                 InkWell(
                   borderRadius: BorderRadius.circular(20),
@@ -190,50 +189,6 @@ class _AppShellState extends State<AppShell> {
             },
           ),
         ),
-
-        // Quick Role Status Card at bottom of Sidebar
-        if (!isCollapsed) ...[
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: const Color(0x15FFFFFF),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0x20FFFFFF)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.auto_awesome,
-                    color: AppColors.gold,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Yasmine Derma',
-                          style: AppTypography.labelMedium(
-                            color: AppColors.white,
-                          ),
-                        ),
-                        Text(
-                          'System v2.4 Active',
-                          style: AppTypography.labelSmall(
-                            color: AppColors.textSide,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
       ],
     );
   }
@@ -320,11 +275,6 @@ class _AppShellState extends State<AppShell> {
         ];
       case 'patient':
         return [
-          {
-            'id': 'landing',
-            'label': 'Clinic Landing Page',
-            'icon': Icons.home_outlined,
-          },
           {'id': 'dashboard', 'label': 'Dashboard', 'icon': Icons.spa_outlined},
           {
             'id': 'my_profile',
@@ -378,11 +328,6 @@ class _AppShellState extends State<AppShell> {
       case 'admin':
       default:
         return [
-          {
-            'id': 'landing',
-            'label': 'Clinic Landing Page',
-            'icon': Icons.space_dashboard_outlined,
-          },
           {
             'id': 'my_profile',
             'label': 'My Profile',

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/widgets/skeleton.dart';
 import '../../../../core/widgets/status_pill.dart';
 import '../../../../network/api_client.dart';
 import '../../appointments/data/appointment.dart';
@@ -10,7 +11,7 @@ import '../data/doctor_dashboard_models.dart';
 import 'widgets/admin_analytics_charts.dart';
 import 'widgets/admin_date_filter_bar.dart';
 
-/// Comprehensive Dashboard Screen supporting Admin, Doctor, Receptionist, and Patient views
+/// Dashboard shared by staff roles and patients.
 class DashboardScreen extends StatefulWidget {
   final String activeRole;
   final ValueChanged<String> onViewPatient;
@@ -225,9 +226,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // ADMIN DASHBOARD
-  // ───────────────────────────────────────────────────────────────────────────
+  // Admin dashboard.
   Widget _buildAdminDashboard() {
     final adminData = _adminDashboardData;
 
@@ -643,15 +642,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // DOCTOR DASHBOARD
-  // ───────────────────────────────────────────────────────────────────────────
+  // Doctor dashboard.
   Widget _buildDoctorDashboard() {
     if (_isLoadingAnalytics || _doctorDashboardData == null) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 64),
-        child: Center(child: CircularProgressIndicator(color: AppColors.rose)),
-      );
+      return const SizedBox(height: 500, child: SkeletonGrid(itemCount: 6));
     }
 
     final todayAppts = _doctorDashboardData!.todayAppointments;
@@ -689,7 +683,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             minHeight: 2,
           ),
         const SizedBox(height: 20),
-        // 1. STATS OVERVIEW + TODAY'S APPOINTMENTS (side by side on desktop)
+        // Stats and today's appointments, side by side.
         LayoutBuilder(
           builder: (context, constraints) {
             final bool isWide = constraints.maxWidth > 880;
@@ -895,9 +889,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // RECEPTIONIST DASHBOARD
-  // ───────────────────────────────────────────────────────────────────────────
+  // Receptionist dashboard.
   Widget _buildReceptionistDashboard() {
     return FutureBuilder<List<Appointment>>(
       future: _receptionAppointments,
@@ -1033,7 +1025,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             const SizedBox(height: 12),
             if (snapshot.connectionState != ConnectionState.done)
-              const Center(child: CircularProgressIndicator())
+              const SizedBox(height: 320, child: SkeletonList(itemCount: 4))
             else if (todayAppointments.isEmpty)
               Text(
                 'No appointments scheduled today.',
@@ -1065,9 +1057,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // PATIENT DASHBOARD
-  // ───────────────────────────────────────────────────────────────────────────
+  // Patient dashboard.
   Widget _buildPatientDashboard() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

@@ -48,7 +48,6 @@ public class AccountService {
     @Transactional
     public AccountResponse create(CreateAccountRequest request) {
         validateCreatePassword(request.password());
-        validateStaffStatus(request.status());
 
         if (users.findByEmailIgnoreCase(request.email()).isPresent()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already registered");
@@ -77,8 +76,6 @@ public class AccountService {
 
     @Transactional
     public AccountResponse update(UUID id, CreateAccountRequest request) {
-        validateStaffStatus(request.status());
-
         UserAccount account = users.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found"));
 
@@ -275,16 +272,6 @@ public class AccountService {
                         account,
                         doctorProfiles.get(account.getId())))
                 .toList();
-    }
-
-    // INVITED represents an unclaimed walk-in patient record; it has no
-    // meaning for staff accounts created here.
-    private void validateStaffStatus(AccountStatus status) {
-        if (status == AccountStatus.INVITED) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Invited is not a valid status for staff accounts");
-        }
     }
 
     private void validateCreatePassword(String password) {

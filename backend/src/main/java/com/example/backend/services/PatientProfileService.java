@@ -5,7 +5,6 @@ import com.example.backend.dtos.EditOwnProfileRequest;
 import com.example.backend.dtos.PatientDetailsRequest;
 import com.example.backend.dtos.PatientDetailResponse;
 import com.example.backend.dtos.PatientRecordResponse;
-import com.example.backend.entities.UserAccount.AccountStatus;
 import com.example.backend.entities.PatientFormResponse;
 import com.example.backend.entities.PatientProfile;
 import com.example.backend.entities.UserAccount;
@@ -74,12 +73,7 @@ public class PatientProfileService {
         account.setPhone(request.phone());
         account.setGender(request.gender());
 
-        // No password means a walk-in record.
-        if (request.password() == null) {
-            account.setStatus(AccountStatus.INVITED);
-        } else {
-            account.activateWith(passwordEncoder.encode(request.password()));
-        }
+        account.activateWith(passwordEncoder.encode(request.password()));
 
         users.save(account);
 

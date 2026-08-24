@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/widgets/app_dropdown.dart';
+import '../../../core/widgets/skeleton.dart';
 import '../data/dynamic_form_api.dart';
 
-/// Enhanced Form Builder Screen adhering to the luxury Beauty Clinic theme.
+/// Form builder screen, clinic-themed.
 class FormBuilderAdminScreen extends StatefulWidget {
   const FormBuilderAdminScreen({super.key, required this.api});
   final DynamicFormApi api;
@@ -73,9 +75,7 @@ class _FormBuilderAdminScreenState extends State<FormBuilderAdminScreen> {
               future: _future,
               builder: (context, snapshot) {
                 if (snapshot.connectionState != ConnectionState.done) {
-                  return const Center(
-                    child: CircularProgressIndicator(color: AppColors.rose),
-                  );
+                  return const SkeletonList();
                 }
                 if (snapshot.hasError) {
                   return Center(
@@ -776,9 +776,8 @@ class _QuestionDialogState extends State<_QuestionDialog> {
                       // Field Type Dropdown
                       Text('Answer type', style: AppTypography.labelMedium()),
                       const SizedBox(height: 6),
-                      DropdownButtonFormField<String>(
+                      AppDropdownField<String>(
                         initialValue: type,
-                        isExpanded: true,
                         decoration: _inputDecoration(),
                         items: const [
                           DropdownMenuItem(

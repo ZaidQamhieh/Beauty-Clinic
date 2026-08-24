@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/widgets/skeleton.dart';
 import '../../../network/api_client.dart';
 import '../../appointments/data/appointment.dart';
 import '../../appointments/data/appointment_api.dart';
@@ -128,7 +129,7 @@ class _ReceptionPatientsScreenState extends State<ReceptionPatientsScreen> {
           const SizedBox(height: 18),
           Expanded(
             child: _loading
-                ? const Center(child: CircularProgressIndicator())
+                ? const SkeletonList()
                 : _error != null
                 ? Center(child: Text(_error!))
                 : LayoutBuilder(
@@ -293,7 +294,13 @@ class _AppointmentHistory extends StatelessWidget {
       future: _load(),
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
-          return const Center(child: CircularProgressIndicator());
+          return const Column(
+            children: [
+              SkeletonListTile(),
+              SkeletonListTile(),
+              SkeletonListTile(),
+            ],
+          );
         }
         if (snapshot.hasError) {
           return const Text('Appointment history unavailable.');

@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/widgets/skeleton.dart';
 import '../../../network/api_client.dart';
 import '../data/appointment.dart';
 import '../data/appointment_api.dart';
@@ -14,7 +15,7 @@ import '../../products/data/product.dart';
 import '../../products/data/product_api.dart';
 import 'booking_flow_sheet.dart';
 
-/// Clinic-wide appointment workspace for administrators and clinic staff.
+/// Clinic-wide appointment workspace for staff.
 class ClinicAppointmentsScreen extends StatefulWidget {
   const ClinicAppointmentsScreen({
     super.key,
@@ -408,10 +409,7 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
           _buildStatusFilter(),
           const SizedBox(height: 20),
           if (_loading)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 80),
-              child: Center(child: CircularProgressIndicator()),
-            )
+            const SizedBox(height: 400, child: SkeletonList())
           else if (_error != null)
             _buildError()
           else if (appointments.isEmpty)

@@ -6,16 +6,20 @@ import '../core/theme/app_typography.dart';
 import '../core/widgets/floating_petals.dart';
 import '../core/widgets/yasmine_logo.dart';
 
-/// Public registration is intentionally limited to patient accounts.
+/// Public registration is patient-only.
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({
     super.key,
     required this.authSession,
     required this.onSignIn,
+    this.onBack,
   });
 
   final AuthSession authSession;
   final VoidCallback onSignIn;
+
+  // Shown as "Back to home" when set.
+  final VoidCallback? onBack;
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
@@ -96,6 +100,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
           ),
           const Positioned.fill(child: FloatingPetals()),
+          if (widget.onBack != null)
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: TextButton.icon(
+                  onPressed: widget.onBack,
+                  icon: const Icon(Icons.arrow_back, size: 18),
+                  label: const Text('Back to home'),
+                  style: TextButton.styleFrom(foregroundColor: AppColors.text),
+                ),
+              ),
+            ),
           SafeArea(
             child: Center(
               child: SingleChildScrollView(
@@ -252,12 +268,36 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                     )
                                   : const Text('Create patient account'),
                             ),
-                            const SizedBox(height: 8),
-                            TextButton(
-                              onPressed: _submitting ? null : widget.onSignIn,
-                              child: const Text(
-                                'Already have an account? Sign in',
-                              ),
+                            const SizedBox(height: 20),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  'Already have an account?',
+                                  style: AppTypography.bodyMedium(
+                                    color: AppColors.textSub,
+                                  ),
+                                ),
+                                TextButton(
+                                  onPressed: _submitting
+                                      ? null
+                                      : widget.onSignIn,
+                                  style: TextButton.styleFrom(
+                                    minimumSize: Size.zero,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                    ),
+                                    tapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                  ),
+                                  child: const Text(
+                                    'Sign in',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),

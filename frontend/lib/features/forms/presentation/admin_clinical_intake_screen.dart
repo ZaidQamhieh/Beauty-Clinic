@@ -4,9 +4,10 @@ import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/widgets/skeleton.dart';
 import '../data/clinical_intake_api.dart';
 
-/// Admin Directory & Patient Activity Log for Clinic Forms
+/// Admin directory and log for clinic forms.
 class AdminClinicalIntakeScreen extends StatefulWidget {
   const AdminClinicalIntakeScreen({
     super.key,
@@ -217,9 +218,7 @@ class _AdminClinicalIntakeScreenState extends State<AdminClinicalIntakeScreen> {
 
   Widget _buildBody() {
     if (_loading) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppColors.rose),
-      );
+      return const SkeletonList();
     }
     if (_error != null) {
       return Center(
@@ -559,9 +558,7 @@ class _ClinicalHistoryState extends State<_ClinicalHistory> {
       future: _history,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
-          return const Center(
-            child: CircularProgressIndicator(color: AppColors.rose),
-          );
+          return const SkeletonList(itemCount: 4);
         }
         if (snapshot.hasError) {
           return Center(

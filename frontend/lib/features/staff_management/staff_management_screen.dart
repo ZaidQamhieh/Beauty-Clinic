@@ -5,6 +5,8 @@ import '../../auth/auth_session.dart';
 import '../../core/constants/country_dial_codes.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
+import '../../core/widgets/app_dropdown.dart';
+import '../../core/widgets/skeleton.dart';
 import '../../network/api_client.dart';
 
 part 'staff_form_dialog.dart';
@@ -240,12 +242,7 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
         future: _staffFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Padding(
-              padding: EdgeInsets.symmetric(vertical: 64),
-              child: Center(
-                child: CircularProgressIndicator(color: AppColors.rose),
-              ),
-            );
+            return const SkeletonList();
           }
 
           if (snapshot.hasError) {
@@ -443,38 +440,35 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
                           children: [
                             SizedBox(
                               width: 240,
-                              child:
-                                  DropdownButtonFormField<
-                                    _DoctorSpecialization?
-                                  >(
-                                    initialValue: _specializationFilter,
-                                    decoration: InputDecoration(
-                                      labelText: 'Specialization',
-                                      isDense: true,
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                    ),
-                                    items: [
-                                      const DropdownMenuItem(
-                                        value: null,
-                                        child: Text('All specializations'),
-                                      ),
-                                      ..._DoctorSpecialization.values.map(
-                                        (specialization) => DropdownMenuItem(
-                                          value: specialization,
-                                          child: Text(specialization.label),
-                                        ),
-                                      ),
-                                    ],
-                                    onChanged: (value) => setState(
-                                      () => _specializationFilter = value,
+                              child: AppDropdownField<_DoctorSpecialization?>(
+                                initialValue: _specializationFilter,
+                                decoration: InputDecoration(
+                                  labelText: 'Specialization',
+                                  isDense: true,
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                items: [
+                                  const DropdownMenuItem(
+                                    value: null,
+                                    child: Text('All specializations'),
+                                  ),
+                                  ..._DoctorSpecialization.values.map(
+                                    (specialization) => DropdownMenuItem(
+                                      value: specialization,
+                                      child: Text(specialization.label),
                                     ),
                                   ),
+                                ],
+                                onChanged: (value) => setState(
+                                  () => _specializationFilter = value,
+                                ),
+                              ),
                             ),
                             SizedBox(
                               width: 200,
-                              child: DropdownButtonFormField<_ExperienceFilter>(
+                              child: AppDropdownField<_ExperienceFilter>(
                                 initialValue: _experienceFilter,
                                 decoration: InputDecoration(
                                   labelText: 'Years of experience',

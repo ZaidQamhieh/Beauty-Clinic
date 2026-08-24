@@ -3,11 +3,10 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/widgets/yasmine_logo.dart';
 
-/// Top Header Navigation Bar for the signed-in account's role.
+/// Top header bar for the signed-in role.
 class HeaderBar extends StatelessWidget implements PreferredSizeWidget {
   final String activeRole;
   final VoidCallback? onBookClick;
-  final VoidCallback? onNotificationClick;
   final VoidCallback? onLogout;
   final VoidCallback? onProfileTap;
   final String? userName;
@@ -17,7 +16,6 @@ class HeaderBar extends StatelessWidget implements PreferredSizeWidget {
     super.key,
     required this.activeRole,
     this.onBookClick,
-    this.onNotificationClick,
     this.onLogout,
     this.onProfileTap,
     this.userName,
@@ -88,41 +86,10 @@ class HeaderBar extends StatelessWidget implements PreferredSizeWidget {
 
                   const SizedBox(width: 12),
 
-                  // Role is read-only; sign in to switch it.
+                  // Read-only; sign in to switch role.
                   _buildRoleBadge(compact: compactText),
 
                   const Spacer(),
-
-                  // Everything after this is the right-edge cluster.
-                  Stack(
-                    children: [
-                      IconButton(
-                        icon: const Icon(
-                          Icons.notifications_none_outlined,
-                          color: AppColors.textSub,
-                          size: 20,
-                        ),
-                        onPressed: onNotificationClick,
-                        constraints: const BoxConstraints(
-                          minWidth: 36,
-                          minHeight: 36,
-                        ),
-                        padding: EdgeInsets.zero,
-                      ),
-                      Positioned(
-                        right: 6,
-                        top: 6,
-                        child: Container(
-                          width: 7,
-                          height: 7,
-                          decoration: const BoxDecoration(
-                            color: AppColors.rose,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
 
                   // Booking is per-page, shown only when passed.
                   if (onBookClick != null) ...[

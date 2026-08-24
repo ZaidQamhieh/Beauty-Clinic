@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../../auth/role.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/widgets/app_dropdown.dart';
+import '../../../core/widgets/skeleton.dart';
 import '../../../network/api_client.dart';
 import '../data/user_profile_api.dart';
 
@@ -300,7 +302,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const SkeletonDetail();
     }
     if (_loadError != null) {
       return Center(
@@ -663,6 +665,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             }),
             selectedColor: AppColors.lav.withValues(alpha: .2),
             checkmarkColor: AppColors.lavDark,
+            labelStyle: TextStyle(
+              color: selected ? AppColors.lavDark : AppColors.textSub,
+            ),
           );
         }).toList(),
       ),
@@ -714,7 +719,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   Widget _genderField() {
-    return DropdownButtonFormField<String>(
+    return AppDropdownField<String>(
       initialValue: _selectedGender,
       decoration: const InputDecoration(
         labelText: 'Gender *',

@@ -527,7 +527,7 @@ class _StaffFormDialogState extends State<_StaffFormDialog> {
   }
 
   Widget _countryCodeField() {
-    return DropdownButtonFormField<String>(
+    return AppDropdownField<String>(
       initialValue: _selectedCountryCode,
       items: countryDialCodes
           .map(
@@ -590,7 +590,7 @@ class _StaffFormDialogState extends State<_StaffFormDialog> {
     required String Function(T) labelBuilder,
     required ValueChanged<T?> onChanged,
   }) {
-    return DropdownButtonFormField<T>(
+    return AppDropdownField<T>(
       initialValue: value,
       items: items
           .map(

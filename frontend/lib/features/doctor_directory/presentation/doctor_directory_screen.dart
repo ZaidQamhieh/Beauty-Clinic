@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/widgets/skeleton.dart';
 import '../../appointments/data/doctor_api.dart';
 import '../../appointments/data/doctor_summary.dart';
 import '../../doctor_availability/data/doctor_availability_api.dart';
@@ -35,7 +36,7 @@ class _DoctorDirectoryScreenState extends State<DoctorDirectoryScreen> {
       future: _doctors,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
-          return const Center(child: CircularProgressIndicator());
+          return const SkeletonGrid();
         }
         if (snapshot.hasError) {
           return Center(
