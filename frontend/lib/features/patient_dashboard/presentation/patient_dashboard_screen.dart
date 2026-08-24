@@ -89,8 +89,6 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     final firstName = _patient?['firstName']?.toString() ?? 'there';
     final skinType = _patient?['skinType']?.toString();
     final formComplete = ClinicalIntakeSchema.isComplete(_patient ?? {});
-    final next = _upcoming.isEmpty ? null : _upcoming.first;
-
     return RefreshIndicator(
       onRefresh: _load,
       color: AppColors.rose,
@@ -103,8 +101,6 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
             _buildWelcome(firstName),
             const SizedBox(height: 16),
             _buildSnapshot(skinType, formComplete),
-            const SizedBox(height: 16),
-            _buildNextVisit(next),
             const SizedBox(height: 16),
             _buildUpcomingTreatments(),
             const SizedBox(height: 16),
@@ -214,47 +210,6 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     );
   }
 
-  Widget _buildNextVisit(Appointment? appointment) {
-    return _section(
-      title: 'Next Visit',
-      icon: Icons.event_available_outlined,
-      child: appointment == null
-          ? _emptyText('No upcoming visits scheduled.')
-          : _clickable(
-              onTap: () => widget.onOpenAppointments(appointment.id),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppColors.bgRose,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.borderRose),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${BookingFormat.dayWithYear(appointment.scheduledAt)} · ${BookingFormat.time12(appointment.scheduledAt)}',
-                      style: AppTypography.labelLarge(),
-                    ),
-                    const SizedBox(height: 8),
-                    for (final session in appointment.plannedSessions)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
-                        child: Text(
-                          '${session.treatmentLabel} · ${session.practitionerName}',
-                          style: AppTypography.bodySmall(
-                            color: AppColors.textSub,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-    );
-  }
-
   Widget _buildUpcomingTreatments() {
     return _section(
       title: 'Upcoming Treatments',
@@ -264,40 +219,36 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
           : Column(
               children: [
                 for (final appointment in _upcoming.take(3))
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: _clickable(
-                      onTap: () => widget.onOpenAppointments(appointment.id),
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                        ),
-                        tileColor: AppColors.bgAlt,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        leading: const Icon(
-                          Icons.spa_outlined,
-                          color: AppColors.rose,
-                        ),
-                        title: Text(
-                          appointment.plannedSessions.isEmpty
-                              ? 'Treatment visit'
-                              : appointment
-                                    .plannedSessions
-                                    .first
-                                    .treatmentLabel,
-                          style: AppTypography.labelMedium(),
-                        ),
-                        subtitle: Text(
-                          BookingFormat.dayWithYear(appointment.scheduledAt),
-                          style: AppTypography.bodySmall(
-                            color: AppColors.textMuted,
+                  for (final session in appointment.plannedSessions)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: _clickable(
+                        onTap: () => widget.onOpenAppointments(appointment.id),
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                          ),
+                          tileColor: AppColors.bgAlt,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          leading: const Icon(
+                            Icons.spa_outlined,
+                            color: AppColors.rose,
+                          ),
+                          title: Text(
+                            session.treatmentLabel,
+                            style: AppTypography.labelMedium(),
+                          ),
+                          subtitle: Text(
+                            '${BookingFormat.dayWithYear(session.startTime)} · ${BookingFormat.time12(session.startTime)} · ${session.practitionerName}',
+                            style: AppTypography.bodySmall(
+                              color: AppColors.textMuted,
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
               ],
             ),
     );

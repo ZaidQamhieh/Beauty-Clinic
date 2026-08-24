@@ -61,13 +61,18 @@ public class AnalyticsService {
         List<DoctorProfile> allDoctors = doctors.findAllWithUser();
         int totalDoctors = allDoctors.size();
 
-        List<Appointment> todayAppts = appointments.findBetween(todayFrom, todayTo);
-        int todayAppointmentsCount = todayAppts.size();
-        int confirmedAppts = (int) todayAppts.stream().filter(a -> a.getStatus() == AppointmentStatus.BOOKED).count();
-        int inRoomAppts = (int) todayAppts.stream().filter(a -> a.getStatus() == AppointmentStatus.BOOKED && a.getScheduledAt().isBefore(now)).count();
-        int pendingAppts = Math.max(0, todayAppointmentsCount - inRoomAppts);
+        List<AppointmentSession> todaySessionsList = sessions.findBetweenWithDetails(todayFrom, todayTo).stream()
+                .filter(s -> s.getStatus() != SessionStatus.CANCELLED)
+                .toList();
+        int todayAppointmentsCount = todaySessionsList.size();
+        int confirmedAppts = (int) todaySessionsList.stream()
+                .filter(s -> s.getStatus() == SessionStatus.PLANNED && !s.getStartTime().isBefore(now))
+                .count();
+        int inRoomAppts = (int) todaySessionsList.stream()
+                .filter(s -> s.getStatus() == SessionStatus.PLANNED && s.getStartTime().isBefore(now))
+                .count();
+        int pendingAppts = confirmedAppts;
 
-        List<AppointmentSession> todaySessionsList = sessions.findBetweenWithDetails(todayFrom, todayTo);
         int todaySessionsCount = todaySessionsList.size();
         int completedSessionsCount = (int) todaySessionsList.stream().filter(s -> s.getStatus() == SessionStatus.COMPLETED).count();
         int ongoingSessionsCount = (int) todaySessionsList.stream().filter(s -> s.getStatus() == SessionStatus.PLANNED).count();
@@ -282,11 +287,8 @@ public class AnalyticsService {
         RescheduledDto rescheduled = new RescheduledDto(
                 rescheduledCount,
                 rescheduleRate,
-                rescheduledCount > 0 ? "24 hours ahead" : "N/A",
-                rescheduledCount > 0 ? List.of(
-                        new RescheduledReasonDto("Patient Schedule Conflict", (int) Math.ceil(rescheduledCount * 0.6), 60.0),
-                        new RescheduledReasonDto("Specialist Availability", (int) Math.floor(rescheduledCount * 0.4), 40.0)
-                ) : List.of()
+                "",
+                List.of()
         );
 
         AppointmentAnalyticsDto appointmentAnalytics = new AppointmentAnalyticsDto(
@@ -552,8 +554,7 @@ public class AnalyticsService {
         Instant todayTo = todayStart.plusDays(1).toInstant();
 
         // 1. Active Patients Counts (related to doctor)
-        int activePatientsCount = sessions.countActivePatientsBetween(
-                doctorId, effectiveFrom, effectiveTo);
+        int activePatientsCount = sessions.countActivePatients(doctorId);
         int todayPatientsCount = sessions.countActivePatientsBetween(doctorId, todayFrom, todayTo);
 
         // Fetch sessions for this doctor in date range

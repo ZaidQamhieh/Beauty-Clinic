@@ -275,6 +275,11 @@ public class AppointmentService {
 
     @Transactional(readOnly = true)
     public Page<AppointmentResponse> readAllForStaff(Pageable pageable) {
+        if (currentUser.hasRole(Role.DOCTOR)) {
+            Page<Appointment> found = appointments.findAllForDoctor(
+                currentUser.requireId(), pageable);
+            return withSessionsForDoctor(found, currentUser.requireId());
+        }
         return withSessions(appointments.findAllByOrderByScheduledAtDesc(pageable));
     }
 
@@ -696,6 +701,16 @@ public class AppointmentService {
         Map<UUID, List<AppointmentSessionResponse>> byAppointment = sessionsFor(page.getContent());
 
         return page.map(a -> AppointmentResponse.of(a, byAppointment.getOrDefault(a.getId(), List.of())));
+    }
+
+    private Page<AppointmentResponse> withSessionsForDoctor(
+            Page<Appointment> page, UUID doctorUserId) {
+        Map<UUID, List<AppointmentSessionResponse>> byAppointment = sessionsFor(page.getContent());
+        return page.map(a -> AppointmentResponse.of(
+                a,
+                byAppointment.getOrDefault(a.getId(), List.of()).stream()
+                        .filter(s -> s.practitionerUserId().equals(doctorUserId))
+                        .toList()));
     }
 
     // Whole page of sessions, one query.

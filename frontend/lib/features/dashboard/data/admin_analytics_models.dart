@@ -813,11 +813,11 @@ class AdminAnalyticsRepository {
           );
         }
       } catch (_) {
-        // Fall back gracefully to local generation if offline or mock
+        rethrow;
       }
     }
 
-    return fetchDashboardData(rangeType: rangeType, customRange: customRange);
+    throw StateError('Admin analytics response was unavailable.');
   }
 
   static AdminDashboardData fetchDashboardData({

@@ -3,14 +3,16 @@ import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
-import '../../../core/widgets/app_dropdown.dart';
 import '../../../core/widgets/skeleton.dart';
 import '../../../network/api_client.dart';
 import '../data/appointment.dart';
 import '../data/appointment_api.dart';
 import '../data/doctor_api.dart';
-import '../data/doctor_summary.dart';
 import '../data/treatment_api.dart';
+import '../../patient_profile/data/session_record_api.dart';
+import '../../patient_profile/data/session_record.dart';
+import '../../products/data/product.dart';
+import '../../products/data/product_api.dart';
 import 'booking_flow_sheet.dart';
 
 /// Clinic-wide appointment workspace for staff.
@@ -21,28 +23,31 @@ class ClinicAppointmentsScreen extends StatefulWidget {
     required this.treatmentApi,
     required this.doctorApi,
     required this.apiClient,
+    this.canAuthorSessionRecords = false,
+    this.doctorUserId,
+    this.onViewPatient,
   });
 
   final AppointmentApi appointmentApi;
   final TreatmentApi treatmentApi;
   final DoctorApi doctorApi;
   final ApiClient apiClient;
+  final bool canAuthorSessionRecords;
+  final String? doctorUserId;
+  final ValueChanged<String>? onViewPatient;
 
   @override
   State<ClinicAppointmentsScreen> createState() =>
       _ClinicAppointmentsScreenState();
 }
 
-enum _TimeFilter { all, past, current, future }
-
 class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
-  _TimeFilter _timeFilter = _TimeFilter.current;
   String _statusFilter = 'ALL';
-  String? _doctorFilter;
   DateTime? _dateFilter;
   List<Appointment> _appointments = const [];
   bool _loading = true;
   String? _error;
+  Map<String, SessionRecord> _recordsBySession = {};
 
   @override
   void initState() {
@@ -62,6 +67,7 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
         _appointments = page.items;
         _loading = false;
       });
+      await _loadSessionRecords(page.items);
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -69,6 +75,27 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
         _error = 'Could not load clinic appointments.';
       });
     }
+  }
+
+  Future<void> _loadSessionRecords(List<Appointment> appointments) async {
+    final recordLists = await Future.wait(
+      appointments.map((appointment) async {
+        try {
+          return await SessionRecordApi(
+            widget.apiClient,
+          ).listForPatient(appointment.patientUserId);
+        } catch (_) {
+          return const <SessionRecord>[];
+        }
+      }),
+    );
+    if (!mounted) return;
+    setState(() {
+      _recordsBySession = {
+        for (final record in recordLists.expand((items) => items))
+          record.sessionId: record,
+      };
+    });
   }
 
   Future<void> _openBooking({Appointment? appointment}) async {
@@ -214,37 +241,143 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
     }
   }
 
+  Future<void> _completeSession(
+    Appointment appointment,
+    AppointmentSession session,
+  ) async {
+    try {
+      final products = await ProductApi(widget.apiClient).list();
+      if (!mounted) return;
+      final input = await showDialog<_SessionRecordInput>(
+        context: context,
+        builder: (_) =>
+            _SessionRecordDialog(session: session, catalog: products),
+      );
+      if (input == null) return;
+      if (session.isPlanned) {
+        await widget.appointmentApi.markAttended(appointment.id, session.id);
+      }
+      await SessionRecordApi(widget.apiClient).create(
+        patientId: appointment.patientUserId,
+        sessionId: session.id,
+        note: input.note,
+        skinReaction: input.skinReaction,
+        followUpDate: input.followUpDate,
+        prescribedProductIds: input.prescribedProductIds,
+      );
+      await _load();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Session completed and record saved.')),
+        );
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not complete the session.')),
+      );
+    }
+  }
+
+  void _viewSessionRecord(SessionRecord record) {
+    showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(
+          'Session record · ${record.createdAt.toLocal().toIso8601String().split('T').first}',
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                (record.note == null || record.note!.trim().isEmpty)
+                    ? 'No clinical note added.'
+                    : record.note!,
+              ),
+              const SizedBox(height: 12),
+              Text('Skin reaction: ${record.skinReaction ?? 'Not recorded'}'),
+              if (record.followUpDate != null)
+                Text('Follow-up: ${record.followUpDate}'),
+              Text(
+                'Prescribed products: ${record.prescribedProductIds.length}',
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          if (widget.canAuthorSessionRecords)
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _editSessionRecord(record);
+              },
+              child: const Text('Edit'),
+            ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _editSessionRecord(SessionRecord record) async {
+    try {
+      final products = await ProductApi(widget.apiClient).list();
+      if (!mounted) return;
+      final input = await showDialog<_SessionRecordInput>(
+        context: context,
+        builder: (_) => _SessionRecordDialog(
+          session: _appointments
+              .expand((appointment) => appointment.sessions)
+              .firstWhere((session) => session.id == record.sessionId),
+          catalog: products,
+          initial: record,
+        ),
+      );
+      if (input == null) return;
+      await SessionRecordApi(widget.apiClient).amend(
+        patientId: _appointments
+            .firstWhere(
+              (appointment) => appointment.sessions.any(
+                (session) => session.id == record.sessionId,
+              ),
+            )
+            .patientUserId,
+        recordId: record.id,
+        note: input.note,
+        skinReaction: input.skinReaction,
+        followUpDate: input.followUpDate,
+        prescribedProductIds: input.prescribedProductIds,
+      );
+      await _load();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not edit the session record.')),
+        );
+      }
+    }
+  }
+
   bool _canModify(Appointment appointment) {
     return appointment.status == 'BOOKED' &&
         appointment.scheduledAt.isAfter(DateTime.now());
   }
 
   List<Appointment> get _visibleAppointments {
-    final now = DateTime.now();
     final sorted = _appointments.where((appointment) {
       final scheduled = appointment.scheduledAt.toLocal();
-      final today = DateTime(now.year, now.month, now.day);
-      final day = DateTime(scheduled.year, scheduled.month, scheduled.day);
-      final matchesTime = switch (_timeFilter) {
-        _TimeFilter.all => true,
-        _TimeFilter.past =>
-          appointment.status == 'CANCELLED' || scheduled.isBefore(now),
-        _TimeFilter.current => day == today,
-        _TimeFilter.future => scheduled.isAfter(now),
-      };
-      final matchesStatus =
-          _statusFilter == 'ALL' || appointment.status == _statusFilter;
-      final matchesDoctor =
-          _doctorFilter == null ||
-          appointment.sessions.any(
-            (session) => session.practitionerUserId == _doctorFilter,
-          );
+      final matchesStatus = _matchesStatus(appointment);
       final matchesDate =
           _dateFilter == null ||
           (scheduled.year == _dateFilter!.year &&
               scheduled.month == _dateFilter!.month &&
               scheduled.day == _dateFilter!.day);
-      return matchesTime && matchesStatus && matchesDoctor && matchesDate;
+      return matchesStatus && matchesDate;
     }).toList();
     sorted.sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
     return sorted;
@@ -259,31 +392,20 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
       child: ListView(
         padding: const EdgeInsets.all(24),
         children: [
-          Text('Clinic Appointments', style: AppTypography.displayTitle()),
-          const SizedBox(height: 16),
-          Text(
-            'Book a new appointment',
-            style: AppTypography.displaySubtitle(),
-          ),
-          const SizedBox(height: 8),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: FilledButton.icon(
-              onPressed: () => _openBooking(),
-              icon: const Icon(Icons.add, size: 18),
-              label: const Text('Book appointment'),
-              style: FilledButton.styleFrom(backgroundColor: AppColors.rose),
-            ),
-          ),
+          _buildPageHeader(),
+          const SizedBox(height: 20),
+          _buildSummary(appointments),
           const SizedBox(height: 24),
-          const Divider(height: 1),
-          const SizedBox(height: 24),
-          Text('View appointments', style: AppTypography.displaySubtitle()),
-          const SizedBox(height: 16),
+          Row(
+            children: [
+              const Icon(Icons.tune_rounded, size: 18, color: AppColors.rose),
+              const SizedBox(width: 8),
+              Text('Find an appointment', style: AppTypography.labelLarge()),
+            ],
+          ),
+          const SizedBox(height: 12),
           _buildScheduleFilters(),
-          const SizedBox(height: 18),
-          _buildTimeFilter(),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
           _buildStatusFilter(),
           const SizedBox(height: 20),
           if (_loading)
@@ -299,114 +421,143 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
     );
   }
 
-  Widget _buildScheduleFilters() {
-    return Wrap(
-      spacing: 10,
-      runSpacing: 10,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        OutlinedButton.icon(
-          onPressed: () async {
-            final selected = await showDatePicker(
-              context: context,
-              initialDate: _dateFilter ?? DateTime.now(),
-              firstDate: DateTime(2020),
-              lastDate: DateTime(2100),
-            );
-            if (selected != null) setState(() => _dateFilter = selected);
-          },
-          icon: const Icon(Icons.calendar_today_outlined, size: 16),
-          label: Text(
-            _dateFilter == null
-                ? 'Any date'
-                : DateFormat('d MMM yyyy').format(_dateFilter!),
-          ),
+  Widget _buildPageHeader() {
+    return Container(
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [AppColors.bgRose, AppColors.bgLavender],
         ),
-        FutureBuilder<List<DoctorSummary>>(
-          future: widget.doctorApi.list(),
-          builder: (context, snapshot) {
-            final doctors = snapshot.data ?? const <DoctorSummary>[];
-            return AppDropdown<String?>(
-              value: _doctorFilter,
-              hint: const Text('Any doctor'),
-              items: [
-                const DropdownMenuItem<String?>(
-                  value: null,
-                  child: Text('Any doctor'),
-                ),
-                ...doctors.map(
-                  (doctor) => DropdownMenuItem<String?>(
-                    value: doctor.userId,
-                    child: Text(doctor.fullName),
-                  ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.borderRose),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: const BoxDecoration(
+              color: AppColors.bgCard,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.calendar_month_outlined,
+              color: AppColors.rose,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Appointments', style: AppTypography.displayTitle()),
+                const SizedBox(height: 4),
+                Text(
+                  widget.canAuthorSessionRecords
+                      ? 'Your assigned consultations and clinical follow-up.'
+                      : 'Clinic schedule and patient visits.',
+                  style: AppTypography.bodySmall(color: AppColors.textSub),
                 ),
               ],
-              onChanged: (value) => setState(() => _doctorFilter = value),
-            );
-          },
-        ),
-        if (_dateFilter != null || _doctorFilter != null)
-          TextButton(
-            onPressed: () => setState(() {
-              _dateFilter = null;
-              _doctorFilter = null;
-            }),
-            child: const Text('Clear filters'),
+            ),
           ),
-      ],
+          if (!widget.canAuthorSessionRecords)
+            FilledButton.icon(
+              onPressed: () => _openBooking(),
+              icon: const Icon(Icons.add, size: 17),
+              label: const Text('Book appointment'),
+            ),
+        ],
+      ),
     );
   }
 
-  // Uppercase label over a chip row.
-  Widget _quietFilterGroup({
-    required String label,
-    required List<Widget> chips,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildSummary(List<Appointment> appointments) {
+    final now = DateTime.now();
+    final upcoming = appointments.where((appointment) {
+      if (appointment.status != 'BOOKED') return false;
+      return appointment.sessions.any(
+        (session) =>
+            session.status == 'PLANNED' && !session.startTime.isBefore(now),
+      );
+    }).length;
+    final completed = appointments
+        .expand((appointment) => appointment.sessions)
+        .where((session) => session.status == 'COMPLETED')
+        .length;
+    return Row(
       children: [
-        Text(
-          label.toUpperCase(),
-          style: AppTypography.labelSmall(
-            color: AppColors.textMuted,
-          ).copyWith(letterSpacing: 0.8),
+        Expanded(
+          child: _summaryTile(
+            'Upcoming',
+            '$upcoming',
+            Icons.pending_actions_outlined,
+            AppColors.gold,
+          ),
         ),
-        const SizedBox(height: 8),
-        Wrap(spacing: 8, runSpacing: 8, children: chips),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _summaryTile(
+            'Completed',
+            '$completed',
+            Icons.check_circle_outline,
+            AppColors.sage,
+          ),
+        ),
       ],
     );
   }
 
-  Widget _buildTimeFilter() {
-    return _quietFilterGroup(
-      label: 'Time',
-      chips: [
-        for (final filter in _TimeFilter.values)
-          ChoiceChip(
-            label: Text(_timeFilterLabel(filter)),
-            selected: _timeFilter == filter,
-            onSelected: (_) => setState(() => _timeFilter = filter),
-            showCheckmark: true,
-            selectedColor: AppColors.rose,
-            checkmarkColor: Colors.white,
-            side: BorderSide(
-              color: _timeFilter == filter ? AppColors.rose : AppColors.border,
-            ),
-            labelStyle: AppTypography.labelMedium(
-              color: _timeFilter == filter ? Colors.white : AppColors.textSub,
+  Widget _summaryTile(String label, String value, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.bgCard,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(value, style: AppTypography.displaySubtitle()),
+                Text(
+                  label,
+                  style: AppTypography.bodySmall(color: AppColors.textMuted),
+                ),
+              ],
             ),
           ),
-      ],
+        ],
+      ),
     );
   }
 
-  String _timeFilterLabel(_TimeFilter filter) {
-    return switch (filter) {
-      _TimeFilter.all => 'All dates',
-      _TimeFilter.past => 'Past',
-      _TimeFilter.current => 'Current day',
-      _TimeFilter.future => 'Future',
-    };
+  Widget _buildScheduleFilters() {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: OutlinedButton.icon(
+        onPressed: () async {
+          final selected = await showDatePicker(
+            context: context,
+            initialDate: _dateFilter ?? DateTime.now(),
+            firstDate: DateTime(2020),
+            lastDate: DateTime(2100),
+          );
+          if (selected != null) setState(() => _dateFilter = selected);
+        },
+        icon: const Icon(Icons.calendar_today_outlined, size: 16),
+        label: Text(
+          _dateFilter == null
+              ? 'Any date'
+              : DateFormat('d MMM yyyy').format(_dateFilter!),
+        ),
+      ),
+    );
   }
 
   List<Widget> _buildGroupedAppointments(List<Appointment> appointments) {
@@ -434,27 +585,61 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
   }
 
   Widget _buildStatusFilter() {
-    return _quietFilterGroup(
-      label: 'Status',
-      chips: [
-        for (final status in const ['ALL', 'BOOKED', 'CANCELLED'])
-          ChoiceChip(
-            label: Text(_statusLabel(status)),
-            selected: _statusFilter == status,
-            onSelected: (_) => setState(() => _statusFilter = status),
-            showCheckmark: true,
-            selectedColor: AppColors.rose,
-            checkmarkColor: Colors.white,
-            side: BorderSide(
-              color: _statusFilter == status
-                  ? AppColors.rose
-                  : AppColors.border,
-            ),
-            labelStyle: AppTypography.labelMedium(
-              color: _statusFilter == status ? Colors.white : AppColors.textSub,
-            ),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.bgAlt,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.filter_alt_outlined,
+                size: 18,
+                color: AppColors.rose,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Filter by booking status',
+                style: AppTypography.labelMedium(color: AppColors.text),
+              ),
+            ],
           ),
-      ],
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: <Widget>[
+              _statusChoiceChip('ALL'),
+              _statusChoiceChip('BOOKED'),
+              _statusChoiceChip('CANCELLED'),
+              _statusChoiceChip('FINISHED'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _statusChoiceChip(String status) {
+    return ChoiceChip(
+      label: Text(_statusLabel(status)),
+      selected: _statusFilter == status,
+      onSelected: (_) => setState(() => _statusFilter = status),
+      showCheckmark: true,
+      selectedColor: AppColors.rose,
+      checkmarkColor: Colors.white,
+      side: BorderSide(
+        color: _statusFilter == status ? AppColors.rose : AppColors.border,
+      ),
+      labelStyle: AppTypography.labelMedium(
+        color: _statusFilter == status ? Colors.white : AppColors.textSub,
+      ),
     );
   }
 
@@ -462,7 +647,21 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
     return switch (status) {
       'BOOKED' => 'Booked',
       'CANCELLED' => 'Cancelled',
+      'FINISHED' => 'Finished',
       _ => 'All statuses',
+    };
+  }
+
+  bool _matchesStatus(Appointment appointment) {
+    return switch (_statusFilter) {
+      'BOOKED' => appointment.status == 'BOOKED',
+      'CANCELLED' => appointment.status == 'CANCELLED',
+      'FINISHED' =>
+        appointment.sessions.isNotEmpty &&
+            appointment.sessions.every(
+              (session) => session.status == 'COMPLETED',
+            ),
+      _ => true,
     };
   }
 
@@ -521,23 +720,64 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
             const SizedBox(height: 10),
             for (final session in sessions)
               Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Row(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Column(
                   children: [
-                    Icon(Icons.spa_outlined, size: 16, color: AppColors.rose),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        session.treatmentLabel,
-                        style: AppTypography.bodyMedium(),
-                      ),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.spa_outlined,
+                          size: 16,
+                          color: AppColors.rose,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            session.treatmentLabel,
+                            style: AppTypography.bodyMedium(),
+                          ),
+                        ),
+                        Text(
+                          session.practitionerName,
+                          style: AppTypography.bodySmall(
+                            color: AppColors.textMuted,
+                          ),
+                        ),
+                      ],
                     ),
-                    Text(
-                      session.practitionerName,
-                      style: AppTypography.bodySmall(
-                        color: AppColors.textMuted,
+                    if (widget.canAuthorSessionRecords &&
+                        session.status != 'CANCELLED' &&
+                        session.status != 'NO_SHOW' &&
+                        (widget.doctorUserId == null ||
+                            session.practitionerUserId == widget.doctorUserId))
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: FilledButton.icon(
+                          onPressed: () {
+                            final record = _recordsBySession[session.id];
+                            if (record == null) {
+                              _completeSession(appointment, session);
+                            } else {
+                              _viewSessionRecord(record);
+                            }
+                          },
+                          icon: Icon(
+                            _recordsBySession.containsKey(session.id)
+                                ? Icons.visibility_outlined
+                                : session.status == 'COMPLETED'
+                                ? Icons.note_add_outlined
+                                : Icons.check_circle_outline,
+                            size: 16,
+                          ),
+                          label: Text(
+                            _recordsBySession.containsKey(session.id)
+                                ? 'View session record'
+                                : session.status == 'COMPLETED'
+                                ? 'Add session record'
+                                : 'Mark attended & record',
+                          ),
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ),
@@ -565,6 +805,18 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
                   ),
                 ),
               ],
+            ),
+          ],
+          if (widget.onViewPatient != null) ...[
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: () =>
+                    widget.onViewPatient!(appointment.patientUserId),
+                icon: const Icon(Icons.person_outline, size: 16),
+                label: const Text('View patient details'),
+              ),
             ),
           ],
         ],
@@ -620,5 +872,153 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
         .split(RegExp(r'\s+'))
         .where((part) => part.isNotEmpty);
     return parts.take(2).map((part) => part[0]).join().toUpperCase();
+  }
+}
+
+class _SessionRecordInput {
+  const _SessionRecordInput({
+    required this.note,
+    required this.skinReaction,
+    required this.followUpDate,
+    required this.prescribedProductIds,
+  });
+
+  final String? note;
+  final String? skinReaction;
+  final String? followUpDate;
+  final List<String> prescribedProductIds;
+}
+
+class _SessionRecordDialog extends StatefulWidget {
+  const _SessionRecordDialog({
+    required this.session,
+    required this.catalog,
+    this.initial,
+  });
+
+  final AppointmentSession session;
+  final List<Product> catalog;
+  final SessionRecord? initial;
+
+  @override
+  State<_SessionRecordDialog> createState() => _SessionRecordDialogState();
+}
+
+class _SessionRecordDialogState extends State<_SessionRecordDialog> {
+  late final TextEditingController _note;
+  late final Set<String> _products;
+  late String _reaction;
+  DateTime? _followUp;
+
+  @override
+  void initState() {
+    super.initState();
+    final initial = widget.initial;
+    _note = TextEditingController(text: initial?.note ?? '');
+    _products = {...?initial?.prescribedProductIds};
+    _reaction = initial?.skinReaction ?? 'NONE';
+    _followUp = initial?.followUpDate == null
+        ? null
+        : DateTime.tryParse(initial!.followUpDate!);
+  }
+
+  @override
+  void dispose() {
+    _note.dispose();
+    super.dispose();
+  }
+
+  Future<void> _chooseDate() async {
+    final date = await showDatePicker(
+      context: context,
+      initialDate: _followUp ?? DateTime.now(),
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 3650)),
+    );
+    if (date != null) setState(() => _followUp = date);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text('Session record · ${widget.session.treatmentLabel}'),
+      content: SizedBox(
+        width: 520,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: _note,
+                maxLines: 5,
+                maxLength: 4000,
+                decoration: const InputDecoration(
+                  labelText: 'Clinical note',
+                  alignLabelWithHint: true,
+                ),
+              ),
+              DropdownButtonFormField<String>(
+                initialValue: _reaction,
+                decoration: const InputDecoration(labelText: 'Skin reaction'),
+                items: const [
+                  DropdownMenuItem(value: 'NONE', child: Text('None')),
+                  DropdownMenuItem(value: 'MILD', child: Text('Mild')),
+                  DropdownMenuItem(value: 'MODERATE', child: Text('Moderate')),
+                  DropdownMenuItem(value: 'SEVERE', child: Text('Severe')),
+                ],
+                onChanged: (value) {
+                  if (value != null) setState(() => _reaction = value);
+                },
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: _chooseDate,
+                icon: const Icon(Icons.event_outlined, size: 16),
+                label: Text(
+                  _followUp == null
+                      ? 'Add follow-up date'
+                      : 'Follow-up: ${_followUp!.toIso8601String().split('T').first}',
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text('Prescribe products', style: AppTypography.labelLarge()),
+              ...widget.catalog.map(
+                (product) => CheckboxListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  value: _products.contains(product.id),
+                  title: Text('${product.brandLabel} ${product.typeLabel}'),
+                  onChanged: (selected) => setState(() {
+                    if (selected == true) {
+                      _products.add(product.id);
+                    } else {
+                      _products.remove(product.id);
+                    }
+                  }),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(
+            _SessionRecordInput(
+              note: _note.text.trim().isEmpty ? null : _note.text.trim(),
+              skinReaction: _reaction,
+              followUpDate: _followUp?.toIso8601String().split('T').first,
+              prescribedProductIds: _products.toList(),
+            ),
+          ),
+          child: const Text('Save session record'),
+        ),
+      ],
+    );
   }
 }

@@ -45,6 +45,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   AdminDashboardData? _adminDashboardData;
   DoctorDashboardData? _doctorDashboardData;
   bool _isLoadingAnalytics = false;
+  String? _adminAnalyticsError;
   late Future<List<Appointment>> _receptionAppointments;
   late Future<int> _receptionDoctorCount;
   String _receptionStatusFilter = 'ALL';
@@ -95,17 +96,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _loadAnalytics() async {
-    setState(() => _isLoadingAnalytics = true);
-    final data = await AdminAnalyticsRepository.fetchDashboardDataAsync(
-      rangeType: _adminDateRange,
-      customRange: _customDateRange,
-      apiClient: widget.apiClient,
-    );
-    if (!mounted) return;
     setState(() {
-      _adminDashboardData = data;
-      _isLoadingAnalytics = false;
+      _isLoadingAnalytics = true;
+      _adminAnalyticsError = null;
     });
+    try {
+      final data = await AdminAnalyticsRepository.fetchDashboardDataAsync(
+        rangeType: _adminDateRange,
+        customRange: _customDateRange,
+        apiClient: widget.apiClient,
+      );
+      if (!mounted) return;
+      setState(() {
+        _adminDashboardData = data;
+        _isLoadingAnalytics = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _adminAnalyticsError = 'Could not load live clinic analytics.';
+        _isLoadingAnalytics = false;
+      });
+    }
   }
 
   @override
@@ -216,12 +228,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // Admin dashboard.
   Widget _buildAdminDashboard() {
-    final adminData =
-        _adminDashboardData ??
-        AdminAnalyticsRepository.fetchDashboardData(
-          rangeType: _adminDateRange,
-          customRange: _customDateRange,
-        );
+    final adminData = _adminDashboardData;
+
+    if (adminData == null) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 80),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (_isLoadingAnalytics)
+                const CircularProgressIndicator(color: AppColors.rose)
+              else ...[
+                Text(
+                  _adminAnalyticsError ?? 'Live analytics are unavailable.',
+                  style: AppTypography.bodyMedium(color: AppColors.textMuted),
+                ),
+                const SizedBox(height: 12),
+                TextButton(
+                  onPressed: _loadAnalytics,
+                  child: const Text('Retry'),
+                ),
+              ],
+            ],
+          ),
+        ),
+      );
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -270,34 +303,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
               physics: const NeverScrollableScrollPhysics(),
               crossAxisSpacing: 16,
               mainAxisSpacing: 16,
-              childAspectRatio: constraints.maxWidth > 900 ? 1.6 : 2.1,
+              childAspectRatio: constraints.maxWidth > 900
+                  ? 2.35
+                  : (constraints.maxWidth > 500 ? 2.2 : 2.5),
               children: [
                 _StatCard(
                   label: "Total Patients",
                   value: NumberFormat(
                     '#,###',
                   ).format(adminData.overview.totalPatients),
-                  sub: adminData.overview.patientTrendSub,
+                  sub: '',
                   icon: Icons.people_outline,
                   color: AppColors.rose,
-                  trend: adminData.overview.patientTrend,
+                  trend: null,
                 ),
                 _StatCard(
                   label: "Total Doctors",
                   value: "${adminData.overview.totalDoctors}",
-                  sub: adminData.overview.doctorSub,
+                  sub: '',
                   icon: Icons.medical_services_outlined,
                   color: AppColors.sage,
-                  trend: "${adminData.overview.activeDoctorsNow} Active",
+                  trend: null,
                 ),
                 _StatCard(
                   label: "Today's Appointments",
                   value: "${adminData.overview.todayAppointments}",
-                  sub:
-                      "${adminData.overview.confirmedAppointments} confirmed · ${adminData.overview.inRoomAppointments} in room",
+                  sub: '',
                   icon: Icons.calendar_today_outlined,
                   color: AppColors.lav,
-                  trend: "+${adminData.overview.pendingAppointments} new",
+                  trend: null,
                 ),
                 _StatCard(
                   label: "Today's Sessions",
@@ -352,18 +386,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             );
           },
         ),
-
-        const SizedBox(height: 36),
-
-        // 4. DOCTOR ANALYTICS SECTION
-        _buildSectionHeader(
-          title: 'Doctor Analytics',
-          subtitle: 'Practitioner capacity utilization and schedule occupancy',
-          icon: Icons.medical_services_outlined,
-          color: AppColors.lavDark,
-        ),
-        const SizedBox(height: 16),
-        DoctorUtilizationChart(data: adminData.doctorAnalytics),
 
         const SizedBox(height: 36),
 

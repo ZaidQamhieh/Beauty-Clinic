@@ -368,6 +368,18 @@ class _BeautyClinicAppState extends State<BeautyClinicApp> {
             apiClient: _apiClient,
           );
         }
+        if (_activeRole == 'doctor') {
+          return ClinicAppointmentsScreen(
+            key: const ValueKey('doctor_appointments'),
+            appointmentApi: _appointmentApi,
+            treatmentApi: _treatmentApi,
+            doctorApi: _doctorApi,
+            apiClient: _apiClient,
+            canAuthorSessionRecords: true,
+            doctorUserId: _session.userId,
+            onViewPatient: _onViewPatient,
+          );
+        }
         if (_activeRole == 'patient') {
           return AppointmentsScreen(
             key: ValueKey('my_appointments_$_chatRevision'),
@@ -427,6 +439,10 @@ class _BeautyClinicAppState extends State<BeautyClinicApp> {
             appointmentApi: _appointmentApi,
             productApi: _products,
             apiClient: _apiClient,
+            canManageProducts:
+                _activeRole == 'admin' || _activeRole == 'doctor',
+            canAuthorSessionRecords: _activeRole == 'doctor',
+            doctorUserId: _session.userId,
             onBack: () => _router.go(AppRoutes.pathFor('patients')),
           );
         }
@@ -491,6 +507,9 @@ class _BeautyClinicAppState extends State<BeautyClinicApp> {
           productApi: _products,
           apiClient: _apiClient,
           initialTabIndex: tab,
+          canChooseOwnProducts: _activeRole == 'patient',
+          canAuthorSessionRecords: _activeRole == 'doctor',
+          doctorUserId: _session.userId,
           onBackToAppointments: fromBooking
               ? () => _router.go(
                   AppRoutes.pathFor(

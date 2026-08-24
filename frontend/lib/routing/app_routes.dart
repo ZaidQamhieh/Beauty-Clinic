@@ -74,6 +74,7 @@ abstract class AppRoutes {
       'my_profile',
       'doctor_availability',
       'patients',
+      'appointments',
       'clinical_forms',
       'consultations',
       'products',
@@ -84,7 +85,6 @@ abstract class AppRoutes {
       'my_profile',
       'patient_profile',
       'appointments',
-      'products',
     },
     'receptionist' => {
       'dashboard',

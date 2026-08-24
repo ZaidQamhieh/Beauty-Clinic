@@ -3,6 +3,7 @@ package com.example.backend.controllers;
 import com.example.backend.dtos.AmendSessionRecordRequest;
 import com.example.backend.dtos.CreateSessionRecordRequest;
 import com.example.backend.dtos.SessionRecordResponse;
+import com.example.backend.dtos.ProductResponse;
 import com.example.backend.security.access.ClinicalReader;
 import com.example.backend.security.access.ClinicalWriter;
 import com.example.backend.services.SessionRecordService;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/patients/{id}/session-records")
@@ -28,6 +30,12 @@ import java.util.UUID;
 public class SessionRecordController {
 
     private final SessionRecordService records;
+
+    @GetMapping("/prescribed-products")
+    @ClinicalReader
+    public List<ProductResponse> prescribedProducts(@PathVariable UUID id) {
+        return records.prescribedProducts(id).stream().map(ProductResponse::of).toList();
+    }
 
     @GetMapping
     @ClinicalReader

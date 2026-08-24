@@ -206,15 +206,14 @@ void main() {
       },
     );
 
-    test(
-      'fetchDashboardDataAsync falls back gracefully when apiClient is null',
-      () async {
-        final data = await AdminAnalyticsRepository.fetchDashboardDataAsync(
+    test('fetchDashboardDataAsync rejects missing live API data', () async {
+      expect(
+        () => AdminAnalyticsRepository.fetchDashboardDataAsync(
           rangeType: AdminDateRangeType.days30,
-        );
-        expect(data.overview.totalPatients, greaterThan(0));
-      },
-    );
+        ),
+        throwsStateError,
+      );
+    });
   });
 
   group('Admin Analytics Widgets', () {
