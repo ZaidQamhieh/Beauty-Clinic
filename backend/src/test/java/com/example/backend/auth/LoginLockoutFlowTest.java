@@ -51,15 +51,17 @@ class LoginLockoutFlowTest extends AbstractIntegrationTest {
                 Role.PATIENT
         ));
 
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < 4; i++) {
             attemptLogin("wrong-password");
         }
+        // The 5th attempt trips the lock immediately.
+        attemptLockedLogin("wrong-password");
 
         UserAccount locked = users.findByEmailIgnoreCase(EMAIL).orElseThrow();
         assertThat(locked.isLocked(Instant.now())).isTrue();
         assertThat(locked.getLockoutStrikes()).isEqualTo(1);
 
-        attemptLogin("correct-password");
+        attemptLockedLogin("correct-password");
     }
 
     @Test
@@ -94,6 +96,13 @@ class LoginLockoutFlowTest extends AbstractIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body(password)))
                 .andExpect(status().isUnauthorized());
+    }
+
+    private void attemptLockedLogin(String password) throws Exception {
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body(password)))
+                .andExpect(status().isLocked());
     }
 
     private String body(String password) {
