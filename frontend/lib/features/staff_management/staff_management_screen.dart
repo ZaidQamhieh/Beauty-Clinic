@@ -16,12 +16,12 @@ class StaffManagementScreen extends StatefulWidget {
     super.key,
     required this.apiClient,
     required this.authSession,
-    required this.onBack,
+    this.onOpenDoctor,
   });
 
   final ApiClient apiClient;
   final AuthSession authSession;
-  final VoidCallback onBack;
+  final ValueChanged<String>? onOpenDoctor;
 
   @override
   State<StaffManagementScreen> createState() => _StaffManagementScreenState();
@@ -128,6 +128,14 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
     return role == 'RECEPTIONIST' ? 'Receptionist' : 'Doctor';
   }
 
+  String _searchHint() {
+    return switch (_selectedFilter) {
+      _StaffFilter.all => 'Search staff by name or email...',
+      _StaffFilter.doctor => 'Search doctors by name or email...',
+      _StaffFilter.receptionist => 'Search receptionists by name or email...',
+    };
+  }
+
   String _friendlyDioError(DioException error) {
     final status = error.response?.statusCode;
     final body = error.response?.data;
@@ -226,355 +234,343 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Scaffold(
-      backgroundColor: AppColors.bg,
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded),
-          onPressed: widget.onBack,
-        ),
-      ),
-      body: SafeArea(
-        child: FutureBuilder<List<StaffMember>>(
-          future: _staffFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
+    return Container(
+      color: AppColors.bg,
+      child: FutureBuilder<List<StaffMember>>(
+        future: _staffFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Padding(
+              padding: EdgeInsets.symmetric(vertical: 64),
+              child: Center(
+                child: CircularProgressIndicator(color: AppColors.rose),
+              ),
+            );
+          }
 
-            if (snapshot.hasError) {
-              return Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.error_outline_rounded, size: 40),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Unable to load staff.',
-                      style: theme.textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 8),
-                    Text('${snapshot.error}', style: theme.textTheme.bodySmall),
-                  ],
-                ),
-              );
-            }
-
-            final staff = snapshot.data ?? const <StaffMember>[];
-            final visibleStaff = _applyFilter(staff);
-            final doctors = staff
-                .where((entry) => entry.role == 'DOCTOR')
-                .length;
-            final receptionists = staff
-                .where((entry) => entry.role == 'RECEPTIONIST')
-                .length;
-
-            return SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
+          if (snapshot.hasError) {
+            return Center(
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: AppColors.bgRose,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: AppColors.borderRose),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: const BoxDecoration(
-                            color: AppColors.bgCard,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.badge_outlined,
-                            color: AppColors.rose,
-                            size: 24,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Staff Management',
-                                style: AppTypography.displaySubtitle(
-                                  color: AppColors.text,
-                                ).copyWith(fontSize: 20),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'Register, edit, and remove doctor and receptionist accounts, and manage each doctor\'s specializations and experience.',
-                                style: AppTypography.bodySmall(
-                                  color: AppColors.textSub,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
+                  const Icon(Icons.error_outline_rounded, size: 40),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Unable to load staff.',
+                    style: theme.textTheme.titleMedium,
                   ),
-                  const SizedBox(height: 16),
-                  Wrap(
-                    alignment: WrapAlignment.end,
-                    spacing: 12,
-                    runSpacing: 12,
-                    children: [
-                      OutlinedButton.icon(
-                        onPressed: () =>
-                            _openFormDialog(role: _StaffRole.receptionist),
-                        icon: const Icon(
-                          Icons.add,
-                          size: 18,
-                          color: AppColors.gold,
-                        ),
-                        label: const Text(
-                          'Register Receptionist',
-                          style: TextStyle(
-                            color: AppColors.gold,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          backgroundColor: AppColors.goldPale,
-                          side: const BorderSide(color: AppColors.gold),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                      ),
-                      OutlinedButton.icon(
-                        onPressed: () =>
-                            _openFormDialog(role: _StaffRole.doctor),
-                        icon: const Icon(
-                          Icons.add,
-                          size: 18,
-                          color: AppColors.lavDark,
-                        ),
-                        label: const Text(
-                          'Register Doctor',
-                          style: TextStyle(
-                            color: AppColors.lavDark,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          backgroundColor: AppColors.lavPale,
-                          side: const BorderSide(color: AppColors.lavDark),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  Wrap(
-                    spacing: 14,
-                    runSpacing: 14,
-                    children: [
-                      _StatTile(
-                        title: 'All',
-                        value: '${staff.length}',
-                        subtitle: 'Show all staff',
-                        icon: Icons.people_alt_rounded,
-                        color: AppColors.rose,
-                        selected: _selectedFilter == _StaffFilter.all,
-                        onTap: () => _setFilter(_StaffFilter.all),
-                      ),
-                      _StatTile(
-                        title: 'Doctors',
-                        value: '$doctors',
-                        subtitle: 'Filter doctors',
-                        icon: Icons.medical_services_rounded,
-                        color: AppColors.lavDark,
-                        selected: _selectedFilter == _StaffFilter.doctor,
-                        onTap: () => _setFilter(_StaffFilter.doctor),
-                      ),
-                      _StatTile(
-                        title: 'Receptionists',
-                        value: '$receptionists',
-                        subtitle: 'Filter receptionists',
-                        icon: Icons.event_available_rounded,
-                        color: AppColors.gold,
-                        selected: _selectedFilter == _StaffFilter.receptionist,
-                        onTap: () => _setFilter(_StaffFilter.receptionist),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: AppColors.bgCard,
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: AppColors.border),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        TextField(
-                          controller: _searchController,
-                          decoration: InputDecoration(
-                            hintText: 'Search staff by name or email...',
-                            prefixIcon: const Icon(Icons.search, size: 18),
-                            isDense: true,
-                            filled: true,
-                            fillColor: AppColors.bgAlt,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide.none,
-                            ),
-                          ),
-                        ),
-                        if (_selectedFilter == _StaffFilter.doctor) ...[
-                          const SizedBox(height: 14),
-                          Wrap(
-                            spacing: 12,
-                            runSpacing: 12,
-                            children: [
-                              SizedBox(
-                                width: 240,
-                                child:
-                                    DropdownButtonFormField<
-                                      _DoctorSpecialization?
-                                    >(
-                                      initialValue: _specializationFilter,
-                                      decoration: InputDecoration(
-                                        labelText: 'Specialization',
-                                        isDense: true,
-                                        border: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            12,
-                                          ),
-                                        ),
-                                      ),
-                                      items: [
-                                        const DropdownMenuItem(
-                                          value: null,
-                                          child: Text('All specializations'),
-                                        ),
-                                        ..._DoctorSpecialization.values.map(
-                                          (specialization) => DropdownMenuItem(
-                                            value: specialization,
-                                            child: Text(specialization.label),
-                                          ),
-                                        ),
-                                      ],
-                                      onChanged: (value) => setState(
-                                        () => _specializationFilter = value,
-                                      ),
-                                    ),
-                              ),
-                              SizedBox(
-                                width: 200,
-                                child:
-                                    DropdownButtonFormField<_ExperienceFilter>(
-                                      initialValue: _experienceFilter,
-                                      decoration: InputDecoration(
-                                        labelText: 'Years of experience',
-                                        isDense: true,
-                                        border: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            12,
-                                          ),
-                                        ),
-                                      ),
-                                      items: _ExperienceFilter.values
-                                          .map(
-                                            (experience) => DropdownMenuItem(
-                                              value: experience,
-                                              child: Text(experience.label),
-                                            ),
-                                          )
-                                          .toList(),
-                                      onChanged: (value) {
-                                        if (value != null) {
-                                          setState(
-                                            () => _experienceFilter = value,
-                                          );
-                                        }
-                                      },
-                                    ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: AppColors.bgCard,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: AppColors.border),
-                    ),
-                    child: Column(
-                      children: [
-                        Container(
-                          height: 56,
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          decoration: const BoxDecoration(
-                            color: AppColors.bgAlt,
-                            borderRadius: BorderRadius.vertical(
-                              top: Radius.circular(20),
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              Text(
-                                'All Staff',
-                                style: AppTypography.labelLarge(),
-                              ),
-                            ],
-                          ),
-                        ),
-                        if (visibleStaff.isEmpty)
-                          Padding(
-                            padding: const EdgeInsets.all(24),
-                            child: Text(
-                              'No staff found for the selected filter.',
-                              style: AppTypography.bodyMedium(
-                                color: AppColors.textSub,
-                              ),
-                            ),
-                          )
-                        else
-                          ListView.separated(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            itemCount: visibleStaff.length,
-                            separatorBuilder: (_, _) =>
-                                const Divider(height: 1),
-                            itemBuilder: (context, index) {
-                              final item = visibleStaff[index];
-                              return _StaffRow(
-                                item: item,
-                                onEdit: () => _openFormDialog(
-                                  role: item.role == 'RECEPTIONIST'
-                                      ? _StaffRole.receptionist
-                                      : _StaffRole.doctor,
-                                  initialStaff: item,
-                                ),
-                                onDelete: () => _deleteStaff(item),
-                              );
-                            },
-                          ),
-                      ],
-                    ),
-                  ),
+                  const SizedBox(height: 8),
+                  Text('${snapshot.error}', style: theme.textTheme.bodySmall),
                 ],
               ),
             );
-          },
-        ),
+          }
+
+          final staff = snapshot.data ?? const <StaffMember>[];
+          final visibleStaff = _applyFilter(staff);
+          final doctors = staff.where((entry) => entry.role == 'DOCTOR').length;
+          final receptionists = staff
+              .where((entry) => entry.role == 'RECEPTIONIST')
+              .length;
+
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: AppColors.bgRose,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AppColors.borderRose),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: const BoxDecoration(
+                          color: AppColors.bgCard,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.badge_outlined,
+                          color: AppColors.rose,
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Staff Management',
+                              style: AppTypography.displayTitle(),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Register, edit, and remove doctor and receptionist accounts, and manage each doctor\'s specializations and experience.',
+                              style: AppTypography.bodySmall(
+                                color: AppColors.textSub,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          OutlinedButton.icon(
+                            onPressed: () =>
+                                _openFormDialog(role: _StaffRole.receptionist),
+                            icon: const Icon(
+                              Icons.add,
+                              size: 18,
+                              color: AppColors.gold,
+                            ),
+                            label: const Text(
+                              'Register Receptionist',
+                              style: TextStyle(
+                                color: AppColors.gold,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              backgroundColor: AppColors.goldPale,
+                              side: const BorderSide(color: AppColors.gold),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          OutlinedButton.icon(
+                            onPressed: () =>
+                                _openFormDialog(role: _StaffRole.doctor),
+                            icon: const Icon(
+                              Icons.add,
+                              size: 18,
+                              color: AppColors.lavDark,
+                            ),
+                            label: const Text(
+                              'Register Doctor',
+                              style: TextStyle(
+                                color: AppColors.lavDark,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              backgroundColor: AppColors.lavPale,
+                              side: const BorderSide(color: AppColors.lavDark),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Wrap(
+                  spacing: 14,
+                  runSpacing: 14,
+                  children: [
+                    _StatTile(
+                      title: 'All',
+                      value: '${staff.length}',
+                      subtitle: 'Show all staff',
+                      icon: Icons.people_alt_rounded,
+                      color: AppColors.rose,
+                      selected: _selectedFilter == _StaffFilter.all,
+                      onTap: () => _setFilter(_StaffFilter.all),
+                    ),
+                    _StatTile(
+                      title: 'Doctors',
+                      value: '$doctors',
+                      subtitle: 'Filter doctors',
+                      icon: Icons.medical_services_rounded,
+                      color: AppColors.lavDark,
+                      selected: _selectedFilter == _StaffFilter.doctor,
+                      onTap: () => _setFilter(_StaffFilter.doctor),
+                    ),
+                    _StatTile(
+                      title: 'Receptionists',
+                      value: '$receptionists',
+                      subtitle: 'Filter receptionists',
+                      icon: Icons.event_available_rounded,
+                      color: AppColors.gold,
+                      selected: _selectedFilter == _StaffFilter.receptionist,
+                      onTap: () => _setFilter(_StaffFilter.receptionist),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.bgCard,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextField(
+                        controller: _searchController,
+                        decoration: InputDecoration(
+                          hintText: _searchHint(),
+                          prefixIcon: const Icon(Icons.search, size: 18),
+                          isDense: true,
+                          filled: true,
+                          fillColor: AppColors.bgAlt,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                      ),
+                      if (_selectedFilter == _StaffFilter.doctor) ...[
+                        const SizedBox(height: 14),
+                        Wrap(
+                          spacing: 12,
+                          runSpacing: 12,
+                          children: [
+                            SizedBox(
+                              width: 240,
+                              child:
+                                  DropdownButtonFormField<
+                                    _DoctorSpecialization?
+                                  >(
+                                    initialValue: _specializationFilter,
+                                    decoration: InputDecoration(
+                                      labelText: 'Specialization',
+                                      isDense: true,
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
+                                    items: [
+                                      const DropdownMenuItem(
+                                        value: null,
+                                        child: Text('All specializations'),
+                                      ),
+                                      ..._DoctorSpecialization.values.map(
+                                        (specialization) => DropdownMenuItem(
+                                          value: specialization,
+                                          child: Text(specialization.label),
+                                        ),
+                                      ),
+                                    ],
+                                    onChanged: (value) => setState(
+                                      () => _specializationFilter = value,
+                                    ),
+                                  ),
+                            ),
+                            SizedBox(
+                              width: 200,
+                              child: DropdownButtonFormField<_ExperienceFilter>(
+                                initialValue: _experienceFilter,
+                                decoration: InputDecoration(
+                                  labelText: 'Years of experience',
+                                  isDense: true,
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                items: _ExperienceFilter.values
+                                    .map(
+                                      (experience) => DropdownMenuItem(
+                                        value: experience,
+                                        child: Text(experience.label),
+                                      ),
+                                    )
+                                    .toList(),
+                                onChanged: (value) {
+                                  if (value != null) {
+                                    setState(() => _experienceFilter = value);
+                                  }
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Container(
+                  decoration: BoxDecoration(
+                    color: AppColors.bgCard,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Column(
+                    children: [
+                      Container(
+                        height: 56,
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        decoration: const BoxDecoration(
+                          color: AppColors.bgAlt,
+                          borderRadius: BorderRadius.vertical(
+                            top: Radius.circular(20),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Text(
+                              'All Staff',
+                              style: AppTypography.labelLarge(),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (visibleStaff.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Text(
+                            'No staff found for the selected filter.',
+                            style: AppTypography.bodyMedium(
+                              color: AppColors.textSub,
+                            ),
+                          ),
+                        )
+                      else
+                        ListView.separated(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: visibleStaff.length,
+                          separatorBuilder: (_, _) => const Divider(height: 1),
+                          itemBuilder: (context, index) {
+                            final item = visibleStaff[index];
+                            return _StaffRow(
+                              item: item,
+                              onEdit: () => _openFormDialog(
+                                role: item.role == 'RECEPTIONIST'
+                                    ? _StaffRole.receptionist
+                                    : _StaffRole.doctor,
+                                initialStaff: item,
+                              ),
+                              onDelete: () => _deleteStaff(item),
+                              onOpenDoctor: item.role == 'DOCTOR'
+                                  ? () => widget.onOpenDoctor?.call(item.userId)
+                                  : null,
+                            );
+                          },
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }

@@ -166,6 +166,7 @@ public record AdminAnalyticsResponse(
     ) {}
 
     public record StaffDutyItemDto(
+            java.util.UUID userId,
             String name,
             String role,
             int appointmentsCount,
