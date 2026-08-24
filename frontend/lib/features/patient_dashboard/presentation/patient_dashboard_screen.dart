@@ -389,10 +389,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
             style: AppTypography.bodySmall(color: AppColors.textMuted),
           ),
           const SizedBox(height: 3),
-          Text(
-            value,
-            style: AppTypography.labelLarge().copyWith(fontSize: 18),
-          ),
+          Text(value, style: AppTypography.labelLarge().copyWith(fontSize: 18)),
         ],
       ),
     );
