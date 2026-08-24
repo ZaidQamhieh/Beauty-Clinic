@@ -6,6 +6,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/skeleton.dart';
 import '../../../network/api_client.dart';
+import '../../chat/presentation/ask_yasmine_pill.dart';
 import '../../forms/data/clinical_intake_api.dart';
 import '../../forms/data/clinical_intake_schema.dart';
 import '../data/appointment.dart';
@@ -453,7 +454,8 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     final accent = complete ? AppColors.sageDark : AppColors.roseDark;
     return Positioned(
       right: 20,
-      bottom: 20,
+      // Sits above the Ask Yasmine pill.
+      bottom: 20 + AskYasminePill.height + 12,
       child: Material(
         color: AppColors.bgCard,
         borderRadius: BorderRadius.circular(20),

@@ -159,28 +159,42 @@ class _BeautyClinicAppState extends State<BeautyClinicApp> {
       routes: [
         GoRoute(
           path: AppRoutes.splash,
-          builder: (_, _) =>
-              const Scaffold(body: Center(child: CircularProgressIndicator())),
+          pageBuilder: (context, state) => NoTransitionPage(
+            key: state.pageKey,
+            child: const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            ),
+          ),
         ),
         GoRoute(
           path: AppRoutes.guestLanding,
-          builder: (_, _) =>
-              GuestLandingScreen(onLogin: () => _router.go(AppRoutes.login)),
+          pageBuilder: (context, state) => NoTransitionPage(
+            key: state.pageKey,
+            child: GuestLandingScreen(
+              onLogin: () => _router.go(AppRoutes.login),
+            ),
+          ),
         ),
         GoRoute(
           path: AppRoutes.login,
-          builder: (context, _) => LoginScreen(
-            authSession: _session,
-            onRegister: () => context.go(AppRoutes.register),
-            onBack: () => context.go(AppRoutes.guestLanding),
+          pageBuilder: (context, state) => NoTransitionPage(
+            key: state.pageKey,
+            child: LoginScreen(
+              authSession: _session,
+              onRegister: () => context.go(AppRoutes.register),
+              onBack: () => context.go(AppRoutes.guestLanding),
+            ),
           ),
         ),
         GoRoute(
           path: AppRoutes.register,
-          builder: (context, _) => RegisterScreen(
-            authSession: _session,
-            onSignIn: () => context.go(AppRoutes.login),
-            onBack: () => context.go(AppRoutes.guestLanding),
+          pageBuilder: (context, state) => NoTransitionPage(
+            key: state.pageKey,
+            child: RegisterScreen(
+              authSession: _session,
+              onSignIn: () => context.go(AppRoutes.login),
+              onBack: () => context.go(AppRoutes.guestLanding),
+            ),
           ),
         ),
         ShellRoute(
