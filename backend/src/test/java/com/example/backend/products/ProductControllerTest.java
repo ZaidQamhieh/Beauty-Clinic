@@ -34,7 +34,7 @@ class ProductControllerTest extends AbstractIntegrationTest {
         String body = mockMvc.perform(post("/api/products")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"brand":"CERAVE","productType":"CLEANSER","category":"Skin care",
+                                {"brand":"ZO_SKIN_HEALTH","productType":"RETINOID","category":"Skin care",
                                  "stockQuantity":12,"ingredients":["CERAMIDES"]}
                                 """))
                 .andExpect(status().isCreated())
@@ -46,7 +46,7 @@ class ProductControllerTest extends AbstractIntegrationTest {
         mockMvc.perform(put("/api/products/{id}", id)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"brand":"CERAVE","productType":"MOISTURIZER","category":"Face care",
+                                {"brand":"ZO_SKIN_HEALTH","productType":"MOISTURIZER","category":"Face care",
                                  "stockQuantity":8,"ingredients":["CERAMIDES","HYALURONIC_ACID"]}
                                 """))
                 .andExpect(status().isOk())
@@ -77,7 +77,7 @@ class ProductControllerTest extends AbstractIntegrationTest {
         String body = mockMvc.perform(post("/api/products")
         .contentType(MediaType.APPLICATION_JSON)
         .content("""
-                {"brand":"CERAVE","productType":"CLEANSER","category":"Skin care",
+                {"brand":"ZO_SKIN_HEALTH","productType":"RETINOID","category":"Skin care",
                 "stockQuantity":5,"ingredients":["CERAMIDES"]}
                 """))
         .andExpect(status().isCreated())
@@ -88,7 +88,7 @@ class ProductControllerTest extends AbstractIntegrationTest {
         mockMvc.perform(put("/api/products/{id}", id)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"brand":"CERAVE","productType":"MOISTURIZER","category":"Skin care",
+                                {"brand":"ZO_SKIN_HEALTH","productType":"MOISTURIZER","category":"Skin care",
                                 "stockQuantity":10,"ingredients":["CERAMIDES"]}
                                 """))
                 .andExpect(status().isOk());

@@ -288,9 +288,19 @@ class _AppShellState extends State<AppShell> {
             'icon': Icons.people_outline,
           },
           {
+            'id': 'appointments',
+            'label': 'Appointments',
+            'icon': Icons.calendar_today_outlined,
+          },
+          {
             'id': 'clinical_forms',
             'label': 'Patient Forms History',
             'icon': Icons.assignment_outlined,
+          },
+          {
+            'id': 'products',
+            'label': 'Products',
+            'icon': Icons.inventory_2_outlined,
           },
           {
             'id': 'doctor_availability',
@@ -301,11 +311,6 @@ class _AppShellState extends State<AppShell> {
             'id': 'consultations',
             'label': 'Consultations',
             'icon': Icons.video_call_outlined,
-          },
-          {
-            'id': 'products',
-            'label': 'Products',
-            'icon': Icons.inventory_2_outlined,
           },
         ];
       case 'patient':
@@ -330,11 +335,6 @@ class _AppShellState extends State<AppShell> {
             'id': 'appointments',
             'label': 'Treatments & Visits',
             'icon': Icons.calendar_today_outlined,
-          },
-          {
-            'id': 'products',
-            'label': 'Products',
-            'icon': Icons.inventory_2_outlined,
           },
         ];
       case 'receptionist':
@@ -414,14 +414,14 @@ class _AppShellState extends State<AppShell> {
             'icon': Icons.assignment_outlined,
           },
           {
-            'id': 'form_builder',
-            'label': 'Form Builder',
-            'icon': Icons.dynamic_form_outlined,
-          },
-          {
             'id': 'products',
             'label': 'Products',
             'icon': Icons.inventory_2_outlined,
+          },
+          {
+            'id': 'form_builder',
+            'label': 'Form Builder',
+            'icon': Icons.dynamic_form_outlined,
           },
         ];
     }

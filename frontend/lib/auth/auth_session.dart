@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
@@ -64,6 +65,21 @@ class AuthSession extends ChangeNotifier {
 
   /// The signed-in user's role, renewed on every rotation; null while signed out.
   Role? get role => _tokens?.role;
+
+  String? get userId {
+    final token = _tokens?.accessToken;
+    if (token == null) return null;
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) return null;
+      final payload = jsonDecode(
+        utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))),
+      );
+      return (payload as Map<String, dynamic>)['uid']?.toString();
+    } catch (_) {
+      return null;
+    }
+  }
 
   static DateTime _utcNow() => DateTime.now().toUtc();
 
