@@ -21,11 +21,17 @@ class ServiceBookingsBarChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final finishedAppointments = data.bookingsByService.fold<int>(
+      0,
+      (total, item) => total + item.bookingsCount,
+    );
     return _AnalyticsCard(
       title: 'Bookings by Service',
       subtitle: 'Distribution of patient treatments & service popularity',
       icon: Icons.bar_chart_rounded,
-      badgeText: showTopService ? data.topService : null,
+      badgeText: showTopService
+          ? '$finishedAppointments finished appointments'
+          : null,
       badgeColor: AppColors.rose,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -124,7 +130,7 @@ class ServiceGrowthLineChart extends StatelessWidget {
       title: 'Service Growth Over Time',
       subtitle: 'Volume trajectory across core treatment categories',
       icon: Icons.show_chart_rounded,
-      badgeText: 'Growth ${data.growthPercentage}',
+      badgeText: null,
       badgeColor: AppColors.sage,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -944,72 +950,6 @@ class PeakTimesAndRescheduledWidget extends StatelessWidget {
               }).toList(),
             ),
           ),
-
-          const Divider(height: 32, color: AppColors.border),
-
-          // Rescheduled breakdown
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Rescheduled Triggers',
-                style: AppTypography.labelMedium(color: AppColors.text),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppColors.bgRose,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  'Avg notice: ${data.rescheduled.avgNoticeTime}',
-                  style: AppTypography.labelSmall(
-                    color: AppColors.rose,
-                  ).copyWith(fontSize: 10),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          ...data.rescheduled.topReasons.map((reason) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    flex: 3,
-                    child: Text(
-                      reason.reason,
-                      style: AppTypography.bodySmall(
-                        color: AppColors.textSub,
-                      ).copyWith(fontSize: 11),
-                    ),
-                  ),
-                  Expanded(
-                    flex: 2,
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: (reason.percentage / 100).clamp(0.0, 1.0),
-                        minHeight: 6,
-                        backgroundColor: AppColors.bgAlt,
-                        valueColor: const AlwaysStoppedAnimation<Color>(
-                          AppColors.lavDark,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '${reason.percentage.toStringAsFixed(0)}%',
-                    style: AppTypography.labelSmall(
-                      color: AppColors.lavDark,
-                    ).copyWith(fontSize: 10, fontWeight: FontWeight.w700),
-                  ),
-                ],
-              ),
-            );
-          }),
         ],
       ),
     );

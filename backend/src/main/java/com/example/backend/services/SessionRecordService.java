@@ -54,6 +54,14 @@ public class SessionRecordService {
                 .map(record -> SessionRecordResponse.of(record, prescribedProductIds(record)));
     }
 
+    @Transactional(readOnly = true)
+    public List<Product> prescribedProducts(UUID patientUserId) {
+        return prescriptions.findForPatient(patientUserId).stream()
+                .map(PrescriptionProduct::getProduct)
+                .distinct()
+                .toList();
+    }
+
     @Transactional
     public SessionRecordResponse create(UUID patientUserId, CreateSessionRecordRequest request) {
         AppointmentSession session = requireSessionOf(patientUserId, request.sessionId());
@@ -144,6 +152,12 @@ public class SessionRecordService {
 
         if (!session.getAppointment().getPatient().getUserId().equals(patientUserId)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No such session for this patient");
+        }
+
+        if (currentUser.hasRole(com.example.backend.security.Role.DOCTOR)
+                && !session.getPractitioner().getUserId().equals(currentUser.requireId())) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN, "Doctors may only record their assigned sessions");
         }
 
         // Permanent once written, so describe done work.

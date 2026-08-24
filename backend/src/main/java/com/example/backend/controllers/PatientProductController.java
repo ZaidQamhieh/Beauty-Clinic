@@ -3,7 +3,7 @@ package com.example.backend.controllers;
 import com.example.backend.dtos.AddPatientProductRequest;
 import com.example.backend.dtos.PatientProductResponse;
 import com.example.backend.security.access.ClinicalReader;
-import com.example.backend.security.access.ClinicalWriter;
+import com.example.backend.security.access.PatientProductWriter;
 import com.example.backend.services.PatientProductService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -35,7 +35,7 @@ public class PatientProductController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    @ClinicalWriter
+    @PatientProductWriter
     public PatientProductResponse add(
             @PathVariable UUID id,
             @Valid @RequestBody AddPatientProductRequest request
@@ -44,7 +44,7 @@ public class PatientProductController {
     }
 
     @PutMapping("/{patientProductId}/discontinue")
-    @ClinicalWriter
+    @PatientProductWriter
     public PatientProductResponse discontinue(
             @PathVariable UUID id,
             @PathVariable UUID patientProductId

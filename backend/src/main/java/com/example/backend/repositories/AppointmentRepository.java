@@ -30,6 +30,19 @@ public interface AppointmentRepository extends JpaRepository<Appointment, UUID> 
         @EntityGraph(attributePaths = {"patient", "patient.user"})
         Page<Appointment> findAllByOrderByScheduledAtDesc(Pageable pageable);
 
+            @EntityGraph(attributePaths = {"patient", "patient.user"})
+            @Query("""
+                    select a from Appointment a
+                    where exists (
+                        select s.id from AppointmentSession s
+                        where s.appointment = a
+                          and s.practitioner.userId = :doctorUserId
+                    )
+                    order by a.scheduledAt desc
+                    """)
+            Page<Appointment> findAllForDoctor(
+                    @Param("doctorUserId") UUID doctorUserId, Pageable pageable);
+
     // Ordered in SQL, so a page is a slice of the run, not sorted alone.
     Page<Appointment> findByPatientUserIdOrderByScheduledAtAsc(UUID patientUserId, Pageable pageable);
 
@@ -68,13 +81,18 @@ public interface AppointmentRepository extends JpaRepository<Appointment, UUID> 
             @Param("to") Instant to,
             @Param("excludedId") UUID excludedId);
 
-    // Booked, not yet started, soonest first.
+                // Booked visits with work still to come, soonest session first.
     @EntityGraph(attributePaths = {"patient", "patient.user"})
     @Query("""
             select a from Appointment a
             where a.patient.userId = :patientUserId
               and a.status = BOOKED
-              and a.scheduledAt >= :now
+                                                        and (a.scheduledAt >= :now or exists (
+                                                                        select 1 from AppointmentSession s
+                                                                        where s.appointment = a
+                                                                                and s.status = PLANNED
+                                                                                and s.startTime >= :now
+                                                        ))
               and not exists (select 1 from Appointment r where r.replaces = a)
             order by a.scheduledAt asc, a.id asc
             """)
@@ -83,12 +101,20 @@ public interface AppointmentRepository extends JpaRepository<Appointment, UUID> 
             @Param("now") Instant now,
             Pageable pageable);
 
-    // Begun or cancelled, most recent first.
+                // Cancelled or fully started visits, most recent first.
     @EntityGraph(attributePaths = {"patient", "patient.user"})
     @Query("""
             select a from Appointment a
             where a.patient.userId = :patientUserId
-              and (a.status = CANCELLED or a.scheduledAt < :now)
+                                                        and (a.status = CANCELLED or (
+                                                                        a.scheduledAt < :now
+                                                                        and not exists (
+                                                                                        select 1 from AppointmentSession s
+                                                                                        where s.appointment = a
+                                                                                                and s.status = PLANNED
+                                                                                                and s.startTime >= :now
+                                                                        )
+                                                        ))
               and not exists (select 1 from Appointment r where r.replaces = a)
             order by a.scheduledAt desc, a.id desc
             """)

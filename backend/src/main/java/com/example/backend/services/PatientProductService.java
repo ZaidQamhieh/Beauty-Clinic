@@ -7,10 +7,12 @@ import com.example.backend.entities.ActivityAction;
 import com.example.backend.entities.PatientProduct;
 import com.example.backend.entities.PatientProfile;
 import com.example.backend.entities.Product;
+import com.example.backend.entities.PatientProduct.ProductSource;
 import com.example.backend.repositories.PatientProductRepository;
 import com.example.backend.repositories.PatientProfileRepository;
 import com.example.backend.repositories.ProductRepository;
 import com.example.backend.security.CurrentUser;
+import com.example.backend.security.Role;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -41,6 +43,11 @@ public class PatientProductService {
 
     @Transactional
     public PatientProductResponse add(UUID patientUserId, AddPatientProductRequest request) {
+        if (currentUser.hasRole(Role.PATIENT)
+                && request.source() != ProductSource.PATIENT_OWN) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN, "Patients may only add products they own");
+        }
         PatientProfile patient = patients.findById(patientUserId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No such patient"));
         Product product = products.findById(request.productId())

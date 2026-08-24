@@ -274,6 +274,7 @@ public class AppointmentSessionService {
         lockVisit(appointmentId);
 
         AppointmentSession session = require(appointmentId, sessionId);
+        assertAssignedDoctor(session);
         assertStarted(session);
 
         return transition(session, SessionStatus.COMPLETED);
@@ -300,6 +301,14 @@ public class AppointmentSessionService {
         if (session.getStartTime().isAfter(clock.instant())) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT, "That treatment has not started yet");
+        }
+    }
+
+    private void assertAssignedDoctor(AppointmentSession session) {
+        if (currentUser.hasRole(com.example.backend.security.Role.DOCTOR)
+                && !session.getPractitioner().getUserId().equals(currentUser.requireId())) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN, "Doctors may only update their assigned sessions");
         }
     }
 

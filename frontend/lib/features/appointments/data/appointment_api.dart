@@ -167,6 +167,20 @@ class AppointmentApi {
     }
   }
 
+  Future<AppointmentSession> markAttended(
+    String appointmentId,
+    String sessionId,
+  ) async {
+    try {
+      final response = await _client.put<Map<String, dynamic>>(
+        '/api/appointments/$appointmentId/sessions/$sessionId/attended',
+      );
+      return AppointmentSession.fromJson(response.data!);
+    } on DioException catch (error) {
+      throw _mapError(error);
+    }
+  }
+
   Future<AppointmentPage> _page(String path, int page, int size) async {
     try {
       final response = await _client.get<Map<String, dynamic>>(

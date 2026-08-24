@@ -90,3 +90,35 @@ class ProductInput {
     'ingredients': ingredients,
   };
 }
+
+class PatientProductRecord {
+  const PatientProductRecord({
+    required this.id,
+    required this.productId,
+    required this.brand,
+    required this.productType,
+    required this.source,
+    this.startedOn,
+    this.discontinuedOn,
+  });
+
+  final String id;
+  final String productId;
+  final String brand;
+  final String productType;
+  final String source;
+  final String? startedOn;
+  final String? discontinuedOn;
+
+  factory PatientProductRecord.fromJson(Map<String, dynamic> json) {
+    return PatientProductRecord(
+      id: json['id'].toString(),
+      productId: json['productId'].toString(),
+      brand: json['brand'].toString(),
+      productType: json['productType'].toString(),
+      source: json['source'].toString(),
+      startedOn: json['startedOn']?.toString(),
+      discontinuedOn: json['discontinuedOn']?.toString(),
+    );
+  }
+}

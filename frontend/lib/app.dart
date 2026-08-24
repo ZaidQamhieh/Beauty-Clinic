@@ -243,6 +243,7 @@ class _MainRootControllerState extends State<MainRootController> {
       'my_profile',
       'doctor_availability',
       'patients',
+      'appointments',
       'clinical_forms',
       'consultations',
       'products',
@@ -253,7 +254,6 @@ class _MainRootControllerState extends State<MainRootController> {
       'my_profile',
       'patient_profile',
       'appointments',
-      'products',
     },
     'receptionist' => {
       'dashboard',
@@ -283,7 +283,10 @@ class _MainRootControllerState extends State<MainRootController> {
   void _onViewPatient(String patientId) {
     setState(() {
       _selectedPatientId = patientId;
-      _activeView = 'patients';
+      _patientProfileTabIndex = _activeRole == 'doctor'
+          ? PatientProfileScreen.overviewTabIndex
+          : 0;
+      _activeView = _activeRole == 'doctor' ? 'patients' : 'patients';
     });
   }
 
@@ -550,6 +553,18 @@ class _MainRootControllerState extends State<MainRootController> {
             apiClient: _apiClient,
           );
         }
+        if (_activeRole == 'doctor') {
+          return ClinicAppointmentsScreen(
+            key: const ValueKey('doctor_appointments'),
+            appointmentApi: _appointmentApi,
+            treatmentApi: _treatmentApi,
+            doctorApi: _doctorApi,
+            apiClient: _apiClient,
+            canAuthorSessionRecords: true,
+            doctorUserId: widget.authSession.userId,
+            onViewPatient: _onViewPatient,
+          );
+        }
         if (_activeRole == 'patient') {
           return AppointmentsScreen(
             key: ValueKey('my_appointments_$_chatRevision'),
@@ -608,6 +623,10 @@ class _MainRootControllerState extends State<MainRootController> {
             appointmentApi: _appointmentApi,
             productApi: _products,
             apiClient: _apiClient,
+            canManageProducts:
+                _activeRole == 'admin' || _activeRole == 'doctor',
+            canAuthorSessionRecords: _activeRole == 'doctor',
+            doctorUserId: widget.authSession.userId,
             onBack: () => setState(() => _selectedPatientId = null),
           );
         }
@@ -674,6 +693,9 @@ class _MainRootControllerState extends State<MainRootController> {
           productApi: _products,
           apiClient: _apiClient,
           initialTabIndex: _patientProfileTabIndex,
+          canChooseOwnProducts: _activeRole == 'patient',
+          canAuthorSessionRecords: _activeRole == 'doctor',
+          doctorUserId: widget.authSession.userId,
           onBackToAppointments: _fromBookingFlow
               ? () => setState(() {
                   _fromBookingFlow = false;

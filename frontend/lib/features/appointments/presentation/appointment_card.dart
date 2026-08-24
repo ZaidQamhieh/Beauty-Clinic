@@ -28,9 +28,8 @@ class UpcomingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final sessions = appointment.plannedSessions.isNotEmpty
-        ? appointment.plannedSessions
-        : appointment.sessions;
+    final sessions = [...appointment.sessions]
+      ..sort((a, b) => a.startTime.compareTo(b.startTime));
     return _AppointmentCard(
       appointment: appointment,
       // Still to come, else all of them.
@@ -123,13 +122,19 @@ class HistoryCard extends StatelessWidget {
   // Visit outcome, read from its treatments.
   static String historyStatus(Appointment appointment) {
     if (!appointment.isBooked) return 'Cancelled';
+
     final sessions = appointment.sessions;
-    if (sessions.any((s) => s.status == 'COMPLETED')) return 'Completed';
     if (sessions.isEmpty) return 'Pending';
+    if (sessions.every((s) => s.status == 'COMPLETED')) return 'Completed';
     if (sessions.every((s) => s.status == 'CANCELLED')) return 'Cancelled';
-    // Nothing delivered and nothing left planned.
-    if (sessions.every((s) => !s.isPlanned)) return 'Missed';
-    // Past, but no outcome was recorded.
+    if (sessions.every((s) => s.status == 'NO_SHOW')) return 'Missed';
+
+    // A visit is only fully complete when every treatment in it is complete.
+    // If any session remains planned or is still pending, the appointment stays pending.
+    final hasPlanned = sessions.any((s) => s.isPlanned);
+    if (sessions.any((s) => s.status == 'COMPLETED') && !hasPlanned) {
+      return 'Completed';
+    }
     return 'Pending';
   }
 }
@@ -174,6 +179,14 @@ class _AppointmentCard extends StatelessWidget {
         }
       }
     }
+    final headerTime = highlightNext && sessions.isNotEmpty
+        ? sessions
+              .firstWhere(
+                (session) => session.isPlanned,
+                orElse: () => sessions.first,
+              )
+              .startTime
+        : appointment.scheduledAt;
 
     return Opacity(
       opacity: _muted ? 0.6 : 1,
@@ -195,8 +208,8 @@ class _AppointmentCard extends StatelessWidget {
                 children: [
                   Flexible(
                     child: Text(
-                      '${BookingFormat.day(appointment.scheduledAt)} · '
-                      '${BookingFormat.time12(appointment.scheduledAt)}',
+                      '${BookingFormat.day(headerTime)} · '
+                      '${BookingFormat.time12(headerTime)}',
                       style: AppTypography.labelLarge(),
                     ),
                   ),
