@@ -93,16 +93,18 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
       color: AppColors.rose,
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildWelcome(firstName),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
             _buildSnapshot(skinType, formComplete),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
+            _buildNextVisit(next),
+            const SizedBox(height: 16),
             _buildUpcomingTreatments(),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
             _buildQuickActions(),
           ],
         ),
@@ -113,7 +115,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
   Widget _buildWelcome(String firstName) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [AppColors.bgRose, AppColors.bgLavender],
@@ -128,6 +130,13 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
             decoration: const BoxDecoration(
               color: AppColors.bgCard,
               shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.shadow,
+                  blurRadius: 8,
+                  offset: Offset(0, 2),
+                ),
+              ],
             ),
             child: const Icon(
               Icons.spa_outlined,
@@ -161,35 +170,85 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     return _section(
       title: 'Your Health Snapshot',
       icon: Icons.favorite_outline,
-      child: Wrap(
-        spacing: 12,
-        runSpacing: 12,
+      child: Row(
         children: [
-          _snapshotItem(
-            'Skin Type',
-            skinType == null ? 'Not recorded' : _humanize(skinType),
-            Icons.face_retouching_natural,
-            AppColors.rose,
-          ),
-          _clickable(
-            onTap: widget.onOpenClinicalForm,
+          Expanded(
             child: _snapshotItem(
-              'Clinical Form',
-              formComplete ? 'Complete' : 'Needs attention',
-              formComplete
-                  ? Icons.verified_outlined
-                  : Icons.assignment_late_outlined,
-              formComplete ? AppColors.sage : AppColors.gold,
+              'Skin Type',
+              skinType == null ? 'Not recorded' : _humanize(skinType),
+              Icons.face_retouching_natural,
+              AppColors.rose,
+              AppColors.rosePale,
             ),
           ),
-          _snapshotItem(
-            'Upcoming Visits',
-            '${_upcoming.length}',
-            Icons.calendar_today_outlined,
-            AppColors.lav,
+          const SizedBox(width: 12),
+          Expanded(
+            child: _clickable(
+              onTap: widget.onOpenClinicalForm,
+              child: _snapshotItem(
+                'Clinical Form',
+                formComplete ? 'Complete' : 'Needs attention',
+                formComplete
+                    ? Icons.verified_outlined
+                    : Icons.assignment_late_outlined,
+                formComplete ? AppColors.sage : AppColors.gold,
+                formComplete ? AppColors.sagePale : AppColors.goldPale,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _snapshotItem(
+              'Upcoming Visits',
+              '${_upcoming.length}',
+              Icons.calendar_today_outlined,
+              AppColors.lav,
+              AppColors.lavPale,
+            ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildNextVisit(Appointment? appointment) {
+    return _section(
+      title: 'Next Visit',
+      icon: Icons.event_available_outlined,
+      child: appointment == null
+          ? _emptyText('No upcoming visits scheduled.')
+          : _clickable(
+              onTap: () => widget.onOpenAppointments(appointment.id),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.bgRose,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.borderRose),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${BookingFormat.dayWithYear(appointment.scheduledAt)} · ${BookingFormat.time12(appointment.scheduledAt)}',
+                      style: AppTypography.labelLarge(),
+                    ),
+                    const SizedBox(height: 8),
+                    for (final session in appointment.plannedSessions)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Text(
+                          '${session.treatmentLabel} · ${session.practitionerName}',
+                          style: AppTypography.bodySmall(
+                            color: AppColors.textSub,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
     );
   }
 
@@ -270,7 +329,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: AppColors.bgCard,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.border),
       ),
       child: Column(
@@ -283,32 +342,47 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
               Text(title, style: AppTypography.labelLarge()),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 13),
           child,
         ],
       ),
     );
   }
 
-  Widget _snapshotItem(String label, String value, IconData icon, Color color) {
+  Widget _snapshotItem(
+    String label,
+    String value,
+    IconData icon,
+    Color color,
+    Color chipColor,
+  ) {
     return Container(
-      width: 180,
-      padding: const EdgeInsets.all(14),
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.bgAlt,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: color, size: 20),
+          Container(
+            width: 36,
+            height: 36,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: chipColor,
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Icon(icon, color: color, size: 18),
+          ),
           const SizedBox(height: 10),
           Text(
             label,
             style: AppTypography.bodySmall(color: AppColors.textMuted),
           ),
           const SizedBox(height: 3),
-          Text(value, style: AppTypography.labelLarge()),
+          Text(value, style: AppTypography.labelLarge().copyWith(fontSize: 18)),
         ],
       ),
     );
