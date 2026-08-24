@@ -7,12 +7,14 @@ import 'helpers/auth_test_fakes.dart';
 void main() {
   final now = DateTime.utc(2026, 8, 6, 12);
 
-  testWidgets('a login 401 shows only the generic credentials message', (
+  testWidgets('a login 401 shows the server credentials message', (
     tester,
   ) async {
     final store = MemoryTokenStore();
     final adapter = QueueAdapter([
-      (_) => jsonResponse(401, {'detail': 'raw server secret'}),
+      (_) => jsonResponse(401, {
+        'detail': 'Invalid credentials. 3 attempts remaining before lockout.',
+      }),
     ]);
     final session = testSession(adapter, store, now);
     addTearDown(session.dispose);
@@ -21,6 +23,11 @@ void main() {
       TickerMode(enabled: false, child: BeautyClinicApp(authSession: session)),
     );
     await tester.pumpAndSettle();
+
+    // Guests land on the marketing page first.
+    await tester.tap(find.byKey(const Key('guestLoginButton')));
+    await tester.pumpAndSettle();
+
     await tester.enterText(
       find.byKey(const Key('emailField')),
       'owner@example.com',
@@ -32,8 +39,10 @@ void main() {
     await tester.tap(find.byKey(const Key('loginButton')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Invalid credentials.'), findsOneWidget);
-    expect(find.textContaining('raw server secret'), findsNothing);
+    expect(
+      find.text('Invalid credentials. 3 attempts remaining before lockout.'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('an unauthenticated session renders login without an API error', (
@@ -49,6 +58,9 @@ void main() {
     await tester.pumpWidget(
       TickerMode(enabled: false, child: BeautyClinicApp(authSession: session)),
     );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('guestLoginButton')));
     await tester.pumpAndSettle();
 
     expect(find.text('Sign in'), findsOneWidget);

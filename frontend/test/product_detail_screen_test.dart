@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:beauty_clinic_app/core/widgets/skeleton.dart';
 import 'package:beauty_clinic_app/features/products/data/product.dart';
 import 'package:beauty_clinic_app/features/products/presentation/product_detail_screen.dart';
 import 'package:flutter/material.dart';
@@ -26,7 +27,7 @@ void main() {
       ),
     );
 
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.byType(SkeletonDetail), findsOneWidget);
 
     result.complete(product);
     await tester.pumpAndSettle();

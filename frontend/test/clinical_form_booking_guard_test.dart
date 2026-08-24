@@ -140,21 +140,13 @@ void main() {
 
         await tester.pumpAndSettle();
 
-        // Tap "New appointment" button
-        final newApptButton = find.text('New appointment');
-        expect(newApptButton, findsOneWidget);
-        await tester.tap(newApptButton);
+        // Quiet corner nudge, not a blocking dialog.
+        expect(find.text('Complete clinical form'), findsOneWidget);
+        expect(find.text('Clinical Form Required'), findsNothing);
+
+        await tester.tap(find.text('Complete clinical form'));
         await tester.pumpAndSettle();
 
-        // Verification: "Clinical Form Required" modal appears
-        expect(find.text('Clinical Form Required'), findsOneWidget);
-        expect(find.text('Fill Clinical Form'), findsOneWidget);
-
-        // Tap "Fill Clinical Form"
-        await tester.tap(find.text('Fill Clinical Form'));
-        await tester.pumpAndSettle();
-
-        // Verifies it navigated to forms
         expect(navigatedToForms, isTrue);
 
         client.close();
@@ -162,7 +154,7 @@ void main() {
     );
 
     testWidgets(
-      'Complete form shows reminder with Review/Modify and Continue buttons',
+      'Complete form shows a review nudge instead of a required one',
       (tester) async {
         bool navigatedToForms = false;
 
@@ -228,25 +220,11 @@ void main() {
 
         await tester.pumpAndSettle();
 
-        // Tap "New appointment" button
-        final newApptButton = find.text('New appointment');
-        expect(newApptButton, findsOneWidget);
-        await tester.tap(newApptButton);
-        await tester.pumpAndSettle();
+        expect(find.text('Review clinical form'), findsOneWidget);
+        expect(find.text('Complete clinical form'), findsNothing);
+        expect(find.text('Clinical Form Verified'), findsNothing);
 
-        // Verification: "Clinical Form Verified" modal appears
-        expect(find.text('Clinical Form Verified'), findsOneWidget);
-        expect(
-          find.text(
-            'Your clinical intake form has been completed and verified. Would you like to continue with booking, or review and update your health details first?',
-          ),
-          findsOneWidget,
-        );
-        expect(find.text('Review / Modify Form'), findsOneWidget);
-        expect(find.text('Continue to Booking'), findsOneWidget);
-
-        // Tap "Review / Modify Form"
-        await tester.tap(find.text('Review / Modify Form'));
+        await tester.tap(find.text('Review clinical form'));
         await tester.pumpAndSettle();
 
         expect(navigatedToForms, isTrue);
