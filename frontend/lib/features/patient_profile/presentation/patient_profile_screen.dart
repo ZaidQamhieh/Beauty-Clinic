@@ -1249,66 +1249,6 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
     );
   }
 
-  Widget _sessionRecordTile(SessionRecord record) {
-    final prescribedNames = record.prescribedProductIds
-        .map((id) {
-          final product = _prescribedProducts.firstWhere(
-            (item) => item.id == id,
-            orElse: () => Product(
-              id: id,
-              brand: 'Unknown',
-              productType: 'PRODUCT',
-              category: '',
-              stockQuantity: 0,
-              ingredients: const [],
-            ),
-          );
-          return '${product.brandLabel} ${product.typeLabel}';
-        })
-        .join(', ');
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.bgAlt,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Recorded ${record.createdAt.toLocal().toIso8601String().split('T').first}',
-            style: AppTypography.labelMedium(),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            record.note == null || record.note!.trim().isEmpty
-                ? 'No clinical note added.'
-                : record.note!,
-            style: AppTypography.bodySmall(),
-          ),
-          if (record.skinReaction != null && record.skinReaction != 'NONE')
-            Text(
-              'Skin reaction: ${_humanizeEnum(record.skinReaction!)}',
-              style: AppTypography.bodySmall(color: AppColors.textMuted),
-            ),
-          if (record.followUpDate != null)
-            Text(
-              'Follow-up: ${record.followUpDate}',
-              style: AppTypography.bodySmall(color: AppColors.textMuted),
-            ),
-          if (prescribedNames.isNotEmpty)
-            Text(
-              'Prescribed: $prescribedNames',
-              style: AppTypography.bodySmall(color: AppColors.textMuted),
-            ),
-        ],
-      ),
-    );
-  }
-
   Widget _productTile(String title, String subtitle, {Widget? trailing}) {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),

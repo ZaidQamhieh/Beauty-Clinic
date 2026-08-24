@@ -101,8 +101,6 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
             const SizedBox(height: 16),
             _buildSnapshot(skinType, formComplete),
             const SizedBox(height: 16),
-            _buildNextVisit(next),
-            const SizedBox(height: 16),
             _buildUpcomingTreatments(),
             const SizedBox(height: 16),
             _buildQuickActions(),
@@ -208,47 +206,6 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildNextVisit(Appointment? appointment) {
-    return _section(
-      title: 'Next Visit',
-      icon: Icons.event_available_outlined,
-      child: appointment == null
-          ? _emptyText('No upcoming visits scheduled.')
-          : _clickable(
-              onTap: () => widget.onOpenAppointments(appointment.id),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppColors.bgRose,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.borderRose),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${BookingFormat.dayWithYear(appointment.scheduledAt)} · ${BookingFormat.time12(appointment.scheduledAt)}',
-                      style: AppTypography.labelLarge(),
-                    ),
-                    const SizedBox(height: 8),
-                    for (final session in appointment.plannedSessions)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
-                        child: Text(
-                          '${session.treatmentLabel} · ${session.practitionerName}',
-                          style: AppTypography.bodySmall(
-                            color: AppColors.textSub,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
     );
   }
 
