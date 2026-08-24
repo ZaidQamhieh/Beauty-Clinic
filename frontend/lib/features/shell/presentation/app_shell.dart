@@ -189,50 +189,6 @@ class _AppShellState extends State<AppShell> {
             },
           ),
         ),
-
-        // Role status card, bottom of sidebar.
-        if (!isCollapsed) ...[
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: const Color(0x15FFFFFF),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0x20FFFFFF)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.auto_awesome,
-                    color: AppColors.gold,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Yasmine Derma',
-                          style: AppTypography.labelMedium(
-                            color: AppColors.white,
-                          ),
-                        ),
-                        Text(
-                          'System v2.4 Active',
-                          style: AppTypography.labelSmall(
-                            color: AppColors.textSide,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
       ],
     );
   }
