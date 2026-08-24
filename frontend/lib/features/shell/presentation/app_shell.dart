@@ -5,15 +5,14 @@ import '../../../../core/widgets/yasmine_logo.dart';
 import 'widgets/header_bar.dart';
 import 'widgets/sidebar_item.dart';
 
-/// Main App Shell Component for Yasmine Beauty Clinic
-/// Manages top-level layout, drawer/sidebar, and role-specific view routing.
+/// Top-level layout: sidebar, drawer, header, content.
 class AppShell extends StatefulWidget {
   final Widget child;
   final String activeRole;
   final String activeView;
   final ValueChanged<String> onViewChanged;
 
-  /// Null on pages that own their own booking action, which is most of them.
+  /// Null where the page owns booking itself.
   final VoidCallback? onBookClick;
   final VoidCallback? onLogout;
   final VoidCallback? onProfileTap;
@@ -99,7 +98,7 @@ class _AppShellState extends State<AppShell> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
           child: Row(
             children: [
-              // Collapsed rail has no room; logo expands it.
+              // Tapping the logo expands the rail.
               if (!isDrawer && isCollapsed)
                 InkWell(
                   borderRadius: BorderRadius.circular(20),
@@ -191,7 +190,7 @@ class _AppShellState extends State<AppShell> {
           ),
         ),
 
-        // Quick Role Status Card at bottom of Sidebar
+        // Role status card, bottom of sidebar.
         if (!isCollapsed) ...[
           Padding(
             padding: const EdgeInsets.all(16),
@@ -310,11 +309,6 @@ class _AppShellState extends State<AppShell> {
         ];
       case 'patient':
         return [
-          {
-            'id': 'landing',
-            'label': 'Clinic Landing Page',
-            'icon': Icons.home_outlined,
-          },
           {'id': 'dashboard', 'label': 'Dashboard', 'icon': Icons.spa_outlined},
           {
             'id': 'my_profile',
@@ -373,11 +367,6 @@ class _AppShellState extends State<AppShell> {
       case 'admin':
       default:
         return [
-          {
-            'id': 'landing',
-            'label': 'Clinic Landing Page',
-            'icon': Icons.space_dashboard_outlined,
-          },
           {
             'id': 'my_profile',
             'label': 'My Profile',

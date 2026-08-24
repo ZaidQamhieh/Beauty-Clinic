@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/widgets/skeleton.dart';
 import '../../../network/api_client.dart';
 import '../../appointments/data/appointment.dart';
 import '../../appointments/data/appointment_api.dart';
@@ -11,7 +12,7 @@ import '../../products/data/product.dart';
 import '../../products/data/product_api.dart';
 import 'widgets/clinical_intake_tab.dart';
 
-/// Patient EHR & Profile View Screen (100% Database-Driven)
+/// Patient EHR and profile view.
 class PatientProfileScreen extends StatefulWidget {
   static const int overviewTabIndex = 0;
   static const int upcomingTreatmentsTabIndex = 0;
@@ -189,7 +190,7 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
       }
     } catch (e) {
       if (!mounted) return;
-      // Fallback to clinic products catalog if patient-specific products 404
+      // Falls back to clinic catalog on 404.
       if (widget.productApi != null) {
         try {
           final catalog = await widget.productApi!.list();
@@ -217,12 +218,7 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(48.0),
-          child: CircularProgressIndicator(),
-        ),
-      );
+      return const SkeletonDetail();
     }
 
     return SingleChildScrollView(
@@ -451,7 +447,7 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
 
   Widget _buildHistoryTab() {
     if (_loadingHistory) {
-      return const Center(child: CircularProgressIndicator());
+      return const SkeletonList();
     }
 
     if (_historyError != null) {
@@ -616,7 +612,7 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
 
   Widget _buildUpcomingTreatmentsTab() {
     if (_loadingUpcoming) {
-      return const Center(child: CircularProgressIndicator());
+      return const SkeletonList();
     }
     if (_upcomingError != null) {
       return Center(
@@ -685,7 +681,7 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
 
   Widget _buildProductsTab() {
     if (_loadingProducts) {
-      return const Center(child: CircularProgressIndicator());
+      return const SkeletonList();
     }
 
     if (_productsError != null) {

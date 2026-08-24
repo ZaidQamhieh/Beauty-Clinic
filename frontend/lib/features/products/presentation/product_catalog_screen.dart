@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/widgets/app_dropdown.dart';
+import '../../../core/widgets/skeleton.dart';
 import '../data/product.dart';
 import '../data/product_api.dart';
 import 'product_detail_screen.dart';
@@ -124,7 +126,7 @@ class _ProductCatalogScreenState extends State<ProductCatalogScreen> {
               future: _products,
               builder: (context, snapshot) {
                 if (snapshot.connectionState != ConnectionState.done) {
-                  return const Center(child: CircularProgressIndicator());
+                  return const SkeletonGrid();
                 }
                 if (snapshot.hasError) {
                   return Center(
@@ -221,7 +223,7 @@ class _ProductFormState extends State<_ProductForm> {
     String value,
     ValueChanged<String> onChanged,
   ) {
-    return DropdownButtonFormField<String>(
+    return AppDropdownField<String>(
       initialValue: value,
       decoration: InputDecoration(labelText: label),
       items: values

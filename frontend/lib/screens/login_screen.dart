@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../auth/auth_session.dart';
@@ -11,10 +13,14 @@ class LoginScreen extends StatefulWidget {
     super.key,
     required this.authSession,
     required this.onRegister,
+    this.onBack,
   });
 
   final AuthSession authSession;
   final VoidCallback onRegister;
+
+  // Shown as "Back to home" when set.
+  final VoidCallback? onBack;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -28,9 +34,11 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _submitting = false;
   bool _obscurePassword = true;
   String? _errorMessage;
+  OverlayEntry? _alertEntry;
 
   @override
   void dispose() {
+    _alertEntry?.remove();
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -41,6 +49,7 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
+    _dismissAlert();
     setState(() {
       _submitting = true;
       _errorMessage = null;
@@ -51,9 +60,18 @@ class _LoginScreenState extends State<LoginScreen> {
         email: _emailController.text,
         password: _passwordController.text,
       );
-    } on InvalidCredentialsException {
+    } on InvalidCredentialsException catch (error) {
       if (mounted) {
-        setState(() => _errorMessage = 'Invalid credentials.');
+        setState(() => _errorMessage = error.message);
+      }
+    } on AccountLockedException catch (error) {
+      if (mounted) {
+        setState(() => _errorMessage = error.message);
+        _showLockedBanner(error.message);
+      }
+    } on RateLimitedException catch (error) {
+      if (mounted) {
+        setState(() => _errorMessage = error.message);
       }
     } on AuthException {
       if (mounted) {
@@ -64,6 +82,29 @@ class _LoginScreenState extends State<LoginScreen> {
         setState(() => _submitting = false);
       }
     }
+  }
+
+  void _dismissAlert() {
+    _alertEntry?.remove();
+    _alertEntry = null;
+  }
+
+  void _showLockedBanner(String message) {
+    _dismissAlert();
+    late OverlayEntry entry;
+    entry = OverlayEntry(
+      builder: (_) => _TopAlert(
+        message: message,
+        onDismissed: () {
+          entry.remove();
+          if (identical(_alertEntry, entry)) {
+            _alertEntry = null;
+          }
+        },
+      ),
+    );
+    _alertEntry = entry;
+    Overlay.of(context).insert(entry);
   }
 
   @override
@@ -86,6 +127,18 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
           const Positioned.fill(child: FloatingPetals()),
+          if (widget.onBack != null)
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: TextButton.icon(
+                  onPressed: widget.onBack,
+                  icon: const Icon(Icons.arrow_back, size: 18),
+                  label: const Text('Back to home'),
+                  style: TextButton.styleFrom(foregroundColor: AppColors.text),
+                ),
+              ),
+            ),
           SafeArea(
             child: Center(
               child: SingleChildScrollView(
@@ -226,15 +279,37 @@ class _LoginScreenState extends State<LoginScreen> {
                                       )
                                     : const Text('Sign in'),
                               ),
-                              const SizedBox(height: 8),
-                              TextButton(
-                                key: const Key('registerLink'),
-                                onPressed: _submitting
-                                    ? null
-                                    : widget.onRegister,
-                                child: const Text(
-                                  'New patient? Create an account',
-                                ),
+                              const SizedBox(height: 20),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    'New patient?',
+                                    style: AppTypography.bodyMedium(
+                                      color: AppColors.textSub,
+                                    ),
+                                  ),
+                                  TextButton(
+                                    key: const Key('registerLink'),
+                                    onPressed: _submitting
+                                        ? null
+                                        : widget.onRegister,
+                                    style: TextButton.styleFrom(
+                                      minimumSize: Size.zero,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                      ),
+                                      tapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
+                                    ),
+                                    child: const Text(
+                                      'Create account',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
@@ -247,6 +322,110 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// Floating top toast, self-dismisses after 5s.
+class _TopAlert extends StatefulWidget {
+  const _TopAlert({required this.message, required this.onDismissed});
+
+  final String message;
+  final VoidCallback onDismissed;
+
+  @override
+  State<_TopAlert> createState() => _TopAlertState();
+}
+
+class _TopAlertState extends State<_TopAlert>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<Offset> _slide;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 220),
+    );
+    _slide = Tween<Offset>(
+      begin: const Offset(0, -1.2),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
+    _controller.forward();
+    _timer = Timer(const Duration(seconds: 5), _dismiss);
+  }
+
+  Future<void> _dismiss() async {
+    _timer?.cancel();
+    if (!mounted) return;
+    await _controller.reverse();
+    widget.onDismissed();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      top: 0,
+      left: 0,
+      right: 0,
+      child: SafeArea(
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: SlideTransition(
+            position: _slide,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Material(
+                elevation: 8,
+                shadowColor: Colors.black.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(16),
+                color: AppColors.rose,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 14,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.lock_clock_outlined, color: Colors.white),
+                      const SizedBox(width: 12),
+                      Flexible(
+                        child: Text(
+                          widget.message,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      GestureDetector(
+                        onTap: _dismiss,
+                        child: const Icon(
+                          Icons.close,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

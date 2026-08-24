@@ -4,6 +4,8 @@ import com.example.backend.dtos.LoginRequest;
 import com.example.backend.dtos.RefreshTokenRequest;
 import com.example.backend.dtos.RegisterRequest;
 import com.example.backend.dtos.TokenResponse;
+import com.example.backend.exception.AccountLockedException;
+import com.example.backend.exception.InvalidCredentialsException;
 
 import com.example.backend.entities.PatientProfile;
 import com.example.backend.entities.UserAccount;
@@ -42,7 +44,7 @@ public class AuthService {
 
     @Transactional
     public TokenResponse register(RegisterRequest request) {
-        // One answer for both, so the endpoint never confirms a phone number outright.
+        // One answer for both; no phone enumeration.
         boolean taken = users.findByEmailIgnoreCase(request.email()).isPresent()
                 || (request.phone() != null && users.existsByPhone(request.phone()));
 
@@ -51,7 +53,7 @@ public class AuthService {
                     HttpStatus.CONFLICT, "An account with those details already exists");
         }
 
-        // Role is fixed here, never read from the body: self-registration cannot mint staff.
+        // Role fixed here; self-registration cannot mint staff.
         UserAccount account = new UserAccount(
                 request.email(), null, request.firstName(), request.lastName(), Role.PATIENT
         );
@@ -59,7 +61,7 @@ public class AuthService {
         account.setDateOfBirth(request.dateOfBirth());
         account.setGender(request.gender());
 
-        // The only path that may set a password, so user_account_credentials always holds.
+        // Only path allowed to set a password.
         account.activateWith(passwordEncoder.encode(request.password()));
         users.save(account);
 
@@ -104,13 +106,17 @@ public class AuthService {
 
         } catch (AuthenticationException failure) {
 
-                if (countsAsGuess(failure)) {
-                        lockouts.recordFailure(identifier);
-                }
-
                 activityLogs.recordFailedLogin(
                         attemptedIdentifier
                 );
+
+                if (countsAsGuess(failure)) {
+                        var outcome = lockouts.recordFailure(identifier);
+                        if (outcome.lockedUntil() != null) {
+                                throw new AccountLockedException(outcome.lockedUntil());
+                        }
+                        throw new InvalidCredentialsException(outcome.remainingAttempts());
+                }
 
                 throw failure;
         }
@@ -144,7 +150,7 @@ public class AuthService {
       );
     }
 
-    // Locked, unclaimed and disabled are not password guesses.
+    // Locked and disabled are not password guesses.
     private boolean countsAsGuess(AuthenticationException failure) {
         return !(failure instanceof LockedException)
                 && !(failure instanceof DisabledException);
@@ -168,7 +174,7 @@ public class AuthService {
 
         var accessToken = accessTokens.issue(principal, rotatedToken.sessionId());
 
-        // Reloaded from the account, so a role changed mid-session reaches the client here.
+        // Reflects a role changed mid-session.
         return new TokenResponse(
                 accessToken.value(),
                 rotatedToken.value(),

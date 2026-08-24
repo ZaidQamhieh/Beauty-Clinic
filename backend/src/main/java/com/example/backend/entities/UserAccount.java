@@ -22,7 +22,7 @@ import java.time.LocalDate;
 import java.util.Locale;
 import java.util.UUID;
 
-// One row per person. A role profile hangs off it.
+// One row per person, role profile attached.
 @Entity
 @Table(name = "user_account")
 @SoftDelete
@@ -35,7 +35,7 @@ public class UserAccount {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    // Not unique = true: uq_user_account_email is scoped to live rows, so a soft delete frees it.
+    // uq_user_account_email scopes to live rows only.
     @Email
     @NotBlank
     @Column(nullable = false)
@@ -44,7 +44,7 @@ public class UserAccount {
     @Column(length = 30)
     private String phone;
 
-    // Null until claimed: reception registers walk-ins, who sit at INVITED.
+    // Every registration path requires a password now.
     @Column(name = "password_hash")
     private String passwordHash;
 
@@ -112,7 +112,7 @@ public class UserAccount {
         return status == AccountStatus.ACTIVE;
     }
 
-    // Mirrors user_account_credentials: only this path may activate, so setStatus cannot break it.
+    // Only path that may activate an account.
     public void activateWith(String passwordHash) {
         if (passwordHash == null || passwordHash.isBlank()) {
             throw new IllegalArgumentException("An active account must have a password");
@@ -138,7 +138,6 @@ public class UserAccount {
 
     public enum AccountStatus {
         ACTIVE,
-        INVITED,
         DEACTIVATED
     }
 }

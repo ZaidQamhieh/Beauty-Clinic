@@ -3,6 +3,8 @@ import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/widgets/app_dropdown.dart';
+import '../../../core/widgets/skeleton.dart';
 import '../../../network/api_client.dart';
 import '../data/appointment.dart';
 import '../data/appointment_api.dart';
@@ -11,7 +13,7 @@ import '../data/doctor_summary.dart';
 import '../data/treatment_api.dart';
 import 'booking_flow_sheet.dart';
 
-/// Clinic-wide appointment workspace for administrators and clinic staff.
+/// Clinic-wide appointment workspace for staff.
 class ClinicAppointmentsScreen extends StatefulWidget {
   const ClinicAppointmentsScreen({
     super.key,
@@ -279,24 +281,13 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
           Text('View appointments', style: AppTypography.displaySubtitle()),
           const SizedBox(height: 16),
           _buildScheduleFilters(),
-          const SizedBox(height: 16),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(width: 320, child: _buildTimeFilter()),
-                const SizedBox(width: 12),
-                SizedBox(width: 320, child: _buildStatusFilter()),
-              ],
-            ),
-          ),
+          const SizedBox(height: 18),
+          _buildTimeFilter(),
+          const SizedBox(height: 14),
+          _buildStatusFilter(),
           const SizedBox(height: 20),
           if (_loading)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 80),
-              child: Center(child: CircularProgressIndicator()),
-            )
+            const SizedBox(height: 400, child: SkeletonList())
           else if (_error != null)
             _buildError()
           else if (appointments.isEmpty)
@@ -335,7 +326,7 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
           future: widget.doctorApi.list(),
           builder: (context, snapshot) {
             final doctors = snapshot.data ?? const <DoctorSummary>[];
-            return DropdownButton<String?>(
+            return AppDropdown<String?>(
               value: _doctorFilter,
               hint: const Text('Any doctor'),
               items: [
@@ -366,54 +357,43 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
     );
   }
 
+  // Uppercase label over a chip row.
+  Widget _quietFilterGroup({required String label, required List<Widget> chips}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label.toUpperCase(),
+          style: AppTypography.labelSmall(
+            color: AppColors.textMuted,
+          ).copyWith(letterSpacing: 0.8),
+        ),
+        const SizedBox(height: 8),
+        Wrap(spacing: 8, runSpacing: 8, children: chips),
+      ],
+    );
+  }
+
   Widget _buildTimeFilter() {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.bgAlt,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(
-                Icons.schedule_outlined,
-                size: 18,
-                color: AppColors.rose,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Filter by time',
-                style: AppTypography.labelMedium(color: AppColors.text),
-              ),
-            ],
+    return _quietFilterGroup(
+      label: 'Time',
+      chips: [
+        for (final filter in _TimeFilter.values)
+          ChoiceChip(
+            label: Text(_timeFilterLabel(filter)),
+            selected: _timeFilter == filter,
+            onSelected: (_) => setState(() => _timeFilter = filter),
+            showCheckmark: true,
+            selectedColor: AppColors.rose,
+            checkmarkColor: Colors.white,
+            side: BorderSide(
+              color: _timeFilter == filter ? AppColors.rose : AppColors.border,
+            ),
+            labelStyle: AppTypography.labelMedium(
+              color: _timeFilter == filter ? Colors.white : AppColors.textSub,
+            ),
           ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final filter in _TimeFilter.values)
-                ChoiceChip(
-                  label: Text(_timeFilterLabel(filter)),
-                  selected: _timeFilter == filter,
-                  onSelected: (_) => setState(() => _timeFilter = filter),
-                  showCheckmark: true,
-                  selectedColor: AppColors.rose,
-                  checkmarkColor: Colors.white,
-                  labelStyle: AppTypography.labelMedium(
-                    color: _timeFilter == filter
-                        ? Colors.white
-                        : AppColors.textSub,
-                  ),
-                ),
-            ],
-          ),
-        ],
-      ),
+      ],
     );
   }
 
@@ -451,58 +431,29 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
   }
 
   Widget _buildStatusFilter() {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.bgAlt,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(
-                Icons.filter_alt_outlined,
-                size: 18,
-                color: AppColors.rose,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Filter by booking status',
-                style: AppTypography.labelMedium(color: AppColors.text),
-              ),
-            ],
+    return _quietFilterGroup(
+      label: 'Status',
+      chips: [
+        for (final status in const ['ALL', 'BOOKED', 'CANCELLED'])
+          ChoiceChip(
+            label: Text(_statusLabel(status)),
+            selected: _statusFilter == status,
+            onSelected: (_) => setState(() => _statusFilter = status),
+            showCheckmark: true,
+            selectedColor: AppColors.rose,
+            checkmarkColor: Colors.white,
+            side: BorderSide(
+              color: _statusFilter == status
+                  ? AppColors.rose
+                  : AppColors.border,
+            ),
+            labelStyle: AppTypography.labelMedium(
+              color: _statusFilter == status
+                  ? Colors.white
+                  : AppColors.textSub,
+            ),
           ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final status in const ['ALL', 'BOOKED', 'CANCELLED'])
-                ChoiceChip(
-                  label: Text(_statusLabel(status)),
-                  selected: _statusFilter == status,
-                  onSelected: (_) => setState(() => _statusFilter = status),
-                  showCheckmark: true,
-                  selectedColor: AppColors.rose,
-                  checkmarkColor: Colors.white,
-                  side: BorderSide(
-                    color: _statusFilter == status
-                        ? AppColors.rose
-                        : AppColors.border,
-                  ),
-                  labelStyle: AppTypography.labelMedium(
-                    color: _statusFilter == status
-                        ? Colors.white
-                        : AppColors.textSub,
-                  ),
-                ),
-            ],
-          ),
-        ],
-      ),
+      ],
     );
   }
 

@@ -4,12 +4,10 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../domain/form_field_schema.dart';
 
-/// Semantic error red. Not in [AppColors] yet — every other token there is
-/// a brand color, not a state color — so it's kept local to the forms
-/// feature until a shared one exists.
+// Local until a shared state color exists.
 const _kErrorColor = Color(0xFFB3261E);
 
-/// Renders a [FormFieldType.boolean] field as a themed switch row.
+/// Renders boolean fields as a switch row.
 class FormBooleanField extends StatelessWidget {
   const FormBooleanField({
     super.key,
@@ -31,7 +29,21 @@ class FormBooleanField extends StatelessWidget {
       value: value,
       activeThumbColor: AppColors.rose,
       onChanged: onChanged,
-      title: Text(field.label, style: AppTypography.labelLarge()),
+      title: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            width: 3,
+            height: 16,
+            decoration: BoxDecoration(
+              color: AppColors.rose,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(field.label, style: AppTypography.labelLarge()),
+        ],
+      ),
       subtitle: _subtitle(),
     );
   }

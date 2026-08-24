@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/widgets/skeleton.dart';
 import '../../../network/api_client.dart';
 import '../../forms/data/clinical_intake_api.dart';
 import '../../forms/data/clinical_intake_schema.dart';
@@ -76,6 +77,9 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
   /// Booked while the first load ran.
   Appointment? _pendingBooked;
 
+  /// Null while unknown; drives the corner nudge.
+  bool? _clinicalFormComplete;
+
   /// How late a patient may cancel.
   Duration? _cancellationCutoff;
 
@@ -84,7 +88,22 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     super.initState();
     widget.bookedSignal.addListener(_onExternalBooking);
     _useClinicRules();
+    _checkClinicalForm();
     _load();
+  }
+
+  // Best-effort; failure just hides the nudge.
+  Future<void> _checkClinicalForm() async {
+    if (widget.clinicalApi == null) return;
+    try {
+      final data = await widget.clinicalApi!.fetchOwn();
+      if (!mounted) return;
+      setState(() {
+        _clinicalFormComplete = ClinicalIntakeSchema.isComplete(data);
+      });
+    } catch (_) {
+      // Leave it null; the nudge stays hidden.
+    }
   }
 
   // Clinic zone and cutoff; failure keeps device's.
@@ -326,172 +345,20 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     }
   }
 
-  /// Verifies clinical form completion before opening the booking flow.
-  /// If incomplete, prompts the patient to fill it first and navigates to the form.
-  /// If complete, shows a reminder dialog with options to continue or review/modify.
-  Future<bool> _verifyClinicalFormBeforeBooking() async {
-    if (widget.clinicalApi == null) return true;
-
-    try {
-      final data = await widget.clinicalApi!.fetchOwn();
-      final isComplete = ClinicalIntakeSchema.isComplete(data);
-
-      if (!mounted) return false;
-
-      if (!isComplete) {
-        // Case A: Form is incomplete -> Must fill first
-        await showDialog<void>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-            title: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppColors.rose.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(
-                    Icons.assignment_late_outlined,
-                    color: AppColors.rose,
-                    size: 22,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Text(
-                    'Clinical Form Required',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-                  ),
-                ),
-              ],
-            ),
-            content: const Text(
-              'Please complete your clinical health & intake form before booking an appointment. '
-              'Our medical team requires this information to ensure your treatment is safe and tailored to you.',
-              style: TextStyle(
-                fontSize: 14,
-                color: AppColors.textSub,
-                height: 1.4,
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text(
-                  'Cancel',
-                  style: TextStyle(color: AppColors.textMuted),
-                ),
-              ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.rose,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                onPressed: () {
-                  Navigator.of(ctx).pop();
-                  widget.onNavigateToForms?.call();
-                },
-                child: const Text('Fill Clinical Form'),
-              ),
-            ],
-          ),
-        );
-        return false;
-      } else {
-        // Case B: Form is complete -> Remind and offer Review/Modify or Continue
-        final action = await showDialog<String>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-            title: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppColors.sage.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(
-                    Icons.assignment_turned_in_outlined,
-                    color: AppColors.sage,
-                    size: 22,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Text(
-                    'Clinical Form Verified',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-                  ),
-                ),
-              ],
-            ),
-            content: const Text(
-              'Your clinical intake form has been completed and verified. Would you like to continue with booking, or review and update your health details first?',
-              style: TextStyle(
-                fontSize: 14,
-                color: AppColors.textSub,
-                height: 1.4,
-              ),
-            ),
-            actions: [
-              OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.text,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                onPressed: () {
-                  Navigator.of(ctx).pop('modify');
-                  widget.onNavigateToForms?.call();
-                },
-                child: const Text('Review / Modify Form'),
-              ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.rose,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                onPressed: () => Navigator.of(ctx).pop('proceed'),
-                child: const Text('Continue to Booking'),
-              ),
-            ],
-          ),
-        );
-        return action == 'proceed';
-      }
-    } catch (_) {
-      // Fallback gracefully on network error so booking is not completely blocked
-      return true;
-    }
-  }
-
   // Fresh visit; same sheet, nothing to replace.
   Future<void> _book() async {
-    final canProceed = await _verifyClinicalFormBeforeBooking();
-    if (!canProceed || !mounted) return;
-
     Appointment? booked;
     final result = await showDialog<bool>(
       context: context,
-      builder: (_) => BookingFlowSheet(
+      builder: (dialogCtx) => BookingFlowSheet(
         treatmentApi: widget.treatmentApi,
         appointmentApi: widget.appointmentApi,
         doctorApi: widget.doctorApi,
         onBooked: (a) => booked = a,
+        onEditClinicalForm: () {
+          Navigator.of(dialogCtx).pop();
+          widget.onNavigateToForms?.call();
+        },
       ),
     );
     if (!mounted) return;
@@ -502,13 +369,10 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
   }
 
   Future<void> _reschedule(Appointment appointment) async {
-    final canProceed = await _verifyClinicalFormBeforeBooking();
-    if (!canProceed || !mounted) return;
-
     Appointment? booked;
     final result = await showDialog<bool>(
       context: context,
-      builder: (_) => BookingFlowSheet(
+      builder: (dialogCtx) => BookingFlowSheet(
         treatmentApi: widget.treatmentApi,
         appointmentApi: widget.appointmentApi,
         doctorApi: widget.doctorApi,
@@ -516,6 +380,10 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
         // Kept as-is unless the day changes.
         initialSessions: appointment.plannedSessions,
         onBooked: (a) => booked = a,
+        onEditClinicalForm: () {
+          Navigator.of(dialogCtx).pop();
+          widget.onNavigateToForms?.call();
+        },
       ),
     );
     if (!mounted) return;
@@ -534,42 +402,86 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    return Stack(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Text(
-                  'My appointments',
-                  style: AppTypography.displayTitle(),
-                ),
-              ),
-              _filtersButton(),
-              const SizedBox(width: 10),
-              // Booking button lives with its own list.
-              ElevatedButton.icon(
-                onPressed: _book,
-                style: ElevatedButton.styleFrom(
-                  minimumSize: const Size(0, 40),
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'My appointments',
+                      style: AppTypography.displayTitle(),
+                    ),
                   ),
-                ),
-                icon: const Icon(Icons.add_rounded, size: 16),
-                label: Text(
-                  'New appointment',
-                  style: AppTypography.labelMedium(color: AppColors.white),
-                ),
+                  _filtersButton(),
+                  const SizedBox(width: 10),
+                  // Booking button lives with its own list.
+                  ElevatedButton.icon(
+                    onPressed: _book,
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(0, 40),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                    ),
+                    icon: const Icon(Icons.add_rounded, size: 16),
+                    label: Text(
+                      'New appointment',
+                      style: AppTypography.labelMedium(color: AppColors.white),
+                    ),
+                  ),
+                ],
               ),
+              const SizedBox(height: 20),
+              Expanded(child: _content()),
             ],
           ),
-          const SizedBox(height: 20),
-          Expanded(child: _content()),
-        ],
+        ),
+        if (_clinicalFormComplete != null) _clinicalFormNudge(),
+      ],
+    );
+  }
+
+  // Quiet corner access; never blocks booking.
+  Widget _clinicalFormNudge() {
+    final complete = _clinicalFormComplete == true;
+    final accent = complete ? AppColors.sageDark : AppColors.roseDark;
+    return Positioned(
+      right: 20,
+      bottom: 20,
+      child: Material(
+        color: AppColors.bgCard,
+        borderRadius: BorderRadius.circular(20),
+        elevation: 3,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: () => widget.onNavigateToForms?.call(),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  complete
+                      ? Icons.assignment_turned_in_outlined
+                      : Icons.assignment_late_outlined,
+                  size: 16,
+                  color: accent,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  complete ? 'Review clinical form' : 'Complete clinical form',
+                  style: AppTypography.labelMedium(color: accent),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -605,7 +517,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
 
   Widget _content() {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const SkeletonList();
     }
     if (_error != null) {
       return BookingMessage(

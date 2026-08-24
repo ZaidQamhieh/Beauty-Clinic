@@ -466,7 +466,6 @@ class _StaffFormDialogState extends State<_StaffFormDialog> {
   _AccountStatus? _parseStatus(String value) {
     return switch (value.toUpperCase()) {
       'ACTIVE' => _AccountStatus.active,
-      'INVITED' => _AccountStatus.invited,
       'DEACTIVATED' => _AccountStatus.deactivated,
       _ => null,
     };
@@ -523,13 +522,12 @@ class _StaffFormDialogState extends State<_StaffFormDialog> {
   String _accountStatusLabel(_AccountStatus status) {
     return switch (status) {
       _AccountStatus.active => 'Active',
-      _AccountStatus.invited => 'Invited',
       _AccountStatus.deactivated => 'Deactivated',
     };
   }
 
   Widget _countryCodeField() {
-    return DropdownButtonFormField<String>(
+    return AppDropdownField<String>(
       initialValue: _selectedCountryCode,
       items: countryDialCodes
           .map(
@@ -592,7 +590,7 @@ class _StaffFormDialogState extends State<_StaffFormDialog> {
     required String Function(T) labelBuilder,
     required ValueChanged<T?> onChanged,
   }) {
-    return DropdownButtonFormField<T>(
+    return AppDropdownField<T>(
       initialValue: value,
       items: items
           .map(

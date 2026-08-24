@@ -5,6 +5,8 @@ import '../../auth/auth_session.dart';
 import '../../core/constants/country_dial_codes.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
+import '../../core/widgets/app_dropdown.dart';
+import '../../core/widgets/skeleton.dart';
 import '../../network/api_client.dart';
 
 part 'staff_form_dialog.dart';
@@ -239,7 +241,7 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
           future: _staffFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
+              return const SkeletonList();
             }
 
             if (snapshot.hasError) {
@@ -442,7 +444,7 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
                               SizedBox(
                                 width: 240,
                                 child:
-                                    DropdownButtonFormField<
+                                    AppDropdownField<
                                       _DoctorSpecialization?
                                     >(
                                       initialValue: _specializationFilter,
@@ -475,7 +477,7 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
                               SizedBox(
                                 width: 200,
                                 child:
-                                    DropdownButtonFormField<_ExperienceFilter>(
+                                    AppDropdownField<_ExperienceFilter>(
                                       initialValue: _experienceFilter,
                                       decoration: InputDecoration(
                                         labelText: 'Years of experience',

@@ -166,7 +166,6 @@ class _StaffRow extends StatelessWidget {
   String _statusLabel(String status) {
     return switch (status) {
       'ACTIVE' => 'Active',
-      'INVITED' => 'Invited',
       'DEACTIVATED' => 'Deactivated',
       _ => status,
     };
@@ -175,7 +174,6 @@ class _StaffRow extends StatelessWidget {
   Color _statusColor(String status) {
     return switch (status) {
       'ACTIVE' => AppColors.sageDark,
-      'INVITED' => AppColors.gold,
       'DEACTIVATED' => AppColors.textMuted,
       _ => AppColors.textMuted,
     };

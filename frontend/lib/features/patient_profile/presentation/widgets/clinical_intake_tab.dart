@@ -1,17 +1,14 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/widgets/skeleton.dart';
 import '../../../forms/data/clinical_intake_api.dart';
 import '../../../forms/data/clinical_intake_schema.dart';
 import '../../../forms/data/dynamic_form_api.dart';
 import '../../../forms/domain/form_controller.dart';
 import '../../../forms/presentation/dynamic_form_renderer.dart';
 
-/// Renders the clinical intake form for a patient.
-///
-/// Patients load the published schema and their saved answers from the dynamic
-/// form API. Staff editing another patient's fixed clinical profile still
-/// goes through [ClinicalIntakeApi].
+/// Renders a patient's clinical intake form.
 class ClinicalIntakeTab extends StatefulWidget {
   final ClinicalIntakeApi? clinicalApi;
   final DynamicFormApi? dynamicApi;
@@ -43,6 +40,7 @@ class _ClinicalIntakeTabState extends State<ClinicalIntakeTab> {
   String? _error;
   bool _isSaving = false;
   bool _controllerInitialized = false;
+  Map<String, dynamic> _initialValues = {};
 
   @override
   void initState() {
@@ -80,6 +78,7 @@ class _ClinicalIntakeTabState extends State<ClinicalIntakeTab> {
 
         if (!mounted) return;
 
+        _initialValues = initialValues;
         _controller = DynamicFormController(
           schema: schema,
           initialValues: initialValues,
@@ -89,12 +88,13 @@ class _ClinicalIntakeTabState extends State<ClinicalIntakeTab> {
         try {
           values = await widget.clinicalApi!.fetchForPatient(widget.patientId!);
         } catch (_) {
-          // If no previous clinical record exists, initialize with clean schema defaults
+          // No prior record: use schema defaults.
           values = ClinicalIntakeSchema.schema.defaultValues();
         }
 
         if (!mounted) return;
 
+        _initialValues = values;
         _controller = DynamicFormController(
           schema: ClinicalIntakeSchema.schema,
           initialValues: values,
@@ -114,6 +114,10 @@ class _ClinicalIntakeTabState extends State<ClinicalIntakeTab> {
         _error = 'Failed to load clinic forms: $e';
       });
     }
+  }
+
+  void _handleCancel() {
+    _controller.reset(_initialValues);
   }
 
   Future<void> _handleSave() async {
@@ -176,7 +180,7 @@ class _ClinicalIntakeTabState extends State<ClinicalIntakeTab> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const SkeletonList();
     }
 
     if (_error != null) {
@@ -267,6 +271,20 @@ class _ClinicalIntakeTabState extends State<ClinicalIntakeTab> {
                 ),
                 const SizedBox(width: 12),
               ],
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _isSaving ? null : _handleCancel,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.textSub,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text('Cancel edits'),
+                ),
+              ),
+              const SizedBox(width: 12),
               Expanded(
                 child: ElevatedButton.icon(
                   onPressed: _isSaving ? null : _handleSave,

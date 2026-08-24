@@ -286,18 +286,6 @@ class ChangedRulesTest {
         assertThat(new BCryptPasswordEncoder().matches("a-real-password", saved.getPasswordHash())).isTrue();
     }
 
-    @Test
-    void aWalkInWithNoPasswordStillLandsAtInvited() {
-        Registration registration = registrationService();
-
-        registration.service().register(deskSignup(null));
-
-        UserAccount saved = savedAccount(registration.users());
-        assertThat(saved.getStatus()).isEqualTo(AccountStatus.INVITED);
-        assertThat(saved.isEnabled()).isFalse();
-        assertThat(saved.isClaimed()).isFalse();
-    }
-
     // The whole point: a patient registered at the desk is bookable straight away.
     @Test
     void theIntakeFormIsTakenAtRegistrationSoThePatientIsBookable() {

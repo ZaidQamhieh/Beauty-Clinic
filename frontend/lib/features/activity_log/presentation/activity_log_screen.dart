@@ -1,6 +1,8 @@
 import 'package:beauty_clinic_app/auth/auth_session.dart';
 import 'package:beauty_clinic_app/core/theme/app_colors.dart';
 import 'package:beauty_clinic_app/core/theme/app_typography.dart';
+import 'package:beauty_clinic_app/core/widgets/app_dropdown.dart';
+import 'package:beauty_clinic_app/core/widgets/skeleton.dart';
 import 'package:beauty_clinic_app/network/api_client.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -119,7 +121,7 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
           ),
         ),
       ),
-      DropdownButton<String?>(
+      AppDropdown<String?>(
         value: _action,
         hint: const Text('All events'),
         items: [
@@ -148,7 +150,7 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
   );
 
   Widget _body() {
-    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_loading) return const SkeletonList();
     if (_error != null) {
       return Center(
         child: Text(

@@ -36,6 +36,7 @@ class BookingFlowSheet extends StatefulWidget {
     this.patientUserId,
     this.initialSessions = const [],
     this.onBooked,
+    this.onEditClinicalForm,
   });
 
   final TreatmentApi treatmentApi;
@@ -48,6 +49,9 @@ class BookingFlowSheet extends StatefulWidget {
   /// Kept as-is; a new day drops them.
   final List<AppointmentSession> initialSessions;
   final ValueChanged<Appointment>? onBooked;
+
+  /// Closes the sheet, then navigates.
+  final VoidCallback? onEditClinicalForm;
 
   @override
   State<BookingFlowSheet> createState() => _BookingFlowSheetState();
@@ -611,6 +615,25 @@ class _BookingFlowSheetState extends State<BookingFlowSheet>
             ],
           ),
         ),
+        if (widget.onEditClinicalForm != null) ...[
+          OutlinedButton.icon(
+            onPressed: widget.onEditClinicalForm,
+            icon: const Icon(Icons.assignment_outlined, size: 16),
+            label: const Text('Clinical form'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.roseDark,
+              backgroundColor: AppColors.rosePale,
+              side: const BorderSide(color: AppColors.borderRose, width: 1.4),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              textStyle: AppTypography.labelMedium(color: AppColors.roseDark)
+                  .copyWith(fontWeight: FontWeight.w700),
+            ),
+          ),
+          const SizedBox(width: 8),
+        ],
         IconButton(
           icon: const Icon(Icons.cancel_outlined, color: AppColors.textMuted),
           onPressed: () => Navigator.of(context).pop(),

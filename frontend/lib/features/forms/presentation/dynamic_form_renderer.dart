@@ -8,15 +8,6 @@ import 'widgets/form_multi_select_field.dart';
 import 'widgets/form_single_select_field.dart';
 
 /// Renders whatever [FormSchema] its [controller] holds.
-///
-/// The same widget draws the clinical intake form for a patient, the same
-/// form for staff editing someone else's record, and the live preview
-/// inside `FormBuilderAdminScreen` — none of them differ at this layer,
-/// only the schema and the values do.
-///
-/// Field order follows `controller.schema.fields`; add, remove, or reorder
-/// a field there (as a form-builder edit does) and this widget picks it up
-/// with no change of its own.
 class DynamicFormRenderer extends StatelessWidget {
   const DynamicFormRenderer({
     super.key,
@@ -39,7 +30,7 @@ class DynamicFormRenderer extends StatelessWidget {
             children: [
               for (final field in controller.schema.fields) ...[
                 _FieldCard(child: _buildField(field)),
-                const SizedBox(height: 16),
+                const SizedBox(height: 20),
               ],
             ],
           );
@@ -87,11 +78,18 @@ class _FieldCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
       decoration: BoxDecoration(
         color: AppColors.bgCard,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.shadow,
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: child,
     );

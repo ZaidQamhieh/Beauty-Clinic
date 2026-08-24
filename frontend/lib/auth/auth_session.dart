@@ -15,7 +15,18 @@ class AuthException implements Exception {
 }
 
 class InvalidCredentialsException extends AuthException {
-  const InvalidCredentialsException();
+  const InvalidCredentialsException(this.message);
+  final String message;
+}
+
+class AccountLockedException extends AuthException {
+  const AccountLockedException(this.message);
+  final String message;
+}
+
+class RateLimitedException extends AuthException {
+  const RateLimitedException(this.message);
+  final String message;
 }
 
 class AccountAlreadyExistsException extends AuthException {
@@ -62,7 +73,7 @@ class AuthSession extends ChangeNotifier {
   AuthStatus get status => _status;
   bool get isAuthenticated => _status == AuthStatus.authenticated;
 
-  /// The signed-in user's role, renewed on every rotation; null while signed out.
+  /// Renewed each rotation; null while signed out.
   Role? get role => _tokens?.role;
 
   static DateTime _utcNow() => DateTime.now().toUtc();
@@ -75,8 +86,7 @@ class AuthSession extends ChangeNotifier {
     try {
       _tokens = await _tokenStore.read();
     } catch (_) {
-      // An unreadable value cannot recover on its own. Clear it so the next
-      // launch starts from a clean, logged-out state.
+      // Unreadable value; clear it, start logged out.
       await _invalidateSession();
       return;
     }
@@ -93,8 +103,7 @@ class AuthSession extends ChangeNotifier {
       } on SessionExpiredException {
         return;
       } on AuthException {
-        // A temporary network failure should not force a re-login. The first
-        // authenticated request will try the refresh again.
+        // Network hiccup; next request retries the refresh.
       }
     }
 
@@ -111,8 +120,18 @@ class AuthSession extends ChangeNotifier {
       final tokens = _tokensFromResponse(response.data);
       await _replaceTokens(tokens);
     } on DioException catch (error) {
-      if (error.response?.statusCode == 401) {
-        throw const InvalidCredentialsException();
+      final statusCode = error.response?.statusCode;
+      final detail = _problemDetail(error.response?.data);
+      if (statusCode == 423) {
+        throw AccountLockedException(detail ?? 'Account temporarily locked.');
+      }
+      if (statusCode == 429) {
+        throw RateLimitedException(
+          detail ?? 'Too many attempts. Try again shortly.',
+        );
+      }
+      if (statusCode == 401) {
+        throw InvalidCredentialsException(detail ?? 'Invalid credentials.');
       }
       throw const AuthException();
     } on FormatException {
@@ -120,8 +139,15 @@ class AuthSession extends ChangeNotifier {
     }
   }
 
-  /// Creates a patient account. The server deliberately ignores roles here so
-  /// a public registration can never create an admin, staff, or doctor user.
+  // Pulls "detail" off a problem+json body.
+  String? _problemDetail(dynamic data) {
+    if (data is Map && data['detail'] is String) {
+      return data['detail'] as String;
+    }
+    return null;
+  }
+
+  /// Server ignores role; signup is always patient.
   Future<void> register({
     required String firstName,
     required String lastName,
@@ -168,9 +194,7 @@ class AuthSession extends ChangeNotifier {
       return null;
     }
 
-    // Another request may already have rotated the pair while this response
-    // was in flight. In that case retry with the current token without issuing
-    // a second refresh using the newly rotated refresh token.
+    // A sibling request may have rotated tokens.
     if (rejectedAccessToken != null &&
         rejectedAccessToken != tokens.accessToken) {
       return tokens.accessToken;
@@ -199,7 +223,7 @@ class AuthSession extends ChangeNotifier {
       try {
         await serverLogout;
       } on DioException {
-        // Local logout is final even when the server cannot be reached.
+        // Local logout stands even if unreachable.
       }
     }
 
@@ -235,9 +259,7 @@ class AuthSession extends ChangeNotifier {
       throw const SessionExpiredException();
     }
 
-    // A sibling browser tab may have rotated the refresh token since this tab
-    // started. Read storage immediately before refreshing and adopt a newer
-    // pair instead of submitting the stale in-memory token.
+    // A sibling tab may already have rotated.
     TokenPair? storedTokens;
     try {
       storedTokens = await _tokenStore.read();
@@ -346,7 +368,7 @@ class AuthSession extends ChangeNotifier {
     try {
       await _refreshTokens();
     } on SessionExpiredException {
-      // _performRefresh has already returned the app to the login screen.
+      // Already back at the login screen.
     } on AuthException {
       if (_tokens == null || _disposed) {
         return;
