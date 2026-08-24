@@ -1,14 +1,35 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/widgets/status_pill.dart';
+import '../../../../network/api_client.dart';
+import '../../appointments/data/appointment_api.dart';
+import '../../appointments/data/enum_label.dart';
+import '../../dashboard/data/doctor_dashboard_models.dart';
+import '../../dashboard/presentation/widgets/admin_analytics_charts.dart';
+import '../../doctor_availability/data/doctor_availability_api.dart';
+import '../../doctor_availability/presentation/widgets/availability_sessions_view.dart';
+import '../data/doctor_detail_api.dart';
 
-/// Doctor Profile & Roster View Screen
+/// Admin-facing doctor detail view: account overview, a day-by-day
+/// availability & sessions timeline, and statistics for one doctor.
 class DoctorProfileScreen extends StatefulWidget {
-  final VoidCallback? onBack;
-  final ValueChanged<String>? onPatientClick;
+  const DoctorProfileScreen({
+    super.key,
+    required this.doctorId,
+    required this.apiClient,
+    required this.appointmentApi,
+    required this.availabilityApi,
+    this.onBack,
+  });
 
-  const DoctorProfileScreen({super.key, this.onBack, this.onPatientClick});
+  final String doctorId;
+  final ApiClient apiClient;
+  final AppointmentApi appointmentApi;
+  final DoctorAvailabilityApi availabilityApi;
+  final VoidCallback? onBack;
 
   @override
   State<DoctorProfileScreen> createState() => _DoctorProfileScreenState();
@@ -17,12 +38,17 @@ class DoctorProfileScreen extends StatefulWidget {
 class _DoctorProfileScreenState extends State<DoctorProfileScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
-  String _selectedTimeSlot = '10:00 AM';
+  late final DoctorDetailApi _detailApi;
+  late Future<DoctorAccountDetail> _accountFuture;
+  late Future<DoctorLiveStatus> _liveStatusFuture;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
+    _detailApi = DoctorDetailApi(widget.apiClient);
+    _accountFuture = _detailApi.fetchAccount(widget.doctorId);
+    _liveStatusFuture = _detailApi.fetchLiveStatus(widget.doctorId);
   }
 
   @override
@@ -38,23 +64,39 @@ class _DoctorProfileScreenState extends State<DoctorProfileScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Top Navigation Back Bar
           if (widget.onBack != null)
             Padding(
               padding: const EdgeInsets.only(bottom: 16),
               child: TextButton.icon(
                 onPressed: widget.onBack,
                 icon: const Icon(Icons.arrow_back, size: 16),
-                label: const Text('Back to Dashboard'),
+                label: const Text('Back to Staff Management'),
               ),
             ),
 
-          // Doctor Header Profile Card
-          _buildDoctorHeaderCard(),
+          FutureBuilder<DoctorAccountDetail>(
+            future: _accountFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState != ConnectionState.done) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 48),
+                  child: Center(
+                    child: CircularProgressIndicator(color: AppColors.rose),
+                  ),
+                );
+              }
+              if (snapshot.hasError || !snapshot.hasData) {
+                return _ErrorCard(
+                  message:
+                      "Unable to load this doctor's profile.\n${snapshot.error ?? ''}",
+                );
+              }
+              return _buildDoctorHeaderCard(snapshot.data!);
+            },
+          ),
 
           const SizedBox(height: 24),
 
-          // Tabs Navigation
           TabBar(
             controller: _tabController,
             isScrollable: true,
@@ -65,24 +107,45 @@ class _DoctorProfileScreenState extends State<DoctorProfileScreen>
             unselectedLabelStyle: AppTypography.labelMedium(),
             tabs: const [
               Tab(text: 'Overview'),
-              Tab(text: 'Schedule & Slots'),
-              Tab(text: 'My Patients'),
-              Tab(text: 'Reviews & Ratings'),
+              Tab(text: 'Availability & Sessions'),
+              Tab(text: 'Statistics'),
             ],
           ),
 
           const SizedBox(height: 20),
 
-          // Tab Content Area
           SizedBox(
-            height: 520,
+            height: 700,
             child: TabBarView(
               controller: _tabController,
               children: [
-                _buildOverviewTab(),
-                _buildScheduleTab(),
-                _buildPatientsTab(),
-                _buildReviewsTab(),
+                FutureBuilder<DoctorAccountDetail>(
+                  future: _accountFuture,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState != ConnectionState.done) {
+                      return const Center(
+                        child: CircularProgressIndicator(color: AppColors.rose),
+                      );
+                    }
+                    if (snapshot.hasError || !snapshot.hasData) {
+                      return _ErrorCard(
+                        message:
+                            'Unable to load overview.\n${snapshot.error ?? ''}',
+                      );
+                    }
+                    return _OverviewTab(account: snapshot.data!);
+                  },
+                ),
+                AvailabilitySessionsView(
+                  fetchSessions: (date) =>
+                      widget.appointmentApi.scheduleFor(widget.doctorId, date),
+                  fetchAvailability: () =>
+                      widget.availabilityApi.listForDoctor(widget.doctorId),
+                ),
+                _StatisticsTab(
+                  doctorId: widget.doctorId,
+                  detailApi: _detailApi,
+                ),
               ],
             ),
           ),
@@ -91,7 +154,7 @@ class _DoctorProfileScreenState extends State<DoctorProfileScreen>
     );
   }
 
-  Widget _buildDoctorHeaderCard() {
+  Widget _buildDoctorHeaderCard(DoctorAccountDetail account) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -108,12 +171,12 @@ class _DoctorProfileScreenState extends State<DoctorProfileScreen>
               shape: BoxShape.circle,
               border: Border.all(color: AppColors.rose, width: 2),
             ),
-            child: const CircleAvatar(
+            child: CircleAvatar(
               radius: 40,
               backgroundColor: AppColors.bgRose,
               child: Text(
-                'HN',
-                style: TextStyle(
+                account.initials,
+                style: const TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
                   color: AppColors.rose,
@@ -133,51 +196,56 @@ class _DoctorProfileScreenState extends State<DoctorProfileScreen>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Dr. Hana Nasser',
+                          'Dr. ${account.fullName}',
                           style: AppTypography.displayTitle(),
                         ),
                         Text(
-                          'Senior Aesthetic Dermatologist · MB BCh, MD',
+                          account.specializations.isEmpty
+                              ? 'Doctor'
+                              : account.specializations
+                                    .map(humanizeEnum)
+                                    .join(' · '),
                           style: AppTypography.bodyMedium(
                             color: AppColors.rose,
                           ),
                         ),
                       ],
                     ),
-                    const StatusPill(status: 'Available'),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    _buildSpecialtyTag('Laser Resurfacing'),
-                    _buildSpecialtyTag('Botox & Fillers'),
-                    _buildSpecialtyTag('Chemical Peels'),
-                    _buildSpecialtyTag('Anti-Aging Therapy'),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        StatusPill(status: _accountStatusLabel(account.status)),
+                        const SizedBox(height: 6),
+                        FutureBuilder<DoctorLiveStatus>(
+                          future: _liveStatusFuture,
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState !=
+                                    ConnectionState.done ||
+                                !snapshot.hasData) {
+                              return const SizedBox.shrink();
+                            }
+                            return StatusPill(status: snapshot.data!.status);
+                          },
+                        ),
+                      ],
+                    ),
                   ],
                 ),
                 const SizedBox(height: 16),
                 Row(
                   children: [
-                    const Icon(Icons.star, color: AppColors.gold, size: 18),
-                    const SizedBox(width: 4),
-                    Text('4.9', style: AppTypography.labelLarge()),
-                    Text(
-                      ' (142 reviews)',
-                      style: AppTypography.bodySmall(
-                        color: AppColors.textMuted,
-                      ),
-                    ),
-                    const SizedBox(width: 24),
                     const Icon(
-                      Icons.history_toggle_off,
+                      Icons.workspace_premium_outlined,
                       color: AppColors.lav,
                       size: 18,
                     ),
                     const SizedBox(width: 4),
-                    Text('12+ Yrs Exp', style: AppTypography.labelLarge()),
+                    Text(
+                      account.yearsOfExperience == null
+                          ? 'Experience not on file'
+                          : '${account.yearsOfExperience}+ Yrs Exp',
+                      style: AppTypography.labelLarge(),
+                    ),
                   ],
                 ),
               ],
@@ -187,73 +255,138 @@ class _DoctorProfileScreenState extends State<DoctorProfileScreen>
       ),
     );
   }
+}
 
-  Widget _buildSpecialtyTag(String label) {
+String _accountStatusLabel(String status) {
+  return switch (status) {
+    'ACTIVE' => 'Active',
+    'DEACTIVATED' => 'Deactivated',
+    _ => status,
+  };
+}
+
+class _ErrorCard extends StatelessWidget {
+  const _ErrorCard({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.bgRose,
-        borderRadius: BorderRadius.circular(12),
+        color: AppColors.bgCard,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.border),
       ),
-      child: Text(
-        label,
-        style: AppTypography.labelSmall(color: AppColors.roseDark),
+      child: Row(
+        children: [
+          const Icon(Icons.error_outline_rounded, color: AppColors.roseDark),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              message,
+              style: AppTypography.bodyMedium(color: AppColors.textSub),
+            ),
+          ),
+        ],
       ),
     );
   }
+}
 
-  Widget _buildOverviewTab() {
+// ─────────────────────────────────────────────────────────────────────────
+// OVERVIEW TAB
+// ─────────────────────────────────────────────────────────────────────────
+
+class _OverviewTab extends StatelessWidget {
+  const _OverviewTab({required this.account});
+
+  final DoctorAccountDetail account;
+
+  @override
+  Widget build(BuildContext context) {
     return ListView(
       children: [
-        Row(
-          children: const [
-            Expanded(
-              child: _InfoTile(
-                title: 'Patients YTD',
-                value: '386',
-                icon: Icons.group,
-              ),
+        _sectionCard(
+          title: 'Contact Information',
+          children: [
+            _infoRow(
+              Icons.email_outlined,
+              'Email',
+              account.email.isEmpty ? '—' : account.email,
             ),
-            SizedBox(width: 16),
-            Expanded(
-              child: _InfoTile(
-                title: 'Avg Rating',
-                value: '4.9 ⭐',
-                icon: Icons.star_outline,
-              ),
+            _infoRow(
+              Icons.phone_outlined,
+              'Phone',
+              account.phone.isEmpty ? '—' : account.phone,
             ),
-            SizedBox(width: 16),
-            Expanded(
-              child: _InfoTile(
-                title: 'Consultations',
-                value: '1,420',
-                icon: Icons.video_call,
-              ),
+            _infoRow(
+              Icons.cake_outlined,
+              'Date of Birth',
+              account.dateOfBirth == null
+                  ? '—'
+                  : DateFormat('d MMM yyyy').format(account.dateOfBirth!),
+            ),
+            _infoRow(
+              Icons.wc_outlined,
+              'Gender',
+              account.gender.isEmpty ? '—' : humanizeEnum(account.gender),
             ),
           ],
         ),
-        const SizedBox(height: 24),
-        Text('Biography & Qualifications', style: AppTypography.labelLarge()),
-        const SizedBox(height: 8),
-        Text(
-          'Dr. Hana Nasser is a board-certified dermatologist specializing in laser skin rejuvenation, facial aesthetics, and non-invasive anti-aging therapies. With over 12 years of clinical excellence in London and Ramallah.',
-          style: AppTypography.bodyMedium(color: AppColors.textSub),
+        const SizedBox(height: 20),
+        _sectionCard(
+          title: 'Professional Details',
+          children: [
+            _infoRow(
+              Icons.workspace_premium_outlined,
+              'Years of Experience',
+              account.yearsOfExperience == null
+                  ? '—'
+                  : '${account.yearsOfExperience} yrs',
+            ),
+            const SizedBox(height: 16),
+            Text('Specializations', style: AppTypography.labelMedium()),
+            const SizedBox(height: 8),
+            account.specializations.isEmpty
+                ? Text(
+                    'No specializations on file.',
+                    style: AppTypography.bodySmall(),
+                  )
+                : Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: account.specializations
+                        .map(
+                          (spec) => Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.bgRose,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              humanizeEnum(spec),
+                              style: AppTypography.labelSmall(
+                                color: AppColors.roseDark,
+                              ),
+                            ),
+                          ),
+                        )
+                        .toList(),
+                  ),
+          ],
         ),
       ],
     );
   }
 
-  Widget _buildScheduleTab() {
-    final slots = [
-      '09:15 AM',
-      '10:00 AM',
-      '10:45 AM',
-      '01:30 PM',
-      '02:15 PM',
-      '03:00 PM',
-    ];
-
+  Widget _sectionCard({required String title, required List<Widget> children}) {
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: AppColors.bgCard,
@@ -263,100 +396,140 @@ class _DoctorProfileScreenState extends State<DoctorProfileScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Available Time Slots — Thursday 7 Aug',
-            style: AppTypography.labelLarge(),
-          ),
+          Text(title, style: AppTypography.labelLarge()),
           const SizedBox(height: 16),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: slots.map((slot) {
-              final isSelected = slot == _selectedTimeSlot;
-              return ChoiceChip(
-                label: Text(slot),
-                selected: isSelected,
-                selectedColor: AppColors.rose,
-                backgroundColor: AppColors.bgAlt,
-                labelStyle: TextStyle(
-                  color: isSelected ? AppColors.white : AppColors.text,
-                  fontWeight: FontWeight.bold,
-                ),
-                onSelected: (val) {
-                  setState(() {
-                    _selectedTimeSlot = slot;
-                  });
-                },
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    'Slot $_selectedTimeSlot reserved with Dr. Hana Nasser',
-                  ),
-                ),
-              );
-            },
-            child: Text('Book Selected Slot ($_selectedTimeSlot)'),
-          ),
+          ...children,
         ],
       ),
     );
   }
 
-  Widget _buildPatientsTab() {
-    return ListView(
-      children: [
-        ListTile(
-          leading: const CircleAvatar(
-            backgroundColor: AppColors.bgRose,
-            child: Text('NK', style: TextStyle(color: AppColors.rose)),
+  Widget _infoRow(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: AppColors.textMuted),
+          const SizedBox(width: 10),
+          SizedBox(
+            width: 150,
+            child: Text(label, style: AppTypography.bodySmall()),
           ),
-          title: Text('Nour Al-Khalil', style: AppTypography.labelLarge()),
-          subtitle: Text(
-            'Laser Resurfacing · Session 3/5',
-            style: AppTypography.bodySmall(),
-          ),
-          trailing: const StatusPill(status: 'In Room'),
-          onTap: () => widget.onPatientClick?.call('Nour Al-Khalil'),
-        ),
-        const Divider(),
-        ListTile(
-          leading: const CircleAvatar(
-            backgroundColor: AppColors.bgLavender,
-            child: Text('LM', style: TextStyle(color: AppColors.lav)),
-          ),
-          title: Text('Layla Mansour', style: AppTypography.labelLarge()),
-          subtitle: Text('HydroGlow Facial', style: AppTypography.bodySmall()),
-          trailing: const StatusPill(status: 'Waiting'),
-          onTap: () => widget.onPatientClick?.call('Layla Mansour'),
-        ),
-      ],
+          Expanded(child: Text(value, style: AppTypography.bodyMedium())),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// STATISTICS TAB
+// ─────────────────────────────────────────────────────────────────────────
+
+class _StatisticsTab extends StatefulWidget {
+  const _StatisticsTab({required this.doctorId, required this.detailApi});
+
+  final String doctorId;
+  final DoctorDetailApi detailApi;
+
+  @override
+  State<_StatisticsTab> createState() => _StatisticsTabState();
+}
+
+class _StatisticsTabState extends State<_StatisticsTab> {
+  late final Future<DoctorDashboardData> _statsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    _statsFuture = widget.detailApi.fetchStatistics(
+      widget.doctorId,
+      from: now.subtract(const Duration(days: 30)),
+      to: now,
     );
   }
 
-  Widget _buildReviewsTab() {
-    return ListView(
-      children: const [
-        _ReviewItem(
-          name: 'Sarah M.',
-          rating: 5,
-          date: '2 Aug 2026',
-          comment:
-              'Dr. Hana is incredible! My skin feels radiant after the laser session. Highly recommend!',
-        ),
-        _ReviewItem(
-          name: 'Yasmine K.',
-          rating: 5,
-          date: '28 Jul 2026',
-          comment:
-              'Very professional clinic and gentle treatment. The results are visible immediately.',
-        ),
-      ],
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<DoctorDashboardData>(
+      future: _statsFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Center(
+            child: CircularProgressIndicator(color: AppColors.rose),
+          );
+        }
+        if (snapshot.hasError || !snapshot.hasData) {
+          return _ErrorCard(
+            message: 'Unable to load statistics.\n${snapshot.error ?? ''}',
+          );
+        }
+
+        final data = snapshot.data!;
+        return ListView(
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: _InfoTile(
+                    title: 'Active Patients',
+                    value: '${data.activePatientsCount}',
+                    icon: Icons.groups_outlined,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _InfoTile(
+                    title: 'Patients Today',
+                    value: '${data.todayPatientsCount}',
+                    icon: Icons.today_outlined,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final isDesktop = constraints.maxWidth > 700;
+                return Flex(
+                  direction: isDesktop ? Axis.horizontal : Axis.vertical,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      flex: isDesktop ? 1 : 0,
+                      child: AppointmentOutcomesDonut(
+                        data: data.appointmentOutcomes,
+                      ),
+                    ),
+                    if (isDesktop)
+                      const SizedBox(width: 20)
+                    else
+                      const SizedBox(height: 20),
+                    Expanded(
+                      flex: isDesktop ? 1 : 0,
+                      child: PatientGrowthLineChart(
+                        data: data.appointmentsOverTime,
+                        title: 'Completed Sessions Over Time',
+                        subtitle:
+                            'Completed patient consultations per period, over the last 30 days',
+                        badgeText: 'Completed only',
+                        badgeColor: AppColors.sage,
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+            const SizedBox(height: 20),
+            ServiceBookingsBarChart(
+              data: data.treatmentsPerformed,
+              showTopService: false,
+            ),
+            const SizedBox(height: 12),
+          ],
+        );
+      },
     );
   }
 }
@@ -387,61 +560,6 @@ class _InfoTile extends StatelessWidget {
           const SizedBox(height: 8),
           Text(value, style: AppTypography.displayStat()),
           Text(title, style: AppTypography.bodySmall()),
-        ],
-      ),
-    );
-  }
-}
-
-class _ReviewItem extends StatelessWidget {
-  final String name;
-  final int rating;
-  final String date;
-  final String comment;
-
-  const _ReviewItem({
-    required this.name,
-    required this.rating,
-    required this.date,
-    required this.comment,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.bgCard,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(name, style: AppTypography.labelLarge()),
-              Row(
-                children: List.generate(
-                  rating,
-                  (index) =>
-                      const Icon(Icons.star, color: AppColors.gold, size: 14),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            date,
-            style: AppTypography.bodySmall(color: AppColors.textMuted),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            comment,
-            style: AppTypography.bodyMedium(color: AppColors.textSub),
-          ),
         ],
       ),
     );

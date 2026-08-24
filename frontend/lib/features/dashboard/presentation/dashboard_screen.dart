@@ -586,6 +586,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   '${staff.appointmentsCount} appts',
                                   staff.status,
                                   isDoctor: staff.isDoctor,
+                                  doctorId: staff.userId,
                                 ),
                               ),
                           ],
@@ -1198,9 +1199,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     String appts,
     String status, {
     required bool isDoctor,
+    String? doctorId,
   }) {
     return InkWell(
-      onTap: isDoctor ? () => widget.onViewDoctor(name) : null,
+      onTap: isDoctor && doctorId != null
+          ? () => widget.onViewDoctor(doctorId)
+          : null,
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.all(10),

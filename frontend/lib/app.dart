@@ -9,6 +9,7 @@ import 'package:beauty_clinic_app/features/dashboard/presentation/dashboard_scre
 import 'package:beauty_clinic_app/features/doctor_profile/presentation/doctor_profile_screen.dart';
 import 'package:beauty_clinic_app/features/doctor_availability/data/doctor_availability_api.dart';
 import 'package:beauty_clinic_app/features/doctor_availability/presentation/doctor_availability_screen.dart';
+import 'package:beauty_clinic_app/features/doctor_availability/presentation/my_calendar_screen.dart';
 import 'package:beauty_clinic_app/features/doctor_directory/presentation/doctor_directory_screen.dart';
 import 'package:beauty_clinic_app/features/patient_profile/presentation/patient_profile_screen.dart';
 import 'package:beauty_clinic_app/features/patient_dashboard/presentation/patient_dashboard_screen.dart';
@@ -217,6 +218,7 @@ class _MainRootControllerState extends State<MainRootController> {
   }
 
   String? _selectedPatientId;
+  String? _selectedDoctorId;
   int _patientProfileTabIndex = 0;
   bool _fromBookingFlow = false;
   String? _focusedAppointmentId;
@@ -241,6 +243,7 @@ class _MainRootControllerState extends State<MainRootController> {
     'doctor' => {
       'dashboard',
       'my_profile',
+      'my_calendar',
       'doctor_availability',
       'patients',
       'appointments',
@@ -290,8 +293,9 @@ class _MainRootControllerState extends State<MainRootController> {
     });
   }
 
-  void _onViewDoctor(String doctorName) {
+  void _onViewDoctor(String doctorId) {
     setState(() {
+      _selectedDoctorId = doctorId;
       _activeView = 'doctor_profile';
     });
   }
@@ -664,7 +668,7 @@ class _MainRootControllerState extends State<MainRootController> {
           key: const ValueKey('staff_management'),
           apiClient: _apiClient,
           authSession: widget.authSession,
-          onBack: () => setState(() => _activeView = 'dashboard'),
+          onOpenDoctor: _onViewDoctor,
         );
       case 'activity_log':
         return ActivityLogScreen(
@@ -672,15 +676,40 @@ class _MainRootControllerState extends State<MainRootController> {
           authSession: widget.authSession,
         );
       case 'doctor_profile':
+        final doctorId = _selectedDoctorId;
+        if (doctorId == null) {
+          return Center(
+            child: TextButton(
+              onPressed: () => setState(() => _activeView = 'staff_management'),
+              child: const Text(
+                'No doctor selected. Back to Staff Management.',
+              ),
+            ),
+          );
+        }
         return DoctorProfileScreen(
-          key: const ValueKey('doctor_profile'),
-          onBack: () => setState(() => _activeView = 'dashboard'),
-          onPatientClick: _onViewPatient,
+          key: ValueKey('doctor_profile_$doctorId'),
+          doctorId: doctorId,
+          apiClient: _apiClient,
+          appointmentApi: _appointmentApi,
+          availabilityApi: _availabilityApi,
+          onBack: () => setState(() {
+            _selectedDoctorId = null;
+            _activeView = 'staff_management';
+          }),
         );
       case 'doctor_availability':
         return DoctorAvailabilityScreen(
           key: const ValueKey('doctor_availability'),
           api: _availabilityApi,
+          appointmentApi: _appointmentApi,
+          onBack: () => setState(() => _activeView = 'dashboard'),
+        );
+      case 'my_calendar':
+        return MyCalendarScreen(
+          key: const ValueKey('my_calendar'),
+          appointmentApi: _appointmentApi,
+          availabilityApi: _availabilityApi,
           onBack: () => setState(() => _activeView = 'dashboard'),
         );
       case 'patient_profile':

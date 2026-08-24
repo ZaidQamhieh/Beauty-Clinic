@@ -650,6 +650,7 @@ class TodayAppointmentItem {
 }
 
 class StaffDutyItem {
+  final String? userId;
   final String name;
   final String role;
   final int appointmentsCount;
@@ -657,6 +658,7 @@ class StaffDutyItem {
   final bool isDoctor;
 
   const StaffDutyItem({
+    this.userId,
     required this.name,
     required this.role,
     required this.appointmentsCount,
@@ -666,6 +668,7 @@ class StaffDutyItem {
 
   factory StaffDutyItem.fromJson(Map<String, dynamic> json) {
     return StaffDutyItem(
+      userId: json['userId'] as String?,
       name: json['name'] as String? ?? '',
       role: json['role'] as String? ?? 'Specialist',
       appointmentsCount: (json['appointmentsCount'] as num?)?.toInt() ?? 0,

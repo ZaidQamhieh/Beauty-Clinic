@@ -19,10 +19,20 @@ public record CreateDoctorAvailabilityRequest(
         LocalDate effectiveTo
 ) {
 
+    private static final LocalTime CLINIC_OPENS = LocalTime.of(7, 0);
+    private static final LocalTime CLINIC_CLOSES = LocalTime.of(23, 59);
+
     // Nothing else checks this. An inverted window stores fine, then matches nothing.
     @AssertTrue(message = "endTime must be after startTime")
     private boolean isWindowOrdered() {
         return startTime == null || endTime == null || endTime.isAfter(startTime);
+    }
+
+    // The clinic's operating day: 7:00 AM through midnight.
+    @AssertTrue(message = "startTime and endTime must fall within clinic hours (7:00 AM - 12:00 AM)")
+    private boolean isWithinClinicHours() {
+        return startTime == null || endTime == null
+                || (!startTime.isBefore(CLINIC_OPENS) && !endTime.isAfter(CLINIC_CLOSES));
     }
 
     // Mirrors doctor_availability_shape, so the caller gets a named error rather than a bare 409.

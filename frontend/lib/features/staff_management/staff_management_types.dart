@@ -62,7 +62,7 @@ enum _StaffFilter { all, doctor, receptionist }
 
 enum _Gender { male, female, other }
 
-enum _AccountStatus { active, invited, deactivated }
+enum _AccountStatus { active, deactivated }
 
 enum _DoctorSpecialization {
   dermatology,

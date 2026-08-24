@@ -303,6 +303,11 @@ class _AppShellState extends State<AppShell> {
             'icon': Icons.inventory_2_outlined,
           },
           {
+            'id': 'my_calendar',
+            'label': 'My Calendar',
+            'icon': Icons.calendar_view_day_outlined,
+          },
+          {
             'id': 'doctor_availability',
             'label': 'Availability',
             'icon': Icons.event_available_outlined,
