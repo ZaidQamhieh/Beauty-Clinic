@@ -73,7 +73,10 @@ class DoctorAccountDetail {
 /// A doctor's live duty status, as shown on the admin dashboard's "Staff
 /// Today" list: 'In Session' | 'Available' | 'Off Duty'.
 class DoctorLiveStatus {
-  const DoctorLiveStatus({required this.status, required this.appointmentsToday});
+  const DoctorLiveStatus({
+    required this.status,
+    required this.appointmentsToday,
+  });
 
   final String status;
   final int appointmentsToday;
@@ -137,8 +140,7 @@ class DoctorDetailApi {
   Exception _mapError(DioException error) {
     final data = error.response?.data;
     if (data is Map) {
-      final detail =
-          data['detail']?.toString() ?? data['message']?.toString();
+      final detail = data['detail']?.toString() ?? data['message']?.toString();
       if (detail != null && detail.isNotEmpty) {
         return DoctorDetailException(detail);
       }
