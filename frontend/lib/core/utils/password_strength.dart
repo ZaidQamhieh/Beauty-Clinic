@@ -14,9 +14,21 @@ final _hasSymbol = RegExp(r'[^a-zA-Z0-9]');
 
 // Common breached passwords, not exhaustive.
 const _commonPasswords = {
-  '12345678', '123456789', 'password', 'password1', 'qwerty123',
-  '11111111', 'letmein', 'welcome1', 'admin123', 'iloveyou',
-  'monkey123', 'football', 'abc12345', 'password123', 'qwertyui',
+  '12345678',
+  '123456789',
+  'password',
+  'password1',
+  'qwerty123',
+  '11111111',
+  'letmein',
+  'welcome1',
+  'admin123',
+  'iloveyou',
+  'monkey123',
+  'football',
+  'abc12345',
+  'password123',
+  'qwertyui',
 };
 
 /// UX-only guidance; backend length check is authoritative.
@@ -26,7 +38,10 @@ PasswordStrengthResult scorePasswordStrength(String password) {
   }
 
   if (_commonPasswords.contains(password.toLowerCase())) {
-    return const PasswordStrengthResult(PasswordStrength.weak, 'Weak — too common');
+    return const PasswordStrengthResult(
+      PasswordStrength.weak,
+      'Weak — too common',
+    );
   }
 
   var score = 0;

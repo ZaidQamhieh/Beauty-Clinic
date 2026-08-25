@@ -277,9 +277,8 @@ class _StaffFormDialogState extends State<_StaffFormDialog> {
                 ),
                 ListenableBuilder(
                   listenable: _passwordController,
-                  builder: (context, _) => PasswordStrengthMeter(
-                    password: _passwordController.text,
-                  ),
+                  builder: (context, _) =>
+                      PasswordStrengthMeter(password: _passwordController.text),
                 ),
                 const SizedBox(height: 12),
                 _dropdownField<_AccountStatus>(

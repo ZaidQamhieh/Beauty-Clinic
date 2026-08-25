@@ -234,8 +234,13 @@ class _ProductFormState extends State<_ProductForm> {
 
   late final List<Object?> _initialSnapshot = _snapshot();
 
-  List<Object?> _snapshot() =>
-      [_name.text, _imageUrl.text, _stock.text, _brand, _type];
+  List<Object?> _snapshot() => [
+    _name.text,
+    _imageUrl.text,
+    _stock.text,
+    _brand,
+    _type,
+  ];
 
   bool get _isDirty => !listEquals(_snapshot(), _initialSnapshot);
 

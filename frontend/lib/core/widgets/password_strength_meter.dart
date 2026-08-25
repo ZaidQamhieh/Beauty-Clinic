@@ -46,7 +46,11 @@ class PasswordStrengthMeter extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             result.label,
-            style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w600),
+            style: TextStyle(
+              fontSize: 12,
+              color: color,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),
