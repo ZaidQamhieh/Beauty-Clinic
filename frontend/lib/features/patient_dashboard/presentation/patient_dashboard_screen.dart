@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/widgets/profile_avatar.dart';
 import '../../../core/widgets/skeleton.dart';
 import '../../appointments/data/appointment.dart';
 import '../../appointments/data/appointment_api.dart';
@@ -87,6 +88,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     }
 
     final firstName = _patient?['firstName']?.toString() ?? 'there';
+    final imageUrl = _patient?['imageUrl']?.toString();
     final skinType = _patient?['skinType']?.toString();
     final formComplete = ClinicalIntakeSchema.isComplete(_patient ?? {});
     return RefreshIndicator(
@@ -98,7 +100,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildWelcome(firstName),
+            _buildWelcome(firstName, imageUrl),
             const SizedBox(height: 16),
             _buildSnapshot(skinType, formComplete),
             const SizedBox(height: 16),
@@ -111,7 +113,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     );
   }
 
-  Widget _buildWelcome(String firstName) {
+  Widget _buildWelcome(String firstName, String? imageUrl) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -124,25 +126,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
       ),
       child: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: const BoxDecoration(
-              color: AppColors.bgCard,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.shadow,
-                  blurRadius: 8,
-                  offset: Offset(0, 2),
-                ),
-              ],
-            ),
-            child: const Icon(
-              Icons.spa_outlined,
-              color: AppColors.rose,
-              size: 26,
-            ),
-          ),
+          ProfileAvatar(radius: 27, color: AppColors.rose, imageUrl: imageUrl),
           const SizedBox(width: 16),
           Expanded(
             child: Column(

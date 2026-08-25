@@ -71,6 +71,7 @@ class _BeautyClinicAppState extends State<BeautyClinicApp> {
   late final DynamicFormApi _dynamicApi;
   late final ChatApi _chatApi;
   String? _userName;
+  String? _userImageUrl;
   String? _selectedDoctorId;
 
   // Remounts the list after the bot writes.
@@ -115,6 +116,7 @@ class _BeautyClinicAppState extends State<BeautyClinicApp> {
       if (!mounted) return;
       setState(() {
         _userName = '${profile.firstName} ${profile.lastName}'.trim();
+        _userImageUrl = profile.imageUrl;
       });
     } catch (_) {
       // Keep the header usable if this fails.
@@ -140,6 +142,7 @@ class _BeautyClinicAppState extends State<BeautyClinicApp> {
 
   Future<void> _logout() async {
     _userName = null;
+    _userImageUrl = null;
     try {
       await _session.logout();
     } on AuthException {
@@ -255,6 +258,7 @@ class _BeautyClinicAppState extends State<BeautyClinicApp> {
       onViewChanged: _onViewChanged,
       onProfileTap: () => context.go(AppRoutes.pathFor('my_profile')),
       userName: _userName,
+      userImageUrl: _userImageUrl,
       // Booking lives in chat, not the header.
       onLogout: _logout,
       child: _withChat(
@@ -568,6 +572,7 @@ class _BeautyClinicAppState extends State<BeautyClinicApp> {
           role: _session.role ?? Role.patient,
           apiClient: _apiClient,
           onBack: () => _router.go(AppRoutes.pathFor('dashboard')),
+          onProfileUpdated: _loadUserName,
         );
       case 'landing':
       case 'consultations':

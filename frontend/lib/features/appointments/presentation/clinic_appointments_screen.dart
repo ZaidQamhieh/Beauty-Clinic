@@ -129,7 +129,7 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
           .map((item) => Map<String, dynamic>.from(item as Map))
           .toList();
       if (!mounted) return null;
-      return showDialog<String>(
+      return await showDialog<String>(
         context: context,
         builder: (context) {
           final searchController = TextEditingController();

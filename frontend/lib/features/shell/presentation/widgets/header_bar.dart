@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/widgets/profile_avatar.dart';
 import '../../../../core/widgets/yasmine_logo.dart';
 
 /// Top header bar for the signed-in role.
@@ -10,6 +11,7 @@ class HeaderBar extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback? onLogout;
   final VoidCallback? onProfileTap;
   final String? userName;
+  final String? userImageUrl;
   final bool isMobile;
 
   const HeaderBar({
@@ -19,6 +21,7 @@ class HeaderBar extends StatelessWidget implements PreferredSizeWidget {
     this.onLogout,
     this.onProfileTap,
     this.userName,
+    this.userImageUrl,
     this.isMobile = false,
   });
 
@@ -221,14 +224,10 @@ class HeaderBar extends StatelessWidget implements PreferredSizeWidget {
                 shape: BoxShape.circle,
                 border: Border.all(color: AppColors.roseLight, width: 1.2),
               ),
-              child: const CircleAvatar(
+              child: ProfileAvatar(
                 radius: 14,
-                backgroundColor: AppColors.bgLavender,
-                child: Icon(
-                  Icons.person_outline,
-                  color: AppColors.lavDark,
-                  size: 17,
-                ),
+                color: AppColors.lavDark,
+                imageUrl: userImageUrl,
               ),
             ),
             if (userName != null && userName!.trim().isNotEmpty) ...[

@@ -23,11 +23,13 @@ class UserProfileScreen extends StatefulWidget {
     required this.role,
     required this.apiClient,
     this.onBack,
+    this.onProfileUpdated,
   });
 
   final Role role;
   final ApiClient apiClient;
   final VoidCallback? onBack;
+  final Future<void> Function()? onProfileUpdated;
 
   @override
   State<UserProfileScreen> createState() => _UserProfileScreenState();
@@ -219,6 +221,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         _saved = true;
         _saving = false;
       });
+      await widget.onProfileUpdated?.call();
     } catch (_) {
       if (!mounted) return;
       setState(() => _saving = false);
