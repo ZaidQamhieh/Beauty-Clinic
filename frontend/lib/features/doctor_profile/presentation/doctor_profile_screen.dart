@@ -65,16 +65,6 @@ class _DoctorProfileScreenState extends State<DoctorProfileScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (widget.onBack != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: TextButton.icon(
-                onPressed: widget.onBack,
-                icon: const Icon(Icons.arrow_back, size: 16),
-                label: const Text('Back to Staff Management'),
-              ),
-            ),
-
           FutureBuilder<DoctorAccountDetail>(
             future: _accountFuture,
             builder: (context, snapshot) {
