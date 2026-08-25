@@ -88,9 +88,11 @@ public class ProductService {
     }
 
     private void apply(Product product, CreateProductRequest request) {
+        product.setName(request.name().trim());
         product.setBrand(request.brand());
         product.setProductType(request.productType());
-        product.setCategory(request.category().trim());
+        product.setImageUrl(request.imageUrl() == null || request.imageUrl().isBlank()
+                ? null : request.imageUrl().trim());
         product.setStockQuantity(request.stockQuantity());
         // CHECK tests containment, so duplicates store.
         product.setIngredients(request.ingredients() == null

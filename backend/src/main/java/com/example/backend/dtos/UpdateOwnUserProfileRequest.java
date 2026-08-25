@@ -17,6 +17,7 @@ public record UpdateOwnUserProfileRequest(
                 @NotBlank @Size(max = 100) String firstName,
                 @NotBlank @Size(max = 100) String lastName,
                 @NotBlank @Size(max = 30) String phone,
+                @Size(max = 2048) String imageUrl,
                 @NotNull @Past(message = "Date of birth must be in the past") LocalDate dateOfBirth,
                 @NotNull Gender gender,
                 @Null(message = "Email cannot be changed here") String email,

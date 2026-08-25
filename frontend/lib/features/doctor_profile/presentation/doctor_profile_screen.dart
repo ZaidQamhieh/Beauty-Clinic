@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:beauty_clinic_app/core/widgets/profile_avatar.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -171,17 +172,10 @@ class _DoctorProfileScreenState extends State<DoctorProfileScreen>
               shape: BoxShape.circle,
               border: Border.all(color: AppColors.rose, width: 2),
             ),
-            child: CircleAvatar(
+            child: ProfileAvatar(
+              imageUrl: account.imageUrl,
+              color: AppColors.rose,
               radius: 40,
-              backgroundColor: AppColors.bgRose,
-              child: Text(
-                account.initials,
-                style: const TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.rose,
-                ),
-              ),
             ),
           ),
           const SizedBox(width: 20),

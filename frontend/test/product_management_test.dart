@@ -12,7 +12,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'helpers/auth_test_fakes.dart';
 
 void main() {
-  testWidgets('admin can view and add a product', (tester) async {
+  testWidgets('admin can view the product popup and add a product', (
+    tester,
+  ) async {
     final session = testSession(
       QueueAdapter(const []),
       MemoryTokenStore()
@@ -26,15 +28,16 @@ void main() {
     );
     final product = {
       'id': 'product-id',
+      'name': 'Hydrating Cleanser',
       'brand': 'CERAVE',
       'productType': 'CLEANSER',
-      'category': 'Skin care',
       'stockQuantity': 5,
       'ingredients': <String>['CERAMIDES'],
     };
     final adapter = QueueAdapter([
       (_) => _listResponse([product]),
       (_) => jsonResponse(201, product),
+      (_) => jsonResponse(200, product),
       (_) => _listResponse([product]),
     ]);
     final client = ApiClient(session, dio: testDio(adapter));
@@ -52,21 +55,28 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Cerave Cleanser'), findsOneWidget);
+    expect(find.text('Hydrating Cleanser'), findsOneWidget);
     expect(find.textContaining('Ingredients: Ceramides'), findsOneWidget);
+
+    await tester.tap(find.text('Hydrating Cleanser'));
+    await tester.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(find.text('Close'), findsOneWidget);
+    await tester.tap(find.text('Close'));
+    await tester.pumpAndSettle();
 
     await tester.tap(find.text('Add Product'));
     await tester.pumpAndSettle();
     expect(find.text('Ceramides'), findsOneWidget);
     expect(find.text('Salicylic Acid'), findsOneWidget);
-    await tester.enterText(find.byType(TextFormField).first, 'Skin care');
+    await tester.enterText(find.byType(TextFormField).first, 'Daily Cleanser');
     await tester.enterText(find.byType(TextFormField).last, '10');
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
 
-    expect(adapter.requests[1].method, 'POST');
-    expect(adapter.requests[1].path, '/api/products');
-    expect(adapter.requests[1].data['ingredients'], [
+    expect(adapter.requests[2].method, 'POST');
+    expect(adapter.requests[2].path, '/api/products');
+    expect(adapter.requests[2].data['ingredients'], [
       'CERAMIDES',
       'SALICYLIC_ACID',
     ]);

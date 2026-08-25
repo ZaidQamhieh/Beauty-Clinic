@@ -62,6 +62,10 @@ public class UserProfileService {
         account.setFirstName(request.firstName());
         account.setLastName(request.lastName());
         account.setPhone(request.phone());
+        if (account.getRole() == Role.PATIENT || account.getRole() == Role.DOCTOR) {
+            account.setImageUrl(request.imageUrl() == null || request.imageUrl().isBlank()
+                    ? null : request.imageUrl().trim());
+        }
         account.setDateOfBirth(request.dateOfBirth());
         account.setGender(request.gender());
         account.setUpdatedAt(Instant.now());
@@ -103,6 +107,7 @@ public class UserProfileService {
         fields.put("firstName", account.getFirstName());
         fields.put("lastName", account.getLastName());
         fields.put("dateOfBirth", account.getDateOfBirth());
+        fields.put("imageUrl", account.getImageUrl());
         fields.put("gender", account.getGender());
         return objectMapper.valueToTree(fields);
     }

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:beauty_clinic_app/core/widgets/profile_avatar.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/widgets/skeleton.dart';
@@ -612,11 +613,6 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
     final fullName = '$firstName $lastName'.trim();
     final displayName = fullName.isNotEmpty ? fullName : 'Patient Profile';
 
-    final initials =
-        (firstName.isNotEmpty ? firstName[0] : '') +
-        (lastName.isNotEmpty ? lastName[0] : '');
-    final avatarText = initials.isNotEmpty ? initials.toUpperCase() : 'P';
-
     final gender = _patientData?['gender']?.toString();
     final dob = _patientData?['dateOfBirth']?.toString();
     final skinType = _patientData?['skinType']?.toString();
@@ -636,17 +632,10 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
       ),
       child: Row(
         children: [
-          CircleAvatar(
+          ProfileAvatar(
             radius: 36,
-            backgroundColor: AppColors.bgRose,
-            child: Text(
-              avatarText,
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: AppColors.rose,
-              ),
-            ),
+            color: AppColors.rose,
+            imageUrl: _patientData?['imageUrl']?.toString(),
           ),
           const SizedBox(width: 20),
           Expanded(
@@ -978,7 +967,7 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
                                           'Prescribed products: ${entry.record!.prescribedProductIds.map((id) {
                                             final product = _prescribedProducts.firstWhere(
                                               (item) => item.id == id,
-                                              orElse: () => Product(id: id, brand: 'Unknown', productType: 'PRODUCT', category: '', stockQuantity: 0, ingredients: const []),
+                                              orElse: () => Product(id: id, name: 'Unknown', brand: 'Unknown', productType: 'PRODUCT', stockQuantity: 0, ingredients: const []),
                                             );
                                             return '${product.brandLabel} ${product.typeLabel}';
                                           }).join(', ')}',
@@ -1190,7 +1179,7 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
           ..._prescribedProducts.map(
             (product) => _productTile(
               '${_humanizeEnum(product.brand)} · ${_humanizeEnum(product.productType)}',
-              product.category,
+              product.name,
             ),
           ),
         const SizedBox(height: 20),
@@ -1566,7 +1555,7 @@ class _SessionRecordDialogState extends State<_SessionRecordDialog> {
                     contentPadding: EdgeInsets.zero,
                     value: _selectedProductIds.contains(product.id),
                     title: Text('${product.brandLabel} ${product.typeLabel}'),
-                    subtitle: Text(product.category),
+                    subtitle: Text(product.name),
                     onChanged: (selected) => setState(() {
                       if (selected == true) {
                         _selectedProductIds.add(product.id);

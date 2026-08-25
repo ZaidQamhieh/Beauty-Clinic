@@ -111,7 +111,7 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
           onSubmitted: (_) => _load(),
           decoration: InputDecoration(
             prefixIcon: const Icon(Icons.search),
-            hintText: 'Search IDs, entity, or email',
+            hintText: 'Search name, email, or entity',
             filled: true,
             fillColor: AppColors.bgCard,
             border: OutlineInputBorder(
@@ -243,10 +243,10 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
               'MMMM d, y • HH:mm:ss',
             ).format(entry.createdAt.toLocal()),
           ),
-          _detailRow('Actor ID', entry.userId ?? 'System / unknown'),
-          _detailRow('Patient ID', entry.patientUserId ?? '—'),
+          _detailRow('Actor', entry.actorName ?? 'System / unknown'),
+          if (entry.patientName != null)
+            _detailRow('Patient', entry.patientName!),
           _detailRow('Entity', entry.entityType ?? '—'),
-          _detailRow('Entity ID', entry.entityId ?? '—'),
           if (entry.attemptedIdentifier != null)
             _detailRow('Login identifier', entry.attemptedIdentifier!),
           const SizedBox(height: 16),
@@ -274,22 +274,16 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
 
 class ActivityEntry {
   const ActivityEntry({
-    required this.id,
     required this.action,
     required this.createdAt,
-    this.userId,
-    this.patientUserId,
+    this.actorName,
+    this.patientName,
     this.entityType,
-    this.entityId,
     this.attemptedIdentifier,
   });
-  final String id, action;
+  final String action;
   final DateTime createdAt;
-  final String? userId,
-      patientUserId,
-      entityType,
-      entityId,
-      attemptedIdentifier;
+  final String? actorName, patientName, entityType, attemptedIdentifier;
   static const actions = [
     'ACCOUNT_REGISTERED',
     'PERMISSION_DENIED',
@@ -340,13 +334,11 @@ class ActivityEntry {
     'FORM_QUESTION_DEACTIVATED',
   ];
   factory ActivityEntry.fromJson(Map<String, dynamic> json) => ActivityEntry(
-    id: json['id'] as String,
     action: json['action'] as String,
     createdAt: DateTime.parse(json['createdAt'] as String),
-    userId: json['userId'] as String?,
-    patientUserId: json['patientUserId'] as String?,
+    actorName: json['actorName'] as String?,
+    patientName: json['patientName'] as String?,
     entityType: json['entityType'] as String?,
-    entityId: json['entityId'] as String?,
     attemptedIdentifier: json['attemptedIdentifier'] as String?,
   );
   static String labelFor(String action) => action
@@ -355,9 +347,11 @@ class ActivityEntry {
       .join(' ');
   String get label => labelFor(action);
   String get subject =>
+      actorName ??
+      patientName ??
       attemptedIdentifier ??
       entityType ??
-      (userId == null ? 'System event' : 'Account ${userId!.substring(0, 8)}');
+      'System event';
   IconData get icon {
     if (action.contains('APPOINTMENT')) return Icons.calendar_month_outlined;
     if (action.contains('SESSION')) return Icons.spa_outlined;

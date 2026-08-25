@@ -5,6 +5,7 @@ import '../../../auth/role.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_dropdown.dart';
+import '../../../core/widgets/profile_avatar.dart';
 import '../../../core/widgets/skeleton.dart';
 import '../../../network/api_client.dart';
 import '../data/user_profile_api.dart';
@@ -38,6 +39,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   late final TextEditingController _lastNameController;
   late final TextEditingController _phoneController;
   late final TextEditingController _emailController;
+  late final TextEditingController _imageUrlController;
   final TextEditingController _dateOfBirthController = TextEditingController();
   late final TextEditingController _yearsOfExperienceController;
   late final TextEditingController _currentPasswordController;
@@ -85,6 +87,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     _lastNameController = TextEditingController();
     _phoneController = TextEditingController();
     _emailController = TextEditingController();
+    _imageUrlController = TextEditingController();
     _yearsOfExperienceController = TextEditingController();
     _currentPasswordController = TextEditingController();
     _newPasswordController = TextEditingController();
@@ -164,6 +167,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     _phoneController.text = profile.phone;
     _emailController.text = profile.email;
     _selectedDateOfBirth = profile.dateOfBirth;
+    _imageUrlController.text = profile.imageUrl ?? '';
     _dateOfBirthController.text = _formatDate(profile.dateOfBirth);
     _selectedGender = _genders.containsKey(profile.gender)
         ? profile.gender
@@ -182,6 +186,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     _phoneController.dispose();
     _emailController.dispose();
     _dateOfBirthController.dispose();
+    _imageUrlController.dispose();
     _yearsOfExperienceController.dispose();
     _currentPasswordController.dispose();
     _newPasswordController.dispose();
@@ -240,6 +245,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         phone: _phoneController.text,
         dateOfBirth: _selectedDateOfBirth!,
         gender: _selectedGender!,
+        imageUrl: widget.role == Role.patient || widget.role == Role.doctor
+            ? _imageUrlController.text
+            : null,
         specializations: widget.role == Role.doctor
             ? _selectedSpecializations.toList()
             : null,
@@ -451,14 +459,21 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       ),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 38,
-            backgroundColor: _accent.withValues(alpha: .18),
-            child: Text(
-              initials,
-              style: AppTypography.displayTitle(color: _accent),
+          if (widget.role == Role.patient || widget.role == Role.doctor)
+            ProfileAvatar(
+              radius: 38,
+              color: _accent,
+              imageUrl: _imageUrlController.text,
+            )
+          else
+            CircleAvatar(
+              radius: 38,
+              backgroundColor: _accent.withValues(alpha: .18),
+              child: Text(
+                initials,
+                style: AppTypography.displayTitle(color: _accent),
+              ),
             ),
-          ),
           const SizedBox(width: 18),
           Expanded(
             child: Column(
@@ -558,6 +573,14 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       _dateOfBirthField(),
       const SizedBox(height: 12),
       _genderField(),
+      if (widget.role == Role.patient || widget.role == Role.doctor) ...[
+        const SizedBox(height: 12),
+        _field(
+          'Profile picture URL',
+          _imageUrlController,
+          keyboardType: TextInputType.url,
+        ),
+      ],
     ],
   );
 

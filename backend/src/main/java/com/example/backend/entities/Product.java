@@ -32,6 +32,10 @@ public class Product {
     private UUID id;
 
     @NotNull
+    @Column(nullable = false, length = 60)
+    private String name;
+
+    @NotNull
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 60)
     private ProductBrand brand;
@@ -41,9 +45,8 @@ public class Product {
     @Column(name = "product_type", nullable = false, length = 40)
     private ProductType productType;
 
-    @NotNull
-    @Column(nullable = false, length = 60)
-    private String category;
+    @Column(name = "image_url", length = 2048)
+    private String imageUrl;
 
     @Column(name = "stock_quantity", nullable = false)
     private int stockQuantity;

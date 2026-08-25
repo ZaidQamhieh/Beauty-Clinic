@@ -87,16 +87,22 @@ class _ProductCatalogScreenState extends State<ProductCatalogScreen> {
   }
 
   void _open(Product product) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => Scaffold(
-          body: ProductDetailScreen(
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        content: SizedBox(
+          width: 600,
+          child: ProductDetailScreen(
             productId: product.id,
             loadProduct: widget.api.getById,
-            onBack: () => Navigator.pop(context),
           ),
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
       ),
     );
   }
@@ -147,16 +153,30 @@ class _ProductCatalogScreenState extends State<ProductCatalogScreen> {
                     final product = products[index];
                     return Card(
                       child: ListTile(
-                        leading: const Icon(
-                          Icons.spa_outlined,
-                          color: AppColors.rose,
+                        leading: SizedBox(
+                          width: 48,
+                          height: 48,
+                          child: product.imageUrl == null
+                              ? const Icon(
+                                  Icons.spa_outlined,
+                                  color: AppColors.rose,
+                                )
+                              : ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Image.network(
+                                    product.imageUrl!,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, _, _) => const Icon(
+                                      Icons.spa_outlined,
+                                      color: AppColors.rose,
+                                    ),
+                                  ),
+                                ),
                         ),
-                        title: Text(
-                          '${product.brandLabel} ${product.typeLabel}',
-                        ),
+                        title: Text(product.name),
                         subtitle: Text(
                           [
-                            '${product.category} • ${product.stockQuantity} in stock',
+                            '${product.brandLabel} ${product.typeLabel} • ${product.stockQuantity} in stock',
                             if (product.ingredients.isNotEmpty)
                               'Ingredients: ${product.ingredients.map(Product.label).join(', ')}',
                           ].join('\n'),
@@ -203,7 +223,8 @@ class _ProductForm extends StatefulWidget {
 
 class _ProductFormState extends State<_ProductForm> {
   final _formKey = GlobalKey<FormState>();
-  late final _category = TextEditingController(text: widget.product?.category);
+  late final _name = TextEditingController(text: widget.product?.name);
+  late final _imageUrl = TextEditingController(text: widget.product?.imageUrl);
   late final _stock = TextEditingController(
     text: '${widget.product?.stockQuantity ?? 0}',
   );
@@ -219,7 +240,8 @@ class _ProductFormState extends State<_ProductForm> {
 
   @override
   void dispose() {
-    _category.dispose();
+    _name.dispose();
+    _imageUrl.dispose();
     _stock.dispose();
     super.dispose();
   }
@@ -248,11 +270,12 @@ class _ProductFormState extends State<_ProductForm> {
     Navigator.pop(
       context,
       ProductInput(
+        name: _name.text.trim(),
         brand: _brand,
         productType: _type,
-        category: _category.text.trim(),
         stockQuantity: int.parse(_stock.text),
         ingredients: _ingredients,
+        imageUrl: _imageUrl.text.trim().isEmpty ? null : _imageUrl.text.trim(),
       ),
     );
   }
@@ -269,6 +292,22 @@ class _ProductFormState extends State<_ProductForm> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                TextFormField(
+                  controller: _name,
+                  decoration: const InputDecoration(labelText: 'Name'),
+                  maxLength: 60,
+                  validator: (value) => value == null || value.trim().isEmpty
+                      ? 'Enter a name'
+                      : null,
+                ),
+                TextFormField(
+                  controller: _imageUrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Image URL (optional)',
+                  ),
+                  maxLength: 2048,
+                ),
+                const SizedBox(height: 12),
                 _dropdown(
                   'Brand',
                   Product.brands,
@@ -283,14 +322,6 @@ class _ProductFormState extends State<_ProductForm> {
                   (value) => setState(() => _type = value),
                 ),
                 const SizedBox(height: 12),
-                TextFormField(
-                  controller: _category,
-                  decoration: const InputDecoration(labelText: 'Category'),
-                  maxLength: 60,
-                  validator: (value) => value == null || value.trim().isEmpty
-                      ? 'Enter a category'
-                      : null,
-                ),
                 TextFormField(
                   controller: _stock,
                   decoration: const InputDecoration(

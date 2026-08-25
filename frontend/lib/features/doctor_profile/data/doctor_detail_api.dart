@@ -18,6 +18,7 @@ class DoctorAccountDetail {
     required this.email,
     required this.phone,
     required this.dateOfBirth,
+    this.imageUrl,
     required this.gender,
     required this.status,
     required this.specializations,
@@ -30,6 +31,7 @@ class DoctorAccountDetail {
   final String email;
   final String phone;
   final DateTime? dateOfBirth;
+  final String? imageUrl;
   final String gender;
   final String status;
   final List<String> specializations;
@@ -60,6 +62,7 @@ class DoctorAccountDetail {
       dateOfBirth: json['dateOfBirth'] == null
           ? null
           : DateTime.tryParse(json['dateOfBirth'].toString()),
+      imageUrl: json['imageUrl']?.toString(),
       gender: (json['gender'] ?? '').toString(),
       status: (json['status'] ?? '').toString(),
       specializations: rawSpecializations is List

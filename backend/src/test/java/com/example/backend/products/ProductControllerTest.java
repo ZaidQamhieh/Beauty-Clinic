@@ -34,11 +34,13 @@ class ProductControllerTest extends AbstractIntegrationTest {
         String body = mockMvc.perform(post("/api/products")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"brand":"ZO_SKIN_HEALTH","productType":"RETINOID","category":"Skin care",
+                                {"name":"Retinol Complex","brand":"ZO_SKIN_HEALTH","productType":"RETINOID",
+                                 "imageUrl":"https://example.com/retinol.jpg",
                                  "stockQuantity":12,"ingredients":["CERAMIDES"]}
                                 """))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.category").value("Skin care"))
+                .andExpect(jsonPath("$.name").value("Retinol Complex"))
+                .andExpect(jsonPath("$.imageUrl").value("https://example.com/retinol.jpg"))
                 .andExpect(jsonPath("$.stockQuantity").value(12))
                 .andReturn().getResponse().getContentAsString();
         String id = JsonPath.read(body, "$.id");
@@ -46,7 +48,7 @@ class ProductControllerTest extends AbstractIntegrationTest {
         mockMvc.perform(put("/api/products/{id}", id)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"brand":"ZO_SKIN_HEALTH","productType":"MOISTURIZER","category":"Face care",
+                                {"name":"Daily Hydration","brand":"ZO_SKIN_HEALTH","productType":"MOISTURIZER",
                                  "stockQuantity":8,"ingredients":["CERAMIDES","HYALURONIC_ACID"]}
                                 """))
                 .andExpect(status().isOk())
@@ -65,7 +67,7 @@ class ProductControllerTest extends AbstractIntegrationTest {
         mockMvc.perform(post("/api/products")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"brand":"CERAVE","productType":"CLEANSER","category":"Skin care",
+                                {"name":"Hydrating Cleanser","brand":"CERAVE","productType":"CLEANSER",
                                  "stockQuantity":-1,"ingredients":[]}
                                 """))
                 .andExpect(status().isBadRequest());
@@ -77,7 +79,7 @@ class ProductControllerTest extends AbstractIntegrationTest {
         String body = mockMvc.perform(post("/api/products")
         .contentType(MediaType.APPLICATION_JSON)
         .content("""
-                {"brand":"ZO_SKIN_HEALTH","productType":"RETINOID","category":"Skin care",
+                {"name":"Retinol Complex","brand":"ZO_SKIN_HEALTH","productType":"RETINOID",
                 "stockQuantity":5,"ingredients":["CERAMIDES"]}
                 """))
         .andExpect(status().isCreated())
@@ -88,7 +90,7 @@ class ProductControllerTest extends AbstractIntegrationTest {
         mockMvc.perform(put("/api/products/{id}", id)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"brand":"ZO_SKIN_HEALTH","productType":"MOISTURIZER","category":"Skin care",
+                                {"name":"Daily Hydration","brand":"ZO_SKIN_HEALTH","productType":"MOISTURIZER",
                                 "stockQuantity":10,"ingredients":["CERAMIDES"]}
                                 """))
                 .andExpect(status().isOk());

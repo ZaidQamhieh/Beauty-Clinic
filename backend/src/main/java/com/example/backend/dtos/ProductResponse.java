@@ -10,18 +10,20 @@ import java.util.UUID;
 
 public record ProductResponse(
         UUID id,
+        String name,
         ProductBrand brand,
         ProductType productType,
-        String category,
+        String imageUrl,
         int stockQuantity,
         List<Ingredient> ingredients
 ) {
     public static ProductResponse of(Product product) {
         return new ProductResponse(
                 product.getId(),
+                product.getName(),
                 product.getBrand(),
                 product.getProductType(),
-                product.getCategory(),
+                product.getImageUrl(),
                 product.getStockQuantity(),
                 product.getIngredients()
         );
