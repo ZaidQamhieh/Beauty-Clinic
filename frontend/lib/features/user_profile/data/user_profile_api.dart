@@ -21,6 +21,7 @@ class UserProfile {
     required this.email,
     required this.status,
     this.dateOfBirth,
+    this.imageUrl,
     this.gender,
     this.specializations = const [],
     this.yearsOfExperience,
@@ -32,6 +33,7 @@ class UserProfile {
   final String email;
   final String status;
   final DateTime? dateOfBirth;
+  final String? imageUrl;
   final String? gender;
   final List<String> specializations;
   final int? yearsOfExperience;
@@ -50,6 +52,7 @@ class UserProfile {
       email: (json['email'] ?? '').toString(),
       status: (json['status'] ?? 'ACTIVE').toString(),
       dateOfBirth: DateTime.tryParse((json['dateOfBirth'] ?? '').toString()),
+      imageUrl: json['imageUrl']?.toString(),
       gender: json['gender']?.toString(),
       specializations: rawSpecializations is List
           ? rawSpecializations.map((value) => value.toString()).toList()
@@ -90,6 +93,7 @@ class UserProfileApi {
     required String phone,
     required DateTime dateOfBirth,
     required String gender,
+    String? imageUrl,
     List<String>? specializations,
     int? yearsOfExperience,
   }) async {
@@ -100,6 +104,7 @@ class UserProfileApi {
         'phone': phone.trim(),
         'dateOfBirth': dateOfBirth.toIso8601String().split('T').first,
         'gender': gender,
+        'imageUrl': imageUrl?.trim(),
       };
       if (specializations != null) {
         data['specializations'] = specializations;

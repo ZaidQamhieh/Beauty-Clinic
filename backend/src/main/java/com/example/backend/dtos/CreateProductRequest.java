@@ -11,9 +11,10 @@ import jakarta.validation.constraints.Size;
 import java.util.List;
 
 public record CreateProductRequest(
+        @NotBlank @Size(max = 60) String name,
         @NotNull ProductBrand brand,
         @NotNull ProductType productType,
-        @NotBlank @Size(max = 60) String category,
+        @Size(max = 2048) String imageUrl,
         @NotNull @PositiveOrZero Integer stockQuantity,
         @Size(max = 20) List<Ingredient> ingredients
 ) {

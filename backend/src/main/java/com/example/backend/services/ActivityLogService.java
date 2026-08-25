@@ -1,7 +1,9 @@
 package com.example.backend.services;
 
+import com.example.backend.dtos.ActivityLogResponse;
 import com.example.backend.entities.ActivityAction;
 import com.example.backend.entities.ActivityLog;
+import com.example.backend.entities.UserAccount;
 import com.example.backend.repositories.ActivityLogRepository;
 import com.example.backend.repositories.UserAccountRepository;
 import lombok.RequiredArgsConstructor;
@@ -20,8 +22,11 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -124,13 +129,12 @@ public class ActivityLogService {
     }
 
     @Transactional(readOnly = true)
-    public Page<ActivityLog> search(ActivityAction action, Instant from, Instant to, String search, Pageable pageable) {
+    public Page<ActivityLogResponse> search(ActivityAction action, Instant from, Instant to, String search, Pageable pageable) {
         String term = search == null || search.isBlank() ? null : search.trim();
 
-        UUID id = asUuid(term);
-        List<UUID> actorIds = id == null ? actorIdsFor(term) : List.of();
+        List<UUID> accountIds = accountIdsFor(term);
 
-        return activityLogs.findAll((root, query, cb) -> {
+        Page<ActivityLog> page = activityLogs.findAll((root, query, cb) -> {
             var predicates = new ArrayList<Predicate>();
 
             if (action != null) {
@@ -143,7 +147,7 @@ public class ActivityLogService {
                 predicates.add(cb.lessThan(root.get("createdAt"), to));
             }
             if (term != null) {
-                predicates.add(matching(root, cb, term, id, actorIds));
+                predicates.add(matching(root, cb, term, accountIds));
             }
 
             // Auth events clutter the admin log.
@@ -153,18 +157,22 @@ public class ActivityLogService {
 
             return cb.and(predicates.toArray(new Predicate[0]));
         }, stable(pageable));
+
+        List<UUID> ids = page.stream()
+                .flatMap(log -> Stream.of(log.getUserId(), log.getPatientUserId()))
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .toList();
+        Map<UUID, String> names = users.findAllById(ids).stream()
+                .collect(Collectors.toMap(UserAccount::getId, UserAccount::fullName));
+
+        return page.map(log -> ActivityLogResponse.from(
+                log, names.get(log.getUserId()), names.get(log.getPatientUserId())));
     }
 
-    // Ids compare by equality; text resolves actors.
     private Predicate matching(
-            Root<ActivityLog> root, CriteriaBuilder cb, String term, UUID id, List<UUID> actorIds
+            Root<ActivityLog> root, CriteriaBuilder cb, String term, List<UUID> accountIds
     ) {
-        if (id != null) {
-            return cb.or(
-                    cb.equal(root.get("userId"), id),
-                    cb.equal(root.get("patientUserId"), id),
-                    cb.equal(root.get("entityId"), id));
-        }
 
         String pattern = pattern(term);
         var predicates = new ArrayList<Predicate>();
@@ -172,9 +180,9 @@ public class ActivityLogService {
         predicates.add(cb.like(cb.lower(cb.coalesce(root.get("attemptedIdentifier"), "")), pattern));
         predicates.add(cb.like(cb.lower(cb.coalesce(root.get("entityType"), "")), pattern));
 
-        if (!actorIds.isEmpty()) {
-            predicates.add(root.get("userId").in(actorIds));
-            predicates.add(root.get("patientUserId").in(actorIds));
+        if (!accountIds.isEmpty()) {
+            predicates.add(root.get("userId").in(accountIds));
+            predicates.add(root.get("patientUserId").in(accountIds));
         }
 
         return cb.or(predicates.toArray(new Predicate[0]));
@@ -194,7 +202,7 @@ public class ActivityLogService {
     }
 
     // The screen promises names, so resolve them.
-    private List<UUID> actorIdsFor(String term) {
+    private List<UUID> accountIdsFor(String term) {
         if (term == null) {
             return List.of();
         }
@@ -204,18 +212,6 @@ public class ActivityLogService {
 
     private String pattern(String term) {
         return "%" + term.toLowerCase(Locale.ROOT) + "%";
-    }
-
-    private UUID asUuid(String term) {
-        if (term == null) {
-            return null;
-        }
-
-        try {
-            return UUID.fromString(term);
-        } catch (IllegalArgumentException notAnId) {
-            return null;
-        }
     }
 
     // Timestamps tie, so page edges need settling.

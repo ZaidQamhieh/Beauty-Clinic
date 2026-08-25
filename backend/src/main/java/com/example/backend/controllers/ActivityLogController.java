@@ -30,6 +30,6 @@ public class ActivityLogController {
             @RequestParam(required = false) String search,
             Pageable pageable
     ) {
-        return activityLogs.search(action, from, to, search, pageable).map(ActivityLogResponse::from);
+        return activityLogs.search(action, from, to, search, pageable);
     }
 }
