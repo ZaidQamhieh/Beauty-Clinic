@@ -6,6 +6,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
+import org.springframework.cache.annotation.CachingConfigurer;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.cache.interceptor.CacheErrorHandler;
 import org.springframework.context.annotation.Bean;
@@ -24,7 +25,7 @@ import java.util.Map;
 @Configuration
 @EnableCaching(order = Ordered.HIGHEST_PRECEDENCE)
 @Slf4j
-public class CacheConfig {
+public class CacheConfig implements CachingConfigurer {
 
     private static final Duration DEFAULT_TTL = Duration.ofMinutes(5);
 
@@ -69,9 +70,10 @@ public class CacheConfig {
                 .build();
     }
 
-    // Redis down must not fail requests.
+    // Honoured via CachingConfigurer, not a bean.
     @Bean
-    public CacheErrorHandler cacheErrorHandler() {
+    @Override
+    public CacheErrorHandler errorHandler() {
         return new CacheErrorHandler() {
             @Override
             public void handleCacheGetError(RuntimeException e, Cache cache, Object key) {
