@@ -15,6 +15,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -40,12 +42,14 @@ public class UserProfileService {
     private final ObjectMapper objectMapper = new ObjectMapper()
             .registerModule(new JavaTimeModule());
 
+    @Cacheable(value = "patientData", key = "'myProfile:' + @currentUser.requireId()")
     @Transactional(readOnly = true)
     public UserProfileResponse readOwn() {
         UserAccount account = requireOwnAccount();
         return UserProfileResponse.of(account, doctorProfileOf(account));
     }
 
+    @CacheEvict(value = "patientData", allEntries = true)
     @Transactional
     public UserProfileResponse updateOwn(UpdateOwnUserProfileRequest request) {
         UserAccount account = requireOwnAccount();
@@ -80,6 +84,7 @@ public class UserProfileService {
         return UserProfileResponse.of(account, doctorProfile);
     }
 
+    @CacheEvict(value = "patientData", allEntries = true)
     @Transactional
     public void changeOwnPassword(ChangeOwnPasswordRequest request) {
         UserAccount account = requireOwnAccount();

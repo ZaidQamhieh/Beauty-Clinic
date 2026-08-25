@@ -234,7 +234,8 @@ class _ProductFormState extends State<_ProductForm> {
 
   late final List<Object?> _initialSnapshot = _snapshot();
 
-  List<Object?> _snapshot() => [_category.text, _stock.text, _brand, _type];
+  List<Object?> _snapshot() =>
+      [_name.text, _imageUrl.text, _stock.text, _brand, _type];
 
   bool get _isDirty => !listEquals(_snapshot(), _initialSnapshot);
 
@@ -356,7 +357,7 @@ class _ProductFormState extends State<_ProductForm> {
           child: const Text('Cancel'),
         ),
         ListenableBuilder(
-          listenable: Listenable.merge([_category, _stock]),
+          listenable: Listenable.merge([_name, _imageUrl, _stock]),
           builder: (context, _) => ElevatedButton(
             onPressed: _isDirty ? _submit : null,
             child: const Text('Save'),

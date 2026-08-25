@@ -3,11 +3,20 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/skeleton.dart';
+import '../../../network/api_client.dart';
 import '../../appointments/data/appointment.dart';
 import '../../appointments/data/appointment_api.dart';
 import '../../appointments/presentation/booking_format.dart';
 import '../../forms/data/clinical_intake_api.dart';
 import '../../forms/data/clinical_intake_schema.dart';
+
+// Survives route disposal; revisit paints at once.
+class _DashboardSnapshot {
+  const _DashboardSnapshot(this.patient, this.upcoming);
+
+  final Map<String, dynamic> patient;
+  final List<Appointment> upcoming;
+}
 
 class PatientDashboardScreen extends StatefulWidget {
   const PatientDashboardScreen({
@@ -18,14 +27,22 @@ class PatientDashboardScreen extends StatefulWidget {
     required this.onOpenClinicalForm,
     required this.onOpenAppointments,
     required this.onBookTreatment,
+    this.refreshSignal,
+    this.apiClient,
   });
 
   final AppointmentApi appointmentApi;
   final ClinicalIntakeApi clinicalApi;
+
+  /// Holds parsed data across route disposal.
+  final ApiClient? apiClient;
   final VoidCallback onOpenProfile;
   final VoidCallback onOpenClinicalForm;
   final ValueChanged<String> onOpenAppointments;
   final VoidCallback onBookTreatment;
+
+  /// Chatbot wrote; reload without a skeleton.
+  final Listenable? refreshSignal;
 
   @override
   State<PatientDashboardScreen> createState() => _PatientDashboardScreenState();
@@ -41,26 +58,70 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
   void initState() {
     super.initState();
     _load();
+    widget.refreshSignal?.addListener(_reloadQuietly);
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  @override
+  void didUpdateWidget(PatientDashboardScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshSignal != widget.refreshSignal) {
+      oldWidget.refreshSignal?.removeListener(_reloadQuietly);
+      widget.refreshSignal?.addListener(_reloadQuietly);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.refreshSignal?.removeListener(_reloadQuietly);
+    super.dispose();
+  }
+
+  // Swaps data in place, keeping scroll.
+  void _reloadQuietly() => _load(quiet: true);
+
+  static const _stateKey = 'patientDashboard';
+
+  Future<void> _load({bool quiet = false}) async {
+    // Repaint last result, refresh behind it.
+    if (_patient == null) {
+      final kept = widget.apiClient?.readViewState<_DashboardSnapshot>(
+        _stateKey,
+      );
+      if (kept != null) {
+        _patient = kept.patient;
+        _upcoming = kept.upcoming;
+      }
+    }
+
+    if (!quiet && _patient == null) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    } else if (_loading) {
+      setState(() => _loading = false);
+    }
     try {
       final results = await Future.wait([
         widget.clinicalApi.fetchOwn(),
         widget.appointmentApi.upcoming(page: 0, size: 10),
       ]);
+      final patient = results[0] as Map<String, dynamic>;
+      final upcoming = (results[1] as AppointmentPage).items;
+      widget.apiClient?.writeViewState(
+        _stateKey,
+        _DashboardSnapshot(patient, upcoming),
+      );
       if (!mounted) return;
       setState(() {
-        _patient = results[0] as Map<String, dynamic>;
-        _upcoming = (results[1] as AppointmentPage).items;
+        _patient = patient;
+        _upcoming = upcoming;
         _loading = false;
       });
     } catch (_) {
       if (!mounted) return;
+      // Silent reload keeps what is shown.
+      if (quiet) return;
       setState(() {
         _error = 'Unable to load your dashboard.';
         _loading = false;

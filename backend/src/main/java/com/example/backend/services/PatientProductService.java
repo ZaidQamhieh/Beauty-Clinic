@@ -14,14 +14,18 @@ import com.example.backend.repositories.ProductRepository;
 import com.example.backend.security.CurrentUser;
 import com.example.backend.security.Role;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -34,13 +38,15 @@ public class PatientProductService {
     private final ActivityLogService activityLogs;
     private final CurrentUser currentUser;
 
+    @Cacheable(value = "patientData", key = "'products:' + #patientUserId")
     @Transactional(readOnly = true)
     public List<PatientProductResponse> list(UUID patientUserId) {
         return patientProducts.findByPatientUserId(patientUserId).stream()
                 .map(PatientProductResponse::of)
-                .toList();
+                .collect(Collectors.toCollection(ArrayList::new));
     }
 
+    @CacheEvict(value = "patientData", allEntries = true)
     @Transactional
     public PatientProductResponse add(UUID patientUserId, AddPatientProductRequest request) {
         if (currentUser.hasRole(Role.PATIENT)
@@ -65,6 +71,7 @@ public class PatientProductService {
         return PatientProductResponse.of(saved);
     }
 
+    @CacheEvict(value = "patientData", allEntries = true)
     @Transactional
     public PatientProductResponse discontinue(UUID patientUserId, UUID patientProductId) {
         PatientProduct patientProduct = patientProducts.findById(patientProductId)

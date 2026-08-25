@@ -14,6 +14,8 @@ import com.example.backend.repositories.UserAccountRepository;
 import com.example.backend.security.CurrentUser;
 import com.example.backend.security.Role;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -50,6 +52,7 @@ public class PatientProfileService {
     private final ObjectMapper objectMapper = new ObjectMapper()
             .registerModule(new JavaTimeModule());
 
+    @CacheEvict(value = "patientData", allEntries = true)
     @Transactional
     public PatientDetailResponse register(PatientDetailsRequest request) {
         if (request.clinical() == null) {
@@ -90,6 +93,7 @@ public class PatientProfileService {
         return PatientDetailResponse.of(profile);
     }
 
+    // Page doesn't round-trip through the Redis ObjectMapper.
     @Transactional(readOnly = true)
     public Page<PatientDetailResponse> search(String term, Pageable pageable) {
         String needle = term;
@@ -118,6 +122,7 @@ public class PatientProfileService {
                 .map(PatientRecordResponse::of);
     }
 
+    @Cacheable(value = "patientData", key = "'detail:' + #userId")
     @Transactional(readOnly = true)
     public PatientDetailResponse read(UUID userId) {
         return PatientDetailResponse.of(require(userId));
@@ -134,6 +139,7 @@ public class PatientProfileService {
         return record;
     }
 
+    @CacheEvict(value = "patientData", allEntries = true)
     @Transactional
     public PatientDetailResponse updateDemographics(UUID userId, PatientDetailsRequest request) {
         PatientProfile profile = require(userId);
@@ -166,6 +172,7 @@ public class PatientProfileService {
         return objectMapper.valueToTree(fields);
     }
 
+    @CacheEvict(value = "patientData", allEntries = true)
     @Transactional
     // Target from token, never from body.
     public PatientDetailResponse updateOwnProfile(EditOwnProfileRequest request) {
@@ -184,17 +191,20 @@ public class PatientProfileService {
         return PatientDetailResponse.of(profile);
     }
 
+    @Cacheable(value = "patientData", key = "'own:' + @currentUser.requireId()")
     @Transactional(readOnly = true)
     public PatientRecordResponse readOwnRecord() {
         return PatientRecordResponse.of(requireOwn());
     }
 
-    // Only route a patient writes clinical.
+    // Self-invocation skips the proxy; evict here too.
+    @CacheEvict(value = "patientData", allEntries = true)
     @Transactional
     public PatientRecordResponse updateOwnClinicalProfile(EditClinicalProfileRequest request) {
         return updateClinicalProfile(currentUser.requireId(), request);
     }
 
+    @CacheEvict(value = "patientData", allEntries = true)
     @Transactional
     public PatientRecordResponse updateClinicalProfile(UUID userId, EditClinicalProfileRequest request) {
         PatientProfile profile = require(userId);

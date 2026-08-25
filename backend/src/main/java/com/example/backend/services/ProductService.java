@@ -7,6 +7,8 @@ import com.example.backend.entities.Product;
 import com.example.backend.repositories.ProductRepository;
 import com.example.backend.security.CurrentUser;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,16 +27,20 @@ public class ProductService {
     private final ActivityLogService activityLogs;
     private final CurrentUser currentUser;
 
+    @Cacheable("products")
     @Transactional(readOnly = true)
     public List<ProductResponse> list() {
-        return products.findAll().stream().map(ProductResponse::of).toList();
+        return products.findAll().stream().map(ProductResponse::of)
+                .collect(Collectors.toCollection(ArrayList::new));
     }
 
+    @Cacheable(value = "products", key = "#id")
     @Transactional(readOnly = true)
     public ProductResponse read(UUID id) {
         return ProductResponse.of(find(id));
     }
 
+    @CacheEvict(value = "products", allEntries = true)
     @Transactional
     public ProductResponse create(CreateProductRequest request) {
         // Named here; the index cannot say which.
@@ -52,6 +58,7 @@ public class ProductService {
         return ProductResponse.of(saved);
     }
 
+    @CacheEvict(value = "products", allEntries = true)
     @Transactional
     public ProductResponse update(UUID id, CreateProductRequest request) {
         Product product = find(id);
@@ -69,6 +76,7 @@ public class ProductService {
         return ProductResponse.of(products.save(product));
     }
 
+    @CacheEvict(value = "products", allEntries = true)
     @Transactional
     public void delete(UUID id) {
         products.delete(find(id));

@@ -15,12 +15,10 @@ class DoctorAvailabilityScreen extends StatefulWidget {
     super.key,
     required this.api,
     required this.appointmentApi,
-    this.onBack,
   });
 
   final DoctorAvailabilityApi api;
   final AppointmentApi appointmentApi;
-  final VoidCallback? onBack;
 
   @override
   State<DoctorAvailabilityScreen> createState() =>
@@ -230,12 +228,6 @@ class _DoctorAvailabilityScreenState extends State<DoctorAvailabilityScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (widget.onBack != null)
-            TextButton.icon(
-              onPressed: widget.onBack,
-              icon: const Icon(Icons.arrow_back, size: 16),
-              label: const Text('Dashboard'),
-            ),
           Padding(
             padding: const EdgeInsets.fromLTRB(24, 12, 24, 18),
             child: LayoutBuilder(

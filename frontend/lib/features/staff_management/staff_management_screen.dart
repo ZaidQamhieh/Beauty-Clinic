@@ -7,6 +7,7 @@ import '../../core/constants/country_dial_codes.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_dropdown.dart';
+import '../../core/widgets/password_strength_meter.dart';
 import '../../core/widgets/skeleton.dart';
 import '../../network/api_client.dart';
 

@@ -5,6 +5,7 @@ import '../../../auth/role.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_dropdown.dart';
+import '../../../core/widgets/password_strength_meter.dart';
 import '../../../core/widgets/profile_avatar.dart';
 import '../../../core/widgets/skeleton.dart';
 import '../../../network/api_client.dart';
@@ -627,6 +628,12 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                   _newPasswordController,
                   _showNewPassword,
                   () => setState(() => _showNewPassword = !_showNewPassword),
+                ),
+                ListenableBuilder(
+                  listenable: _newPasswordController,
+                  builder: (context, _) => PasswordStrengthMeter(
+                    password: _newPasswordController.text,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 _passwordField(

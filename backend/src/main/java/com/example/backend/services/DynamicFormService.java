@@ -14,6 +14,8 @@ import com.example.backend.security.CurrentUser;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -41,6 +44,7 @@ public class DynamicFormService {
     // Jackson 2 kept for Hibernate JsonNode.
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    @Cacheable(value = "formSchema", key = "#includeInactive")
     @Transactional(readOnly = true)
     public List<FormQuestionResponse> schema(boolean includeInactive) {
         List<FormQuestion> rows = includeInactive
@@ -49,9 +53,10 @@ public class DynamicFormService {
 
         return rows.stream()
                 .map(question -> FormQuestionResponse.of(question, includeInactive))
-                .toList();
+                .collect(Collectors.toCollection(ArrayList::new));
     }
 
+    @CacheEvict(value = "formSchema", allEntries = true)
     @Transactional
     public FormQuestionResponse create(FormQuestionRequest request) {
         if (questions.existsByFormKeyAndFieldKey(CLINICAL_INTAKE, request.fieldKey())) {
@@ -70,6 +75,7 @@ public class DynamicFormService {
         return FormQuestionResponse.of(saved, true);
     }
 
+    @CacheEvict(value = "formSchema", allEntries = true)
     @Transactional
     public FormQuestionResponse update(UUID id, FormQuestionRequest request) {
         FormQuestion question = require(id);
@@ -88,6 +94,7 @@ public class DynamicFormService {
         return FormQuestionResponse.of(question, true);
     }
 
+    @CacheEvict(value = "formSchema", allEntries = true)
     @Transactional
     public void deactivate(UUID id) {
         require(id).setActive(false);
@@ -96,6 +103,7 @@ public class DynamicFormService {
                 actor(), null, ActivityAction.FORM_QUESTION_DEACTIVATED, "form_question", id);
     }
 
+    @CacheEvict(value = "formSchema", allEntries = true)
     @Transactional
     public void activate(UUID id) {
         require(id).setActive(true);
@@ -122,6 +130,8 @@ public class DynamicFormService {
         return objectMapper.convertValue(stored.getAnswers(), Map.class);
     }
 
+    // Also writes PatientProfile fields via applyToProfile.
+    @CacheEvict(value = "patientData", allEntries = true)
     @Transactional
     public Map<String, Object> saveAnswers(UUID actorId, UUID patientUserId, Map<String, Object> submitted) {
         List<FormQuestion> activeQuestions =

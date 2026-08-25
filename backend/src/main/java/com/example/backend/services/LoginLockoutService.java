@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -61,12 +62,12 @@ public class LoginLockoutService {
 
     // Strikes clear, or the ladder only climbs.
     @Transactional
-    public void recordSuccess(String identifier) {
-        users.findByEmailIgnoreCase(identifier).ifPresent(account -> {
+    public Optional<UserAccount> recordSuccess(String identifier) {
+        return users.findByEmailIgnoreCase(identifier).map(account -> {
             account.setFailedLoginCount(0);
             account.setLockedUntil(null);
             account.setLockoutStrikes(0);
-            users.save(account);
+            return users.save(account);
         });
     }
 

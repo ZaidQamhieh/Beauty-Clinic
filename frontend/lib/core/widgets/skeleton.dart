@@ -99,16 +99,26 @@ class SkeletonListTile extends StatelessWidget {
 
 // A scrollable stack of list-row skeletons.
 class SkeletonList extends StatelessWidget {
-  const SkeletonList({super.key, this.itemCount = 6, this.padding});
+  const SkeletonList({
+    super.key,
+    this.itemCount = 6,
+    this.padding,
+    this.shrinkWrap = false,
+  });
 
   final int itemCount;
   final EdgeInsetsGeometry? padding;
+
+  // Set inside an existing scroll view.
+  final bool shrinkWrap;
 
   @override
   Widget build(BuildContext context) {
     return ListView.builder(
       padding: padding ?? const EdgeInsets.all(16),
       itemCount: itemCount,
+      shrinkWrap: shrinkWrap,
+      physics: shrinkWrap ? const NeverScrollableScrollPhysics() : null,
       itemBuilder: (context, index) => const SkeletonListTile(),
     );
   }
@@ -149,11 +159,15 @@ class SkeletonGrid extends StatelessWidget {
     this.itemCount = 8,
     this.maxCrossAxisExtent = 220,
     this.padding,
+    this.shrinkWrap = false,
   });
 
   final int itemCount;
   final double maxCrossAxisExtent;
   final EdgeInsetsGeometry? padding;
+
+  // Set inside an existing scroll view.
+  final bool shrinkWrap;
 
   @override
   Widget build(BuildContext context) {
@@ -166,6 +180,8 @@ class SkeletonGrid extends StatelessWidget {
         childAspectRatio: 0.95,
       ),
       itemCount: itemCount,
+      shrinkWrap: shrinkWrap,
+      physics: shrinkWrap ? const NeverScrollableScrollPhysics() : null,
       itemBuilder: (context, index) => const SkeletonCard(),
     );
   }
@@ -173,14 +189,17 @@ class SkeletonGrid extends StatelessWidget {
 
 // Header block plus a few loading lines.
 class SkeletonDetail extends StatelessWidget {
-  const SkeletonDetail({super.key, this.lineCount = 4});
+  const SkeletonDetail({super.key, this.lineCount = 4, this.scrollable = true});
 
   final int lineCount;
+
+  // Clear it inside an existing scroll view.
+  final bool scrollable;
 
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    return SingleChildScrollView(
+    final content = Padding(
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -207,5 +226,8 @@ class SkeletonDetail extends StatelessWidget {
         ],
       ),
     );
+
+    if (!scrollable) return content;
+    return SingleChildScrollView(child: content);
   }
 }

@@ -246,7 +246,7 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
 
   Widget _buildTodayAppointmentsTab() {
     if (_loadingTodayAppointments) {
-      return const Center(child: CircularProgressIndicator());
+      return const SkeletonList(itemCount: 3);
     }
     if (_todayAppointments.isEmpty) {
       return Center(

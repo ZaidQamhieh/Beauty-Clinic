@@ -121,13 +121,10 @@ public class AuthService {
                 throw failure;
         }
 
-        lockouts.recordSuccess(identifier);
-
         UserAccountDetails principal =
                 (UserAccountDetails) authentication.getPrincipal();
 
-        UserAccount user = users
-                .findById(principal.getUserId())
+        UserAccount user = lockouts.recordSuccess(identifier)
                 .orElseThrow(() -> new UsernameNotFoundException(
                         "Authenticated user no longer exists"
                 ));

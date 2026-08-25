@@ -4,6 +4,7 @@ import 'package:beauty_clinic_app/auth/auth_session.dart';
 import 'package:beauty_clinic_app/auth/role.dart';
 import 'package:beauty_clinic_app/core/theme/app_theme.dart';
 import 'package:beauty_clinic_app/core/widgets/floating_petals.dart';
+import 'package:beauty_clinic_app/core/widgets/skeleton.dart';
 import 'package:beauty_clinic_app/features/shell/presentation/app_shell.dart';
 import 'package:beauty_clinic_app/features/dashboard/presentation/dashboard_screen.dart';
 import 'package:beauty_clinic_app/features/doctor_profile/presentation/doctor_profile_screen.dart';
@@ -73,8 +74,11 @@ class _BeautyClinicAppState extends State<BeautyClinicApp> {
   String? _userName;
   String? _selectedDoctorId;
 
-  // Remounts the list after the bot writes.
-  int _chatRevision = 0;
+  // Where a refresh started, before auth loaded.
+  String? _pendingLocation;
+
+  // Bot wrote; screens reload quietly.
+  final ValueNotifier<int> _chatWrote = ValueNotifier<int>(0);
 
   // Carries a just-booked visit over.
   final ValueNotifier<Appointment?> _bookedSignal = ValueNotifier<Appointment?>(
@@ -121,14 +125,17 @@ class _BeautyClinicAppState extends State<BeautyClinicApp> {
     }
   }
 
+  // Chat writes bypass ApiClient.post, so evict here.
   void _afterChatWrite() {
-    setState(() => _chatRevision++);
+    _apiClient.invalidateCache();
+    _chatWrote.value++;
   }
 
   @override
   void dispose() {
     _session.removeListener(_handleSessionChanged);
     _bookedSignal.dispose();
+    _chatWrote.dispose();
     _apiClient.close();
     // Covers every session ending.
     ClinicTime.reset();
@@ -161,9 +168,7 @@ class _BeautyClinicAppState extends State<BeautyClinicApp> {
           path: AppRoutes.splash,
           pageBuilder: (context, state) => NoTransitionPage(
             key: state.pageKey,
-            child: const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
-            ),
+            child: const Scaffold(body: SkeletonDetail()),
           ),
         ),
         GoRoute(
@@ -217,9 +222,21 @@ class _BeautyClinicAppState extends State<BeautyClinicApp> {
   String? _redirect(BuildContext context, GoRouterState state) {
     final location = state.uri.path;
 
+    const publicOnly = {
+      AppRoutes.splash,
+      AppRoutes.guestLanding,
+      AppRoutes.login,
+      AppRoutes.register,
+    };
+
     switch (_session.status) {
       case AuthStatus.initializing:
-        return location == AppRoutes.splash ? null : AppRoutes.splash;
+        if (location == AppRoutes.splash) return null;
+        // Held across the bounce, restored once authenticated.
+        if (!publicOnly.contains(location)) {
+          _pendingLocation = state.uri.toString();
+        }
+        return AppRoutes.splash;
 
       case AuthStatus.unauthenticated:
         const guestPaths = {
@@ -230,12 +247,18 @@ class _BeautyClinicAppState extends State<BeautyClinicApp> {
         return guestPaths.contains(location) ? null : AppRoutes.guestLanding;
 
       case AuthStatus.authenticated:
-        const publicOnly = {
-          AppRoutes.splash,
-          AppRoutes.guestLanding,
-          AppRoutes.login,
-          AppRoutes.register,
-        };
+        final pending = _pendingLocation;
+        if (pending != null) {
+          _pendingLocation = null;
+          final pendingPath = Uri.parse(pending).path;
+          if (pendingPath != location &&
+              AppRoutes.allows(
+                _activeRole,
+                AppRoutes.idForLocation(pendingPath),
+              )) {
+            return pending;
+          }
+        }
         if (publicOnly.contains(location)) {
           return AppRoutes.defaultPathFor(_activeRole);
         }
@@ -345,7 +368,9 @@ class _BeautyClinicAppState extends State<BeautyClinicApp> {
       case 'dashboard':
         if (_activeRole == 'patient') {
           return PatientDashboardScreen(
-            key: ValueKey('patient_dashboard_$_chatRevision'),
+            key: const ValueKey('patient_dashboard'),
+            refreshSignal: _chatWrote,
+            apiClient: _apiClient,
             appointmentApi: _appointmentApi,
             clinicalApi: _clinicalApi,
             onOpenProfile: () => _router.go(
@@ -399,7 +424,8 @@ class _BeautyClinicAppState extends State<BeautyClinicApp> {
         }
         if (_activeRole == 'patient') {
           return AppointmentsScreen(
-            key: ValueKey('my_appointments_$_chatRevision'),
+            key: const ValueKey('my_appointments'),
+            refreshSignal: _chatWrote,
             appointmentApi: _appointmentApi,
             treatmentApi: _treatmentApi,
             doctorApi: _doctorApi,
@@ -530,14 +556,12 @@ class _BeautyClinicAppState extends State<BeautyClinicApp> {
           key: const ValueKey('doctor_availability'),
           api: _availabilityApi,
           appointmentApi: _appointmentApi,
-          onBack: () => _router.go(AppRoutes.pathFor('dashboard')),
         );
       case 'my_calendar':
         return MyCalendarScreen(
           key: const ValueKey('my_calendar'),
           appointmentApi: _appointmentApi,
           availabilityApi: _availabilityApi,
-          onBack: () => _router.go(AppRoutes.pathFor('dashboard')),
         );
       case 'patient_profile':
         final tab = int.tryParse(state.uri.queryParameters['tab'] ?? '') ?? 0;

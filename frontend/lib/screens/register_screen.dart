@@ -4,6 +4,7 @@ import '../auth/auth_session.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_typography.dart';
 import '../core/widgets/floating_petals.dart';
+import '../core/widgets/password_strength_meter.dart';
 import '../core/widgets/yasmine_logo.dart';
 
 /// Public registration is patient-only.
@@ -221,6 +222,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               validator: (value) => (value?.length ?? 0) < 8
                                   ? 'Use at least 8 characters.'
                                   : null,
+                            ),
+                            ListenableBuilder(
+                              listenable: _passwordController,
+                              builder: (context, _) => PasswordStrengthMeter(
+                                password: _passwordController.text,
+                              ),
                             ),
                             const SizedBox(height: 16),
                             TextFormField(
