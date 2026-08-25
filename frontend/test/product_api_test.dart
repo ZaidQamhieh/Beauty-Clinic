@@ -36,9 +36,10 @@ void main() {
       session.dispose();
     });
     const input = ProductInput(
+      name: 'Anthelios',
       brand: 'LA_ROCHE_POSAY',
       productType: 'SUNSCREEN',
-      category: 'Sun care',
+      imageUrl: 'https://example.com/anthelios.jpg',
       stockQuantity: 7,
       ingredients: ['ZINC_OXIDE'],
     );
@@ -52,6 +53,7 @@ void main() {
     await api.delete('product-id');
 
     expect(product.brandLabel, 'La Roche Posay');
+    expect(product.imageUrl, 'https://example.com/anthelios.jpg');
     expect(products.single.id, 'product-id');
     expect(updated.stockQuantity, 3);
     expect(adapter.requests.map((request) => request.method).toList(), [
@@ -67,9 +69,10 @@ void main() {
 
 Map<String, dynamic> _product({int stock = 7}) => {
   'id': 'product-id',
+  'name': 'Anthelios',
   'brand': 'LA_ROCHE_POSAY',
   'productType': 'SUNSCREEN',
-  'category': 'Sun care',
+  'imageUrl': 'https://example.com/anthelios.jpg',
   'stockQuantity': stock,
   'ingredients': ['ZINC_OXIDE'],
 };

@@ -9,9 +9,9 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   const product = Product(
     id: 'product-id',
+    name: 'Daily Moisturizer',
     brand: 'CERAVE',
     productType: 'MOISTURIZER',
-    category: 'Skin care',
     stockQuantity: 12,
     ingredients: ['HYALURONIC_ACID', 'CERAMIDES'],
   );
@@ -32,8 +32,8 @@ void main() {
     result.complete(product);
     await tester.pumpAndSettle();
 
-    expect(find.text('Cerave Moisturizer'), findsOneWidget);
-    expect(find.text('Skin care • 12 in stock'), findsOneWidget);
+    expect(find.text('Daily Moisturizer'), findsOneWidget);
+    expect(find.text('Cerave Moisturizer • 12 in stock'), findsOneWidget);
     expect(find.text('Hyaluronic Acid'), findsOneWidget);
     expect(find.text('Ceramides'), findsOneWidget);
   });
@@ -65,6 +65,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(attempts, 2);
-    expect(find.text('Cerave Moisturizer'), findsOneWidget);
+    expect(find.text('Daily Moisturizer'), findsOneWidget);
   });
 }

@@ -12,12 +12,10 @@ class ProductDetailScreen extends StatefulWidget {
     super.key,
     required this.productId,
     required this.loadProduct,
-    this.onBack,
   });
 
   final String productId;
   final ProductLoader loadProduct;
-  final VoidCallback? onBack;
 
   @override
   State<ProductDetailScreen> createState() => _ProductDetailScreenState();
@@ -72,15 +70,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (widget.onBack != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: TextButton.icon(
-                onPressed: widget.onBack,
-                icon: const Icon(Icons.arrow_back, size: 16),
-                label: const Text('Back to Products'),
-              ),
-            ),
           SizedBox(
             width: double.infinity,
             child: Card(
@@ -90,19 +79,32 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(
-                      Icons.spa_outlined,
-                      color: AppColors.rose,
-                      size: 36,
-                    ),
+                    if (product.imageUrl == null)
+                      const Icon(
+                        Icons.spa_outlined,
+                        color: AppColors.rose,
+                        size: 36,
+                      )
+                    else
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.network(
+                          product.imageUrl!,
+                          width: double.infinity,
+                          height: 200,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => const Icon(
+                            Icons.spa_outlined,
+                            color: AppColors.rose,
+                            size: 36,
+                          ),
+                        ),
+                      ),
                     const SizedBox(height: 16),
-                    Text(
-                      '${product.brandLabel} ${product.typeLabel}',
-                      style: AppTypography.displayTitle(),
-                    ),
+                    Text(product.name, style: AppTypography.displayTitle()),
                     const SizedBox(height: 8),
                     Text(
-                      '${product.category} • ${product.stockQuantity} in stock',
+                      '${product.brandLabel} ${product.typeLabel} • ${product.stockQuantity} in stock',
                       style: AppTypography.bodyMedium(
                         color: AppColors.textMuted,
                       ),

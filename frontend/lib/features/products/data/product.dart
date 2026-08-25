@@ -1,11 +1,12 @@
 class Product {
   const Product({
     required this.id,
+    required this.name,
     required this.brand,
     required this.productType,
-    required this.category,
     required this.stockQuantity,
     required this.ingredients,
+    this.imageUrl,
   });
 
   static const brands = [
@@ -39,18 +40,20 @@ class Product {
   };
 
   final String id;
+  final String name;
   final String brand;
   final String productType;
-  final String category;
+  final String? imageUrl;
   final int stockQuantity;
   final List<String> ingredients;
 
   factory Product.fromJson(Map<String, dynamic> json) {
     return Product(
       id: json['id'] as String,
+      name: json['name'] as String,
       brand: json['brand'] as String,
       productType: json['productType'] as String,
-      category: json['category'] as String,
+      imageUrl: json['imageUrl'] as String?,
       stockQuantity: json['stockQuantity'] as int,
       ingredients: List<String>.from(json['ingredients'] as List),
     );
@@ -69,23 +72,26 @@ class Product {
 
 class ProductInput {
   const ProductInput({
+    required this.name,
     required this.brand,
     required this.productType,
-    required this.category,
     required this.stockQuantity,
     required this.ingredients,
+    this.imageUrl,
   });
 
+  final String name;
   final String brand;
   final String productType;
-  final String category;
+  final String? imageUrl;
   final int stockQuantity;
   final List<String> ingredients;
 
   Map<String, dynamic> toJson() => {
+    'name': name,
     'brand': brand,
     'productType': productType,
-    'category': category,
+    'imageUrl': imageUrl,
     'stockQuantity': stockQuantity,
     'ingredients': ingredients,
   };
