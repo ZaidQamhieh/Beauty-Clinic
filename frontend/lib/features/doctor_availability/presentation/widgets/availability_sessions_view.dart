@@ -1,10 +1,17 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/widgets/skeleton.dart';
+import '../../../../network/api_client.dart';
 import '../../../appointments/data/appointment.dart';
+import '../../../appointments/data/appointment_api.dart';
+import '../../../patient_profile/data/session_record.dart';
+import '../../../patient_profile/data/session_record_api.dart';
+import '../../../patient_profile/presentation/session_record_dialogs.dart';
 import '../../data/doctor_availability_api.dart';
 
 // Window math shared by timeline and DayHoursBar.
@@ -111,16 +118,38 @@ int _parseMinutes(String hhmm) {
   return hours * 60 + minutes;
 }
 
-/// Day timeline of sessions shaded against availability.
+/// A day-by-day timeline of booked sessions, with a prev/next/date-picker
+/// day filter. Used by the admin's doctor detail view (for any doctor), a
+/// doctor's own calendar, and a patient's own calendar - the caller supplies
+/// how to fetch each day's sessions. [fetchAvailability] is optional: pass it
+/// (as doctors do) to shade the timeline against configured working hours;
+/// omit it (as a patient's own calendar does, since patients have no
+/// availability concept) to show only booked sessions on a plain background.
 class AvailabilitySessionsView extends StatefulWidget {
   const AvailabilitySessionsView({
     super.key,
     required this.fetchSessions,
-    required this.fetchAvailability,
+    this.fetchAvailability,
+    this.primaryLabel,
+    this.apiClient,
+    this.appointmentApi,
   });
 
   final Future<List<Appointment>> Function(DateTime date) fetchSessions;
-  final Future<List<DoctorAvailability>> Function() fetchAvailability;
+  final Future<List<DoctorAvailability>> Function()? fetchAvailability;
+
+  /// The bold label shown on each session block. Defaults to the patient's
+  /// name (for staff/doctor views); a patient's own calendar passes the
+  /// practitioner's name instead, since showing their own name is unhelpful.
+  final String Function(Appointment appointment, AppointmentSession session)?
+  primaryLabel;
+
+  /// When both are provided, each session block gets the same "Mark
+  /// attended & record" / "Add session record" / "View session record"
+  /// action used in ClinicAppointmentsScreen. Omit both to leave sessions
+  /// read-only (the admin doctor-detail view and a patient's own calendar).
+  final ApiClient? apiClient;
+  final AppointmentApi? appointmentApi;
 
   @override
   State<AvailabilitySessionsView> createState() =>
@@ -128,16 +157,27 @@ class AvailabilitySessionsView extends StatefulWidget {
 }
 
 class _ScheduledSession {
-  const _ScheduledSession({required this.patientName, required this.session});
+  const _ScheduledSession({
+    required this.primaryLabel,
+    required this.session,
+    required this.appointmentId,
+    required this.patientUserId,
+  });
 
-  final String patientName;
+  final String primaryLabel;
   final AppointmentSession session;
+  final String appointmentId;
+  final String patientUserId;
 }
 
 class _AvailabilitySessionsViewState extends State<AvailabilitySessionsView> {
   late DateTime _selectedDate;
   late Future<List<_ScheduledSession>> _sessionsFuture;
   late final Future<List<DoctorAvailability>> _availabilityFuture;
+  Map<String, SessionRecord> _recordsBySession = {};
+
+  bool get _canRecordSessions =>
+      widget.apiClient != null && widget.appointmentApi != null;
 
   @override
   void initState() {
@@ -145,7 +185,9 @@ class _AvailabilitySessionsViewState extends State<AvailabilitySessionsView> {
     final now = DateTime.now();
     _selectedDate = DateTime(now.year, now.month, now.day);
     _sessionsFuture = _loadSessions();
-    _availabilityFuture = widget.fetchAvailability();
+    _availabilityFuture =
+        widget.fetchAvailability?.call() ??
+        Future.value(const <DoctorAvailability>[]);
   }
 
   Future<List<_ScheduledSession>> _loadSessions() async {
@@ -156,8 +198,12 @@ class _AvailabilitySessionsViewState extends State<AvailabilitySessionsView> {
         if (session.status == 'CANCELLED') continue;
         scheduled.add(
           _ScheduledSession(
-            patientName: appointment.patientName,
+            primaryLabel:
+                widget.primaryLabel?.call(appointment, session) ??
+                appointment.patientName,
             session: session,
+            appointmentId: appointment.id,
+            patientUserId: appointment.patientUserId,
           ),
         );
       }
@@ -165,7 +211,77 @@ class _AvailabilitySessionsViewState extends State<AvailabilitySessionsView> {
     scheduled.sort(
       (a, b) => a.session.startTime.compareTo(b.session.startTime),
     );
+    if (_canRecordSessions) {
+      unawaited(_loadRecords(scheduled));
+    }
     return scheduled;
+  }
+
+  Future<void> _loadRecords(List<_ScheduledSession> scheduled) async {
+    final apiClient = widget.apiClient;
+    if (apiClient == null) return;
+    final api = SessionRecordApi(apiClient);
+    final patientIds = scheduled.map((s) => s.patientUserId).toSet();
+    final lists = await Future.wait(
+      patientIds.map((patientId) async {
+        try {
+          return await api.listForPatient(patientId);
+        } catch (_) {
+          return const <SessionRecord>[];
+        }
+      }),
+    );
+    if (!mounted) return;
+    setState(() {
+      _recordsBySession = {
+        for (final record in lists.expand((items) => items))
+          record.sessionId: record,
+      };
+    });
+  }
+
+  Future<void> _onSessionTap(_ScheduledSession scheduled) async {
+    final apiClient = widget.apiClient;
+    final appointmentApi = widget.appointmentApi;
+    if (apiClient == null || appointmentApi == null) return;
+
+    final record = _recordsBySession[scheduled.session.id];
+    if (record == null) {
+      final saved = await completeSessionWithRecord(
+        context: context,
+        apiClient: apiClient,
+        appointmentApi: appointmentApi,
+        appointmentId: scheduled.appointmentId,
+        patientUserId: scheduled.patientUserId,
+        session: scheduled.session,
+      );
+      if (saved) {
+        setState(() {
+          _sessionsFuture = _loadSessions();
+        });
+      }
+      return;
+    }
+
+    showSessionRecordViewDialog(
+      context: context,
+      record: record,
+      canEdit: true,
+      onEdit: () async {
+        final saved = await editSessionRecord(
+          context: context,
+          apiClient: apiClient,
+          record: record,
+          session: scheduled.session,
+          patientUserId: scheduled.patientUserId,
+        );
+        if (saved) {
+          setState(() {
+            _sessionsFuture = _loadSessions();
+          });
+        }
+      },
+    );
   }
 
   void _changeDay(int delta) {
@@ -224,6 +340,9 @@ class _AvailabilitySessionsViewState extends State<AvailabilitySessionsView> {
                   date: _selectedDate,
                   sessions: sessionsSnapshot.data ?? const [],
                   availability: availabilitySnapshot.data ?? const [],
+                  showAvailability: widget.fetchAvailability != null,
+                  recordsBySession: _recordsBySession,
+                  onSessionTap: _canRecordSessions ? _onSessionTap : null,
                 );
               },
             );
@@ -318,11 +437,25 @@ class _DayTimelineView extends StatelessWidget {
     required this.date,
     required this.sessions,
     required this.availability,
+    required this.showAvailability,
+    required this.recordsBySession,
+    required this.onSessionTap,
   });
 
   final DateTime date;
   final List<_ScheduledSession> sessions;
   final List<DoctorAvailability> availability;
+
+  /// Whether to shade the timeline against configured availability at all.
+  /// False for a patient's own calendar, which has no availability concept.
+  final bool showAvailability;
+
+  final Map<String, SessionRecord> recordsBySession;
+
+  /// Non-null enables the "Mark attended & record" action on each session
+  /// block (the doctor's My Calendar); null leaves sessions read-only (the
+  /// admin doctor-detail view and a patient's own calendar).
+  final void Function(_ScheduledSession scheduled)? onSessionTap;
 
   static const int _startHour = 7;
   static const int _endHour = 24;
@@ -336,14 +469,22 @@ class _DayTimelineView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final absoluteWindows = resolveAvailableWindows(date, availability);
-    final clampedWindows = clampToDisplayRange(
-      absoluteWindows,
-      _startHour,
-      _endHour,
-    );
-    final available = clampedWindows;
-    final unavailable = invertWindows(clampedWindows, _totalMinutes);
+    final List<DayWindow> available;
+    final List<DayWindow> unavailable;
+    if (showAvailability) {
+      final absoluteWindows = resolveAvailableWindows(date, availability);
+      final clampedWindows = clampToDisplayRange(
+        absoluteWindows,
+        _startHour,
+        _endHour,
+      );
+      available = clampedWindows;
+      unavailable = invertWindows(clampedWindows, _totalMinutes);
+    } else {
+      available = const [];
+      unavailable = const [];
+    }
+    final appointmentGroups = _appointmentGroups();
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -364,11 +505,19 @@ class _DayTimelineView extends StatelessWidget {
                 style: AppTypography.labelLarge(),
               ),
               const Spacer(),
-              _legendDot(_availableColor, 'Available'),
-              const SizedBox(width: 12),
+              if (showAvailability) ...[
+                _legendDot(_availableColor, 'Available'),
+                const SizedBox(width: 12),
+              ],
               _legendDot(AppColors.rose, 'Booked'),
-              const SizedBox(width: 12),
-              _legendDot(_unavailableColor, 'Unavailable'),
+              if (showAvailability) ...[
+                const SizedBox(width: 12),
+                _legendDot(_unavailableColor, 'Unavailable'),
+              ],
+              if (appointmentGroups.isNotEmpty) ...[
+                const SizedBox(width: 12),
+                _legendOutline(AppColors.lavDark, 'Visit'),
+              ],
             ],
           ),
           const SizedBox(height: 16),
@@ -387,6 +536,8 @@ class _DayTimelineView extends StatelessWidget {
                       for (final segment in unavailable)
                         _shadedSegment(segment, _unavailableColor),
                       IgnorePointer(child: _hourGridLines()),
+                      for (final group in appointmentGroups)
+                        _appointmentGroupBox(group),
                       for (final scheduled in sessions)
                         _sessionBlock(scheduled),
                     ],
@@ -411,6 +562,24 @@ class _DayTimelineView extends StatelessWidget {
             color: color,
             shape: BoxShape.circle,
             border: Border.all(color: AppColors.border),
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text(label, style: AppTypography.bodySmall()),
+      ],
+    );
+  }
+
+  Widget _legendOutline(Color color, String label) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 10,
+          height: 10,
+          decoration: BoxDecoration(
+            border: Border.all(color: color, width: 1.5),
+            borderRadius: BorderRadius.circular(3),
           ),
         ),
         const SizedBox(width: 6),
@@ -464,6 +633,70 @@ class _DayTimelineView extends StatelessWidget {
     );
   }
 
+  /// Groups sessions that belong to the same visit (appointment), so a
+  /// multi-treatment booking can be outlined as one whole - only visits
+  /// with more than one session get a box; a lone session is already fully
+  /// represented by its own block.
+  List<List<_ScheduledSession>> _appointmentGroups() {
+    final byAppointmentId = <String, List<_ScheduledSession>>{};
+    for (final scheduled in sessions) {
+      byAppointmentId
+          .putIfAbsent(scheduled.session.appointmentId, () => [])
+          .add(scheduled);
+    }
+    return byAppointmentId.values.where((group) => group.length > 1).toList();
+  }
+
+  Widget _appointmentGroupBox(List<_ScheduledSession> group) {
+    final displayStart = _startHour * 60;
+    final starts = group.map(
+      (scheduled) =>
+          (scheduled.session.startTime.hour * 60 +
+              scheduled.session.startTime.minute) -
+          displayStart,
+    );
+    final ends = group.map(
+      (scheduled) =>
+          (scheduled.session.endTime.hour * 60 +
+              scheduled.session.endTime.minute) -
+          displayStart,
+    );
+    final start = starts
+        .reduce((a, b) => a < b ? a : b)
+        .clamp(0, _totalMinutes);
+    final end = ends.reduce((a, b) => a > b ? a : b).clamp(0, _totalMinutes);
+    if (end <= start) {
+      return const SizedBox.shrink();
+    }
+
+    // A little breathing room around the sessions it contains, so the frame
+    // doesn't sit flush against their edges.
+    const verticalPadding = 4.0;
+    const horizontalPadding = 2.0;
+    final top = (start / 60.0 * _hourHeight - verticalPadding).clamp(
+      0.0,
+      _totalHeight,
+    );
+    final bottom = (end / 60.0 * _hourHeight + verticalPadding).clamp(
+      0.0,
+      _totalHeight,
+    );
+
+    return Positioned(
+      top: top,
+      left: horizontalPadding,
+      right: horizontalPadding,
+      height: bottom - top,
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.lav.withValues(alpha: 0.10),
+          border: Border.all(color: AppColors.lavDark, width: 1.5),
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+    );
+  }
+
   Widget _sessionBlock(_ScheduledSession scheduled) {
     final session = scheduled.session;
     final displayStart = _startHour * 60;
@@ -484,86 +717,116 @@ class _DayTimelineView extends StatelessWidget {
 
     final blockHeight = (clampedEnd - clampedStart) / 60.0 * _hourHeight;
 
+    final tappable = onSessionTap != null;
+
     return Positioned(
       top: clampedStart / 60.0 * _hourHeight,
       left: 4,
       right: 4,
       height: blockHeight,
       child: ClipRect(
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            color: background,
+        child: Material(
+          color: background,
+          borderRadius: BorderRadius.circular(10),
+          child: InkWell(
+            onTap: tappable ? () => onSessionTap!(scheduled) : null,
             borderRadius: BorderRadius.circular(10),
-            border: Border(left: BorderSide(color: accent, width: 3)),
-          ),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final patientName = scheduled.patientName.isEmpty
-                  ? 'Patient'
-                  : scheduled.patientName;
-              final timeRange =
-                  '${DateFormat('h:mm a').format(session.startTime)}–${DateFormat('h:mm a').format(session.endTime)}';
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(10),
+                border: Border(left: BorderSide(color: accent, width: 3)),
+              ),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final primaryLabel = scheduled.primaryLabel.isEmpty
+                      ? 'Patient'
+                      : scheduled.primaryLabel;
+                  final timeRange =
+                      '${DateFormat('h:mm a').format(session.startTime)}–${DateFormat('h:mm a').format(session.endTime)}';
 
-              // Too short for two lines; use one.
-              if (constraints.maxHeight < 28) {
-                return Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text.rich(
-                    TextSpan(
-                      style: AppTypography.labelMedium(),
-                      children: [
-                        TextSpan(text: patientName),
+                  // Below two comfortable lines of text, cram everything
+                  // onto one line rather than dropping details.
+                  if (constraints.maxHeight < 28) {
+                    return Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text.rich(
                         TextSpan(
-                          text: ' · ${session.treatmentLabel} · ',
-                          style: AppTypography.bodySmall(color: accent),
+                          style: AppTypography.labelMedium(),
+                          children: [
+                            TextSpan(text: primaryLabel),
+                            TextSpan(
+                              text: ' · ${session.treatmentLabel} · ',
+                              style: AppTypography.bodySmall(color: accent),
+                            ),
+                            TextSpan(
+                              text: timeRange,
+                              style: AppTypography.bodySmall(
+                                color: AppColors.textMuted,
+                              ),
+                            ),
+                          ],
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    );
+                  }
+
+                  // Only room for the record action once the block is tall
+                  // enough to fit a third line comfortably; shorter blocks
+                  // stay tappable via the InkWell above instead.
+                  final showActionButton =
+                      tappable && constraints.maxHeight >= 60;
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        primaryLabel,
+                        style: AppTypography.labelMedium(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text.rich(
                         TextSpan(
-                          text: timeRange,
-                          style: AppTypography.bodySmall(
-                            color: AppColors.textMuted,
+                          children: [
+                            TextSpan(
+                              text: session.treatmentLabel,
+                              style: AppTypography.bodySmall(color: accent),
+                            ),
+                            TextSpan(
+                              text: ' · $timeRange',
+                              style: AppTypography.bodySmall(
+                                color: AppColors.textMuted,
+                              ),
+                            ),
+                          ],
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (showActionButton) ...[
+                        const SizedBox(height: 4),
+                        Theme(
+                          data: Theme.of(context).copyWith(
+                            materialTapTargetSize:
+                                MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          child: SessionRecordActionButton(
+                            session: session,
+                            hasRecord: recordsBySession.containsKey(session.id),
+                            onTap: () => onSessionTap!(scheduled),
                           ),
                         ),
                       ],
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                );
-              }
-
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    patientName,
-                    style: AppTypography.labelMedium(),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  Text.rich(
-                    TextSpan(
-                      children: [
-                        TextSpan(
-                          text: session.treatmentLabel,
-                          style: AppTypography.bodySmall(color: accent),
-                        ),
-                        TextSpan(
-                          text: ' · $timeRange',
-                          style: AppTypography.bodySmall(
-                            color: AppColors.textMuted,
-                          ),
-                        ),
-                      ],
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              );
-            },
+                    ],
+                  );
+                },
+              ),
+            ),
           ),
         ),
       ),
