@@ -341,6 +341,11 @@ class _AppShellState extends State<AppShell> {
             'label': 'Treatments & Visits',
             'icon': Icons.calendar_today_outlined,
           },
+          {
+            'id': 'my_calendar',
+            'label': 'My Calendar',
+            'icon': Icons.calendar_view_day_outlined,
+          },
         ];
       case 'receptionist':
         return [

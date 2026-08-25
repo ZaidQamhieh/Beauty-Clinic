@@ -103,6 +103,14 @@ public class AppointmentController {
         return appointments.readOwnSchedule(date);
     }
 
+    @GetMapping("/me/day")
+    @PatientOnly
+    public List<AppointmentResponse> readOwnDay(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date
+    ) {
+        return appointments.readOwnDayAsPatient(date);
+    }
+
     // Open to patients, who book. A body, because it carries picks not stored yet.
     @PostMapping("/free-slots")
     @Authenticated

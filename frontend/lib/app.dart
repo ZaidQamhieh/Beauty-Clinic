@@ -25,6 +25,7 @@ import 'package:beauty_clinic_app/features/appointments/data/treatment_api.dart'
 import 'package:beauty_clinic_app/features/appointments/presentation/appointments_screen.dart';
 import 'package:beauty_clinic_app/features/appointments/presentation/clinic_appointments_screen.dart';
 import 'package:beauty_clinic_app/features/appointments/presentation/booking_flow_sheet.dart';
+import 'package:beauty_clinic_app/features/appointments/presentation/patient_calendar_screen.dart';
 import 'package:beauty_clinic_app/features/chat/data/chat_api.dart';
 import 'package:beauty_clinic_app/features/chat/presentation/chat_launcher.dart';
 import 'package:beauty_clinic_app/features/forms/data/clinical_intake_api.dart';
@@ -257,6 +258,7 @@ class _MainRootControllerState extends State<MainRootController> {
       'my_profile',
       'patient_profile',
       'appointments',
+      'my_calendar',
     },
     'receptionist' => {
       'dashboard',
@@ -706,10 +708,18 @@ class _MainRootControllerState extends State<MainRootController> {
           onBack: () => setState(() => _activeView = 'dashboard'),
         );
       case 'my_calendar':
+        if (_activeRole == 'patient') {
+          return PatientCalendarScreen(
+            key: const ValueKey('my_calendar_patient'),
+            appointmentApi: _appointmentApi,
+            onBack: () => setState(() => _activeView = 'dashboard'),
+          );
+        }
         return MyCalendarScreen(
           key: const ValueKey('my_calendar'),
           appointmentApi: _appointmentApi,
           availabilityApi: _availabilityApi,
+          apiClient: _apiClient,
           onBack: () => setState(() => _activeView = 'dashboard'),
         );
       case 'patient_profile':

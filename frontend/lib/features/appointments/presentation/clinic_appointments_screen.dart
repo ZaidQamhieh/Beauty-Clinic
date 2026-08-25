@@ -10,8 +10,7 @@ import '../data/doctor_api.dart';
 import '../data/treatment_api.dart';
 import '../../patient_profile/data/session_record_api.dart';
 import '../../patient_profile/data/session_record.dart';
-import '../../products/data/product.dart';
-import '../../products/data/product_api.dart';
+import '../../patient_profile/presentation/session_record_dialogs.dart';
 import 'booking_flow_sheet.dart';
 
 /// Clinic-wide appointment workspace for administrators and clinic staff.
@@ -244,121 +243,48 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
     Appointment appointment,
     AppointmentSession session,
   ) async {
-    try {
-      final products = await ProductApi(widget.apiClient).list();
-      if (!mounted) return;
-      final input = await showDialog<_SessionRecordInput>(
-        context: context,
-        builder: (_) =>
-            _SessionRecordDialog(session: session, catalog: products),
-      );
-      if (input == null) return;
-      if (session.isPlanned) {
-        await widget.appointmentApi.markAttended(appointment.id, session.id);
-      }
-      await SessionRecordApi(widget.apiClient).create(
-        patientId: appointment.patientUserId,
-        sessionId: session.id,
-        note: input.note,
-        skinReaction: input.skinReaction,
-        followUpDate: input.followUpDate,
-        prescribedProductIds: input.prescribedProductIds,
-      );
+    final saved = await completeSessionWithRecord(
+      context: context,
+      apiClient: widget.apiClient,
+      appointmentApi: widget.appointmentApi,
+      appointmentId: appointment.id,
+      patientUserId: appointment.patientUserId,
+      session: session,
+    );
+    if (saved) {
       await _load();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Session completed and record saved.')),
-        );
-      }
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not complete the session.')),
-      );
     }
   }
 
   void _viewSessionRecord(SessionRecord record) {
-    showDialog<void>(
+    showSessionRecordViewDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        title: Text(
-          'Session record · ${record.createdAt.toLocal().toIso8601String().split('T').first}',
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                (record.note == null || record.note!.trim().isEmpty)
-                    ? 'No clinical note added.'
-                    : record.note!,
-              ),
-              const SizedBox(height: 12),
-              Text('Skin reaction: ${record.skinReaction ?? 'Not recorded'}'),
-              if (record.followUpDate != null)
-                Text('Follow-up: ${record.followUpDate}'),
-              Text(
-                'Prescribed products: ${record.prescribedProductIds.length}',
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          if (widget.canAuthorSessionRecords)
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                _editSessionRecord(record);
-              },
-              child: const Text('Edit'),
-            ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
+      record: record,
+      canEdit: widget.canAuthorSessionRecords,
+      onEdit: () => _editSessionRecord(record),
     );
   }
 
   Future<void> _editSessionRecord(SessionRecord record) async {
-    try {
-      final products = await ProductApi(widget.apiClient).list();
-      if (!mounted) return;
-      final input = await showDialog<_SessionRecordInput>(
-        context: context,
-        builder: (_) => _SessionRecordDialog(
-          session: _appointments
-              .expand((appointment) => appointment.sessions)
-              .firstWhere((session) => session.id == record.sessionId),
-          catalog: products,
-          initial: record,
-        ),
-      );
-      if (input == null) return;
-      await SessionRecordApi(widget.apiClient).amend(
-        patientId: _appointments
-            .firstWhere(
-              (appointment) => appointment.sessions.any(
-                (session) => session.id == record.sessionId,
-              ),
-            )
-            .patientUserId,
-        recordId: record.id,
-        note: input.note,
-        skinReaction: input.skinReaction,
-        followUpDate: input.followUpDate,
-        prescribedProductIds: input.prescribedProductIds,
-      );
+    final session = _appointments
+        .expand((appointment) => appointment.sessions)
+        .firstWhere((session) => session.id == record.sessionId);
+    final patientUserId = _appointments
+        .firstWhere(
+          (appointment) => appointment.sessions.any(
+            (session) => session.id == record.sessionId,
+          ),
+        )
+        .patientUserId;
+    final saved = await editSessionRecord(
+      context: context,
+      apiClient: widget.apiClient,
+      record: record,
+      session: session,
+      patientUserId: patientUserId,
+    );
+    if (saved) {
       await _load();
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not edit the session record.')),
-        );
-      }
     }
   }
 
@@ -754,8 +680,10 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
                             session.practitionerUserId == widget.doctorUserId))
                       Align(
                         alignment: Alignment.centerRight,
-                        child: FilledButton.icon(
-                          onPressed: () {
+                        child: SessionRecordActionButton(
+                          session: session,
+                          hasRecord: _recordsBySession.containsKey(session.id),
+                          onTap: () {
                             final record = _recordsBySession[session.id];
                             if (record == null) {
                               _completeSession(appointment, session);
@@ -763,21 +691,6 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
                               _viewSessionRecord(record);
                             }
                           },
-                          icon: Icon(
-                            _recordsBySession.containsKey(session.id)
-                                ? Icons.visibility_outlined
-                                : session.status == 'COMPLETED'
-                                ? Icons.note_add_outlined
-                                : Icons.check_circle_outline,
-                            size: 16,
-                          ),
-                          label: Text(
-                            _recordsBySession.containsKey(session.id)
-                                ? 'View session record'
-                                : session.status == 'COMPLETED'
-                                ? 'Add session record'
-                                : 'Mark attended & record',
-                          ),
                         ),
                       ),
                   ],
@@ -874,153 +787,5 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
         .split(RegExp(r'\s+'))
         .where((part) => part.isNotEmpty);
     return parts.take(2).map((part) => part[0]).join().toUpperCase();
-  }
-}
-
-class _SessionRecordInput {
-  const _SessionRecordInput({
-    required this.note,
-    required this.skinReaction,
-    required this.followUpDate,
-    required this.prescribedProductIds,
-  });
-
-  final String? note;
-  final String? skinReaction;
-  final String? followUpDate;
-  final List<String> prescribedProductIds;
-}
-
-class _SessionRecordDialog extends StatefulWidget {
-  const _SessionRecordDialog({
-    required this.session,
-    required this.catalog,
-    this.initial,
-  });
-
-  final AppointmentSession session;
-  final List<Product> catalog;
-  final SessionRecord? initial;
-
-  @override
-  State<_SessionRecordDialog> createState() => _SessionRecordDialogState();
-}
-
-class _SessionRecordDialogState extends State<_SessionRecordDialog> {
-  late final TextEditingController _note;
-  late final Set<String> _products;
-  late String _reaction;
-  DateTime? _followUp;
-
-  @override
-  void initState() {
-    super.initState();
-    final initial = widget.initial;
-    _note = TextEditingController(text: initial?.note ?? '');
-    _products = {...?initial?.prescribedProductIds};
-    _reaction = initial?.skinReaction ?? 'NONE';
-    _followUp = initial?.followUpDate == null
-        ? null
-        : DateTime.tryParse(initial!.followUpDate!);
-  }
-
-  @override
-  void dispose() {
-    _note.dispose();
-    super.dispose();
-  }
-
-  Future<void> _chooseDate() async {
-    final date = await showDatePicker(
-      context: context,
-      initialDate: _followUp ?? DateTime.now(),
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 3650)),
-    );
-    if (date != null) setState(() => _followUp = date);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text('Session record · ${widget.session.treatmentLabel}'),
-      content: SizedBox(
-        width: 520,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TextField(
-                controller: _note,
-                maxLines: 5,
-                maxLength: 4000,
-                decoration: const InputDecoration(
-                  labelText: 'Clinical note',
-                  alignLabelWithHint: true,
-                ),
-              ),
-              DropdownButtonFormField<String>(
-                initialValue: _reaction,
-                decoration: const InputDecoration(labelText: 'Skin reaction'),
-                items: const [
-                  DropdownMenuItem(value: 'NONE', child: Text('None')),
-                  DropdownMenuItem(value: 'MILD', child: Text('Mild')),
-                  DropdownMenuItem(value: 'MODERATE', child: Text('Moderate')),
-                  DropdownMenuItem(value: 'SEVERE', child: Text('Severe')),
-                ],
-                onChanged: (value) {
-                  if (value != null) setState(() => _reaction = value);
-                },
-              ),
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                onPressed: _chooseDate,
-                icon: const Icon(Icons.event_outlined, size: 16),
-                label: Text(
-                  _followUp == null
-                      ? 'Add follow-up date'
-                      : 'Follow-up: ${_followUp!.toIso8601String().split('T').first}',
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text('Prescribe products', style: AppTypography.labelLarge()),
-              ...widget.catalog.map(
-                (product) => CheckboxListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  value: _products.contains(product.id),
-                  title: Text('${product.brandLabel} ${product.typeLabel}'),
-                  onChanged: (selected) => setState(() {
-                    if (selected == true) {
-                      _products.add(product.id);
-                    } else {
-                      _products.remove(product.id);
-                    }
-                  }),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.of(context).pop(
-            _SessionRecordInput(
-              note: _note.text.trim().isEmpty ? null : _note.text.trim(),
-              skinReaction: _reaction,
-              followUpDate: _followUp?.toIso8601String().split('T').first,
-              prescribedProductIds: _products.toList(),
-            ),
-          ),
-          child: const Text('Save session record'),
-        ),
-      ],
-    );
   }
 }
