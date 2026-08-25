@@ -19,13 +19,12 @@ import 'widgets/clinical_intake_tab.dart';
 /// Patient EHR and profile view.
 class PatientProfileScreen extends StatefulWidget {
   static const int overviewTabIndex = 0;
-  static const int upcomingTreatmentsTabIndex = 0;
-  static const int treatmentHistoryTabIndex = 1;
-  static const int productsTabIndex = 2;
-  static const int clinicFormsTabIndex = 3;
+  static const int productsTabIndex = 0;
+  static const int clinicFormsTabIndex = 1;
 
   final VoidCallback? onBack;
   final VoidCallback? onBackToAppointments;
+  final VoidCallback? onOpenVisits;
   final ClinicalIntakeApi clinicalApi;
   final DynamicFormApi dynamicApi;
   final AppointmentApi? appointmentApi;
@@ -42,6 +41,7 @@ class PatientProfileScreen extends StatefulWidget {
     super.key,
     this.onBack,
     this.onBackToAppointments,
+    this.onOpenVisits,
     required this.clinicalApi,
     required this.dynamicApi,
     this.appointmentApi,
@@ -68,14 +68,12 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
   List<Appointment> _treatmentHistory = [];
   List<Appointment> _upcomingTreatments = [];
   bool _loadingHistory = false;
-  bool _loadingUpcoming = false;
   String? _historyError;
-  String? _upcomingError;
-  String _historyFilter = 'ALL';
   List<SessionRecord> _sessionRecords = [];
   List<Appointment> _todayAppointments = [];
   bool _loadingTodayAppointments = false;
 
+  String _productFilter = 'ALL';
   List<dynamic> _patientProducts = [];
   List<Product> _prescribedProducts = [];
   bool _loadingProducts = false;
@@ -91,12 +89,8 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
   @override
   void initState() {
     super.initState();
-    final tabCount = _isOwnProfile ? 4 : 4;
-    final resolvedInitialIndex =
-        _isOwnProfile &&
-            widget.initialTabIndex == PatientProfileScreen.clinicFormsTabIndex
-        ? PatientProfileScreen.clinicFormsTabIndex
-        : widget.initialTabIndex.clamp(0, tabCount - 1);
+    final tabCount = _isOwnProfile ? 2 : 4;
+    final resolvedInitialIndex = widget.initialTabIndex.clamp(0, tabCount - 1);
 
     _tabController = TabController(
       length: tabCount,
@@ -113,23 +107,12 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
 
   Future<void> _loadUpcomingTreatments() async {
     if (widget.appointmentApi == null || widget.patientId != null) return;
-    setState(() {
-      _loadingUpcoming = true;
-      _upcomingError = null;
-    });
     try {
       final page = await widget.appointmentApi!.upcoming(page: 0, size: 50);
       if (!mounted) return;
-      setState(() {
-        _upcomingTreatments = page.items;
-        _loadingUpcoming = false;
-      });
+      setState(() => _upcomingTreatments = page.items);
     } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _upcomingError = 'Could not load upcoming treatments.';
-        _loadingUpcoming = false;
-      });
+      // Tile falls back to "None booked".
     }
   }
 
@@ -518,95 +501,293 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
       return const SkeletonDetail();
     }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+    // Only the open tab scrolls.
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (widget.onBack != null && widget.patientId != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: OutlinedButton.icon(
-                onPressed: widget.onBack,
-                icon: const Icon(Icons.arrow_back_rounded, size: 16),
-                label: const Text('Back to Patients Directory'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.rose,
-                  side: const BorderSide(color: AppColors.borderRose),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 10,
-                  ),
-                ),
+          // Patient Header (100% database driven)
+          if (_isOwnProfile) ...[
+            _buildIdentityStrip(),
+            const SizedBox(height: 10),
+            _buildSummaryTiles(),
+          ] else
+            _buildPatientHeader(),
+
+          const SizedBox(height: 12),
+
+          if (_isOwnProfile)
+            Expanded(child: _buildOwnSections())
+          else ...[
+            TabBar(
+              controller: _tabController,
+              isScrollable: true,
+              labelColor: AppColors.rose,
+              unselectedLabelColor: AppColors.textMuted,
+              indicatorColor: AppColors.rose,
+              labelStyle: AppTypography.labelMedium(),
+              unselectedLabelStyle: AppTypography.labelMedium(),
+              tabs: const [
+                Tab(text: 'Today\'s Appointments'),
+                Tab(text: 'Overview & Info'),
+                Tab(text: 'Treatment History'),
+                Tab(text: 'Prescriptions & Products'),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildTodayAppointmentsTab(),
+                  _buildOverviewTab(),
+                  _buildHistoryTab(),
+                  buildProductsTab(),
+                ],
               ),
             ),
+          ],
+        ],
+      ),
+    );
+  }
 
-          // Patient Header (100% database driven)
-          _buildPatientHeader(),
+  /// Two panes side by side, like Treatments.
+  Widget _buildOwnSections() {
+    final products = _pane(
+      'PRESCRIPTIONS & PRODUCTS',
+      '${_patientProducts.whereType<PatientProductRecord>().where((item) => item.discontinuedOn == null).length} active',
+      buildProductsTab(),
+    );
+    final forms = _pane(
+      'CLINIC FORMS',
+      null,
+      ClinicalIntakeTab(
+        clinicalApi: widget.clinicalApi,
+        dynamicApi: widget.dynamicApi,
+        patientId: widget.patientId,
+        onBackToAppointments: widget.onBackToAppointments,
+        onSaved: () {
+          _loadPatientData();
+          _loadProducts();
+        },
+      ),
+    );
 
-          const SizedBox(height: 24),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 900) {
+          return Column(
+            children: [
+              const SizedBox(height: 4),
+              TabBar(
+                controller: _tabController,
+                labelColor: AppColors.rose,
+                unselectedLabelColor: AppColors.textMuted,
+                indicatorColor: AppColors.rose,
+                labelStyle: AppTypography.labelMedium(),
+                unselectedLabelStyle: AppTypography.labelMedium(),
+                tabs: const [
+                  Tab(text: 'Products'),
+                  Tab(text: 'Clinic Forms'),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [products, forms],
+                ),
+              ),
+            ],
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: products),
+            const SizedBox(width: 28),
+            Expanded(child: forms),
+          ],
+        );
+      },
+    );
+  }
 
-          // Tab Bar
-          TabBar(
-            controller: _tabController,
-            isScrollable: true,
-            labelColor: AppColors.rose,
-            unselectedLabelColor: AppColors.textMuted,
-            indicatorColor: AppColors.rose,
-            labelStyle: AppTypography.labelMedium(),
-            unselectedLabelStyle: AppTypography.labelMedium(),
-            tabs: _isOwnProfile
-                ? const [
-                    Tab(text: 'Upcoming Treatments'),
-                    Tab(text: 'Treatment History'),
-                    Tab(text: 'Prescriptions & Products'),
-                    Tab(text: 'Clinic Forms'),
-                  ]
-                : const [
-                    Tab(text: 'Today\'s Appointments'),
-                    Tab(text: 'Overview & Info'),
-                    Tab(text: 'Treatment History'),
-                    Tab(text: 'Prescriptions & Products'),
-                  ],
+  /// Label, count, hairline, then the body.
+  Widget _pane(String label, String? count, Widget body) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(label, style: AppTypography.labelSmall()),
+            if (count != null) ...[
+              const SizedBox(width: 8),
+              Text(
+                count,
+                style: AppTypography.labelSmall(color: AppColors.textSub),
+              ),
+            ],
+            const SizedBox(width: 12),
+            Expanded(child: Container(height: 1, color: AppColors.hairline)),
+          ],
+        ),
+        const SizedBox(height: 14),
+        Expanded(child: body),
+      ],
+    );
+  }
+
+  /// One-line identity, own profile only.
+  Widget _buildIdentityStrip() {
+    final firstName = _patientData?['firstName']?.toString() ?? '';
+    final lastName = _patientData?['lastName']?.toString() ?? '';
+    final fullName = '$firstName $lastName'.trim();
+    final skinType = _patientData?['skinType']?.toString();
+    final isPregnant = _patientData?['pregnantBreastfeeding'] == true;
+
+    return Row(
+      children: [
+        ProfileAvatar(
+          radius: 15,
+          color: AppColors.rose,
+          imageUrl: _patientData?['imageUrl']?.toString(),
+        ),
+        const SizedBox(width: 10),
+        Flexible(
+          child: Text(
+            fullName.isNotEmpty ? fullName : 'My Medical Profile',
+            style: AppTypography.displaySubtitle().copyWith(fontSize: 17),
+            overflow: TextOverflow.ellipsis,
           ),
+        ),
+        if (skinType != null && skinType.isNotEmpty) ...[
+          const SizedBox(width: 10),
+          _buildTag(
+            'Skin: ${_humanizeEnum(skinType)}',
+            AppColors.rose,
+            AppColors.bgRose,
+          ),
+        ],
+        if (isPregnant) ...[
+          const SizedBox(width: 8),
+          _buildTag(
+            'Pregnant / Nursing',
+            const Color(0xFFDC2626),
+            const Color(0xFFFEF2F2),
+          ),
+        ],
+      ],
+    );
+  }
 
-          const SizedBox(height: 20),
+  /// Next visit, sessions done, form state.
+  Widget _buildSummaryTiles() {
+    final next = _nextPlannedSession();
+    final completed = _treatmentHistory
+        .where((appointment) => _historyStatus(appointment) == 'COMPLETED')
+        .length;
+    final active = _patientProducts
+        .whereType<PatientProductRecord>()
+        .where((item) => item.discontinuedOn == null)
+        .length;
 
-          // Tab Body
-          SizedBox(
-            height: 520,
-            child: TabBarView(
-              controller: _tabController,
-              children: _isOwnProfile
-                  ? [
-                      _buildUpcomingTreatmentsTab(),
-                      _buildHistoryTab(),
-                      buildProductsTab(),
-                      ClinicalIntakeTab(
-                        clinicalApi: widget.clinicalApi,
-                        dynamicApi: widget.dynamicApi,
-                        patientId: widget.patientId,
-                        onBackToAppointments: widget.onBackToAppointments,
-                        onSaved: () {
-                          _loadPatientData();
-                          _loadProducts();
-                        },
-                      ),
-                    ]
-                  : [
-                      _buildTodayAppointmentsTab(),
-                      _buildOverviewTab(),
-                      _buildHistoryTab(),
-                      buildProductsTab(),
-                    ],
-            ),
+    return Row(
+      children: [
+        Expanded(
+          child: _summaryTile(
+            'NEXT VISIT',
+            next == null
+                ? 'None booked'
+                : BookingFormat.dayWithYear(next.startTime),
+            next == null
+                ? 'Open Treatments & Visits'
+                : '${BookingFormat.time12(next.startTime)} · ${_humanizeEnum(next.treatmentName)}',
+            AppColors.rosePale,
+            onTap: widget.onOpenVisits,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _summaryTile(
+            'SESSIONS DONE',
+            '$completed',
+            completed == 0 ? 'No visits yet' : 'Across your treatment plan',
+            AppColors.lavPale,
+            onTap: widget.onOpenVisits,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _summaryTile(
+            'MY PRODUCTS',
+            '$active',
+            active == 0 ? 'Nothing prescribed yet' : 'In your current routine',
+            AppColors.sagePale,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _summaryTile(
+    String label,
+    String value,
+    String hint,
+    Color color, {
+    VoidCallback? onTap,
+  }) {
+    final tile = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: AppTypography.labelSmall().copyWith(fontSize: 10)),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppTypography.displayStat().copyWith(fontSize: 16),
+          ),
+          Text(
+            hint,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppTypography.bodySmall(
+              color: AppColors.textSub,
+            ).copyWith(fontSize: 11),
           ),
         ],
       ),
     );
+
+    if (onTap == null) {
+      return tile;
+    }
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: tile,
+      ),
+    );
+  }
+
+  AppointmentSession? _nextPlannedSession() {
+    final sessions = <AppointmentSession>[
+      for (final appointment in _upcomingTreatments)
+        ...appointment.sessions.where((session) => session.isPlanned),
+    ]..sort((a, b) => a.startTime.compareTo(b.startTime));
+    return sessions.isEmpty ? null : sessions.first;
   }
 
   Widget _buildPatientHeader() {
@@ -775,42 +956,11 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
       );
     }
 
-    final filteredHistory = _treatmentHistory.where((appointment) {
-      if (!_isOwnProfile) return true;
-      return _historyFilter == 'ALL' ||
-          _historyStatus(appointment) == _historyFilter;
-    }).toList();
+    final filteredHistory = _treatmentHistory;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (_isOwnProfile)
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final filter in const [
-                'ALL',
-                'COMPLETED',
-                'CANCELLED',
-                'MISSED',
-                'PENDING',
-              ])
-                ChoiceChip(
-                  label: Text(_humanizeEnum(filter)),
-                  selected: _historyFilter == filter,
-                  onSelected: (_) => setState(() => _historyFilter = filter),
-                  showCheckmark: false,
-                  selectedColor: AppColors.rose,
-                  labelStyle: AppTypography.labelSmall(
-                    color: _historyFilter == filter
-                        ? Colors.white
-                        : AppColors.textSub,
-                  ),
-                ),
-            ],
-          ),
-        const SizedBox(height: 12),
         Expanded(
           child: filteredHistory.isEmpty
               ? Center(
@@ -1023,85 +1173,6 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
     return 'PENDING';
   }
 
-  Widget _buildUpcomingTreatmentsTab() {
-    if (_loadingUpcoming) {
-      return const SkeletonList();
-    }
-    if (_upcomingError != null) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(_upcomingError!, style: AppTypography.bodySmall()),
-            TextButton(
-              onPressed: _loadUpcomingTreatments,
-              child: const Text('Retry'),
-            ),
-          ],
-        ),
-      );
-    }
-    if (_upcomingTreatments.isEmpty) {
-      return Center(
-        child: Text(
-          'No upcoming treatments scheduled.',
-          style: AppTypography.bodySmall(color: AppColors.textMuted),
-        ),
-      );
-    }
-    return ListView.separated(
-      itemCount: _upcomingTreatments.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 12),
-      itemBuilder: (context, index) {
-        final appointment = _upcomingTreatments[index];
-        final sessions = [...appointment.sessions]
-          ..sort((a, b) => a.startTime.compareTo(b.startTime));
-        final firstUpcomingSession = sessions.isEmpty
-            ? null
-            : sessions.firstWhere(
-                (session) => session.isPlanned,
-                orElse: () => sessions.first,
-              );
-        return Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppColors.bgCard,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.border),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text(
-                      firstUpcomingSession == null
-                          ? BookingFormat.dayWithYear(appointment.scheduledAt)
-                          : '${BookingFormat.dayWithYear(firstUpcomingSession.startTime)} · ${BookingFormat.time12(firstUpcomingSession.startTime)}',
-                      style: AppTypography.labelLarge(),
-                    ),
-                  ),
-                  _buildTag('CONFIRMED', AppColors.sage, AppColors.bgSage),
-                ],
-              ),
-              const Divider(height: 24),
-              for (final session in sessions)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Text(
-                    '${_humanizeEnum(session.treatmentName)} · ${BookingFormat.dayWithYear(session.startTime)} · ${BookingFormat.time12(session.startTime)} · ${_humanizeEnum(session.status)} · ${session.practitionerName}',
-                    style: AppTypography.bodySmall(color: AppColors.textSub),
-                  ),
-                ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
   Widget buildProductsTab() {
     if (_loadingProducts) {
       return const SkeletonList();
@@ -1159,119 +1230,264 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
       );
     }
 
+    final ownRoutine = routine
+        .where((item) => item.source != 'PRESCRIBED')
+        .toList();
+    final prescribedRoutine = routine
+        .where((item) => item.source == 'PRESCRIBED')
+        .toList();
+    final prescribedCount =
+        _prescribedProducts.length + prescribedRoutine.length;
+    final showPrescribed = _productFilter != 'OWN';
+    final showOwn = _productFilter != 'PRESCRIBED';
+
     return ListView(
       children: [
         Row(
           children: [
             Expanded(
-              child: Text(
-                'Prescribed products',
-                style: AppTypography.labelLarge(),
+              child: Wrap(
+                spacing: 7,
+                runSpacing: 7,
+                children: [
+                  _productFilterChip(
+                    'ALL',
+                    'All ${prescribedCount + ownRoutine.length}',
+                  ),
+                  _productFilterChip(
+                    'PRESCRIBED',
+                    'Prescribed $prescribedCount',
+                  ),
+                  _productFilterChip(
+                    'OWN',
+                    _isOwnProfile
+                        ? 'Mine ${ownRoutine.length}'
+                        : 'Patient\'s own ${ownRoutine.length}',
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        if (_prescribedProducts.isEmpty)
-          Text(
-            'No products prescribed yet.',
-            style: AppTypography.bodySmall(color: AppColors.textMuted),
-          )
-        else
-          ..._prescribedProducts.map(
-            (product) => _productTile(
-              '${_humanizeEnum(product.brand)} · ${_humanizeEnum(product.productType)}',
-              product.name,
-            ),
-          ),
-        const SizedBox(height: 20),
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                'Current patient routine',
-                style: AppTypography.labelLarge(),
-              ),
-            ),
-            if (widget.canManageProducts || widget.canChooseOwnProducts)
+            if (widget.canManageProducts || widget.canChooseOwnProducts) ...[
+              const SizedBox(width: 12),
               FilledButton.icon(
                 onPressed: _addPatientProduct,
                 icon: const Icon(Icons.add, size: 16),
                 label: Text(
                   widget.canChooseOwnProducts && !widget.canManageProducts
-                      ? 'Add current product'
+                      ? 'Add product'
                       : 'Assign product',
                 ),
               ),
+            ],
           ],
         ),
-        const SizedBox(height: 8),
-        if (routine.isEmpty)
-          Text(
-            'No products in the current routine.',
-            style: AppTypography.bodySmall(color: AppColors.textMuted),
-          )
-        else
-          ...routine.map(
-            (item) => _productTile(
-              '${_humanizeEnum(item.brand)} · ${_humanizeEnum(item.productType)}',
-              '${_humanizeEnum(item.source)}${item.startedOn == null ? '' : ' · Started ${item.startedOn}'}',
-              trailing:
-                  (widget.canManageProducts || widget.canChooseOwnProducts) &&
-                      item.discontinuedOn == null
-                  ? TextButton(
-                      onPressed: () => _discontinuePatientProduct(item),
-                      child: const Text('Discontinue'),
-                    )
-                  : item.discontinuedOn == null
-                  ? null
-                  : Text(
-                      'Discontinued ${item.discontinuedOn}',
-                      style: AppTypography.bodySmall(
-                        color: AppColors.textMuted,
-                      ),
-                    ),
-            ),
+        const SizedBox(height: 16),
+        if (showPrescribed)
+          _productGroup(
+            title: _isOwnProfile
+                ? 'From your doctor'
+                : 'Prescribed by the clinic',
+            icon: Icons.medical_services_outlined,
+            accent: AppColors.roseDark,
+            background: AppColors.bgRose,
+            border: AppColors.borderRose,
+            count: prescribedCount,
+            emptyText: 'Nothing prescribed yet.',
+            children: [
+              ..._prescribedProducts.map(
+                (product) => _productTile(
+                  '${_humanizeEnum(product.brand)} · ${_humanizeEnum(product.productType)}',
+                  product.name,
+                ),
+              ),
+              ...prescribedRoutine.map(
+                (item) => _productTile(
+                  '${_humanizeEnum(item.brand)} · ${_humanizeEnum(item.productType)}',
+                  item.startedOn == null
+                      ? 'In the routine'
+                      : 'Started ${item.startedOn}',
+                  trailing: _routineTrailing(item),
+                ),
+              ),
+            ],
+          ),
+        if (showPrescribed && showOwn) const SizedBox(height: 14),
+        if (showOwn)
+          _productGroup(
+            title: _isOwnProfile ? 'Added by you' : 'Patient\'s own products',
+            icon: Icons.person_outline,
+            accent: AppColors.lavDark,
+            background: AppColors.bgCard,
+            border: AppColors.border,
+            count: ownRoutine.length,
+            emptyText: _isOwnProfile
+                ? 'You have not added anything.'
+                : 'Nothing added by the patient.',
+            children: ownRoutine
+                .map(
+                  (item) => _productTile(
+                    '${_humanizeEnum(item.brand)} · ${_humanizeEnum(item.productType)}',
+                    item.discontinuedOn != null
+                        ? 'Stopped ${item.discontinuedOn}'
+                        : item.startedOn == null
+                        ? 'Not clinic advice'
+                        : 'Started ${item.startedOn} · not clinic advice',
+                    trailing: _routineTrailing(item),
+                    dimmed: item.discontinuedOn != null,
+                  ),
+                )
+                .toList(),
           ),
       ],
     );
   }
 
-  Widget _productTile(String title, String subtitle, {Widget? trailing}) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.bgCard,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: AppColors.bgRose,
-              borderRadius: BorderRadius.circular(12),
+  Widget? _routineTrailing(PatientProductRecord item) {
+    if (item.discontinuedOn != null) {
+      return Text(
+        'Stopped',
+        style: AppTypography.labelSmall(color: AppColors.textMuted),
+      );
+    }
+    if (widget.canManageProducts || widget.canChooseOwnProducts) {
+      return TextButton(
+        onPressed: () => _discontinuePatientProduct(item),
+        child: const Text('Discontinue'),
+      );
+    }
+    return null;
+  }
+
+  Widget _productFilterChip(String value, String label) {
+    final selected = _productFilter == value;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: () => setState(() => _productFilter = value),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
+          decoration: BoxDecoration(
+            color: selected ? AppColors.rosePale : AppColors.bgCard,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: selected ? AppColors.rose : AppColors.border,
             ),
-            child: const Icon(Icons.spa, color: AppColors.rose, size: 22),
           ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: AppTypography.labelLarge()),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: AppTypography.bodySmall(color: AppColors.textMuted),
+          child: Text(
+            label,
+            style:
+                AppTypography.labelSmall(
+                  color: selected ? AppColors.roseDark : AppColors.textMuted,
+                ).copyWith(
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
                 ),
-              ],
-            ),
           ),
-          ?trailing,
+        ),
+      ),
+    );
+  }
+
+  /// Tinted panel, so the source reads instantly.
+  Widget _productGroup({
+    required String title,
+    required IconData icon,
+    required Color accent,
+    required Color background,
+    required Color border,
+    required int count,
+    required String emptyText,
+    required List<Widget> children,
+  }) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 4),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 17, color: accent),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: AppTypography.labelMedium(color: accent),
+                ),
+              ),
+              Text(
+                '$count',
+                style: AppTypography.labelSmall(color: AppColors.textMuted),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (children.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text(
+                emptyText,
+                style: AppTypography.bodySmall(color: AppColors.textMuted),
+              ),
+            )
+          else
+            ...children,
         ],
+      ),
+    );
+  }
+
+  Widget _productTile(
+    String title,
+    String subtitle, {
+    Widget? trailing,
+    bool dimmed = false,
+  }) {
+    return Opacity(
+      opacity: dimmed ? .6 : 1,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.bgCard,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(9),
+              decoration: BoxDecoration(
+                color: AppColors.bgAlt,
+                borderRadius: BorderRadius.circular(11),
+              ),
+              child: const Icon(
+                Icons.spa_outlined,
+                color: AppColors.textSub,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: AppTypography.labelLarge()),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: AppTypography.bodySmall(color: AppColors.textMuted),
+                  ),
+                ],
+              ),
+            ),
+            ?trailing,
+          ],
+        ),
       ),
     );
   }
@@ -1474,11 +1690,16 @@ class _SessionRecordDialogState extends State<_SessionRecordDialog> {
   }
 
   Future<void> _pickFollowUpDate() async {
+    final now = DateTime.now();
+    // A past follow-up would break the picker.
+    final start = _followUpDate == null || _followUpDate!.isBefore(now)
+        ? now
+        : _followUpDate!;
     final picked = await showDatePicker(
       context: context,
-      initialDate: _followUpDate ?? DateTime.now(),
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 3650)),
+      initialDate: start,
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 3650)),
     );
     if (picked != null) setState(() => _followUpDate = picked);
   }

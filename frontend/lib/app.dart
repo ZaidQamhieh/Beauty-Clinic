@@ -434,7 +434,6 @@ class _BeautyClinicAppState extends State<BeautyClinicApp> {
             treatmentApi: _treatmentApi,
             doctorApi: _doctorApi,
             bookedSignal: _bookedSignal,
-            clinicalApi: _clinicalApi,
             focusedAppointmentId: state.uri.queryParameters['focus'],
             onNavigateToForms: () => _router.go(
               AppRoutes.ownProfilePath(
@@ -588,6 +587,7 @@ class _BeautyClinicAppState extends State<BeautyClinicApp> {
                   ),
                 )
               : null,
+          onOpenVisits: () => _router.go(AppRoutes.pathFor('appointments')),
           onBack: () => _router.go(AppRoutes.pathFor('dashboard')),
         );
       case 'my_profile':

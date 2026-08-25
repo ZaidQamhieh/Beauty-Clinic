@@ -942,11 +942,16 @@ class _SessionRecordDialogState extends State<_SessionRecordDialog> {
   }
 
   Future<void> _chooseDate() async {
+    final now = DateTime.now();
+    // A past follow-up would break the picker.
+    final start = _followUp == null || _followUp!.isBefore(now)
+        ? now
+        : _followUp!;
     final date = await showDatePicker(
       context: context,
-      initialDate: _followUp ?? DateTime.now(),
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 3650)),
+      initialDate: start,
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 3650)),
     );
     if (date != null) setState(() => _followUp = date);
   }

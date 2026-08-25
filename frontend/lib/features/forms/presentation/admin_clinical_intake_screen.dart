@@ -688,7 +688,7 @@ class _ClinicalHistoryState extends State<_ClinicalHistory> {
 
     showDialog<void>(
       context: context,
-      builder: (_) => Dialog(
+      builder: (dialogContext) => Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         child: Container(
           width: 580,
@@ -719,7 +719,7 @@ class _ClinicalHistoryState extends State<_ClinicalHistory> {
                     ),
                   ),
                   IconButton(
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: () => Navigator.of(dialogContext).pop(),
                     icon: const Icon(Icons.close, color: AppColors.textMuted),
                   ),
                 ],
@@ -907,7 +907,7 @@ class _ClinicalHistoryState extends State<_ClinicalHistory> {
               Align(
                 alignment: Alignment.centerRight,
                 child: ElevatedButton(
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: () => Navigator.of(dialogContext).pop(),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.rose,
                     foregroundColor: Colors.white,
