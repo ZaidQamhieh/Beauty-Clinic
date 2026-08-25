@@ -177,11 +177,19 @@ class _AvailabilitySessionsViewState extends State<AvailabilitySessionsView> {
 
   Future<void> _pickDate() async {
     final now = DateTime.now();
+    final first = DateTime(now.year - 2);
+    final last = DateTime(now.year + 2);
+    // Keep the opening day inside the range.
+    final start = _selectedDate.isBefore(first)
+        ? first
+        : _selectedDate.isAfter(last)
+        ? last
+        : _selectedDate;
     final picked = await showDatePicker(
       context: context,
-      initialDate: _selectedDate,
-      firstDate: DateTime(now.year - 2),
-      lastDate: DateTime(now.year + 2),
+      initialDate: start,
+      firstDate: first,
+      lastDate: last,
     );
     if (picked != null) {
       setState(() {

@@ -270,11 +270,6 @@ class _AppShellState extends State<AppShell> {
             'label': 'Availability',
             'icon': Icons.event_available_outlined,
           },
-          {
-            'id': 'consultations',
-            'label': 'Consultations',
-            'icon': Icons.video_call_outlined,
-          },
         ];
       case 'patient':
         return [

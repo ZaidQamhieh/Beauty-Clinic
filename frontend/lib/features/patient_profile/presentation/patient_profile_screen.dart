@@ -73,6 +73,7 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
   List<Appointment> _todayAppointments = [];
   bool _loadingTodayAppointments = false;
 
+  String _productFilter = 'ALL';
   List<dynamic> _patientProducts = [];
   List<Product> _prescribedProducts = [];
   bool _loadingProducts = false;
@@ -1232,119 +1233,252 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
       );
     }
 
+    final ownRoutine = routine
+        .where((item) => item.source != 'PRESCRIBED')
+        .toList();
+    final prescribedRoutine = routine
+        .where((item) => item.source == 'PRESCRIBED')
+        .toList();
+    final prescribedCount = _prescribedProducts.length + prescribedRoutine.length;
+    final showPrescribed = _productFilter != 'OWN';
+    final showOwn = _productFilter != 'PRESCRIBED';
+
     return ListView(
       children: [
         Row(
           children: [
             Expanded(
-              child: Text(
-                'Prescribed products',
-                style: AppTypography.labelLarge(),
+              child: Wrap(
+                spacing: 7,
+                runSpacing: 7,
+                children: [
+                  _productFilterChip(
+                    'ALL',
+                    'All ${prescribedCount + ownRoutine.length}',
+                  ),
+                  _productFilterChip('PRESCRIBED', 'Prescribed $prescribedCount'),
+                  _productFilterChip(
+                    'OWN',
+                    _isOwnProfile
+                        ? 'Mine ${ownRoutine.length}'
+                        : 'Patient\'s own ${ownRoutine.length}',
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        if (_prescribedProducts.isEmpty)
-          Text(
-            'No products prescribed yet.',
-            style: AppTypography.bodySmall(color: AppColors.textMuted),
-          )
-        else
-          ..._prescribedProducts.map(
-            (product) => _productTile(
-              '${_humanizeEnum(product.brand)} · ${_humanizeEnum(product.productType)}',
-              product.name,
-            ),
-          ),
-        const SizedBox(height: 20),
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                'Current patient routine',
-                style: AppTypography.labelLarge(),
-              ),
-            ),
-            if (widget.canManageProducts || widget.canChooseOwnProducts)
+            if (widget.canManageProducts || widget.canChooseOwnProducts) ...[
+              const SizedBox(width: 12),
               FilledButton.icon(
                 onPressed: _addPatientProduct,
                 icon: const Icon(Icons.add, size: 16),
                 label: Text(
                   widget.canChooseOwnProducts && !widget.canManageProducts
-                      ? 'Add current product'
+                      ? 'Add product'
                       : 'Assign product',
                 ),
               ),
+            ],
           ],
         ),
-        const SizedBox(height: 8),
-        if (routine.isEmpty)
-          Text(
-            'No products in the current routine.',
-            style: AppTypography.bodySmall(color: AppColors.textMuted),
-          )
-        else
-          ...routine.map(
-            (item) => _productTile(
-              '${_humanizeEnum(item.brand)} · ${_humanizeEnum(item.productType)}',
-              '${_humanizeEnum(item.source)}${item.startedOn == null ? '' : ' · Started ${item.startedOn}'}',
-              trailing:
-                  (widget.canManageProducts || widget.canChooseOwnProducts) &&
-                      item.discontinuedOn == null
-                  ? TextButton(
-                      onPressed: () => _discontinuePatientProduct(item),
-                      child: const Text('Discontinue'),
-                    )
-                  : item.discontinuedOn == null
-                  ? null
-                  : Text(
-                      'Discontinued ${item.discontinuedOn}',
-                      style: AppTypography.bodySmall(
-                        color: AppColors.textMuted,
-                      ),
-                    ),
-            ),
+        const SizedBox(height: 16),
+        if (showPrescribed)
+          _productGroup(
+            title: _isOwnProfile ? 'From your doctor' : 'Prescribed by the clinic',
+            icon: Icons.medical_services_outlined,
+            accent: AppColors.roseDark,
+            background: AppColors.bgRose,
+            border: AppColors.borderRose,
+            count: prescribedCount,
+            emptyText: 'Nothing prescribed yet.',
+            children: [
+              ..._prescribedProducts.map(
+                (product) => _productTile(
+                  '${_humanizeEnum(product.brand)} · ${_humanizeEnum(product.productType)}',
+                  product.name,
+                ),
+              ),
+              ...prescribedRoutine.map(
+                (item) => _productTile(
+                  '${_humanizeEnum(item.brand)} · ${_humanizeEnum(item.productType)}',
+                  item.startedOn == null
+                      ? 'In the routine'
+                      : 'Started ${item.startedOn}',
+                  trailing: _routineTrailing(item),
+                ),
+              ),
+            ],
+          ),
+        if (showPrescribed && showOwn) const SizedBox(height: 14),
+        if (showOwn)
+          _productGroup(
+            title: _isOwnProfile ? 'Added by you' : 'Patient\'s own products',
+            icon: Icons.person_outline,
+            accent: AppColors.lavDark,
+            background: AppColors.bgCard,
+            border: AppColors.border,
+            count: ownRoutine.length,
+            emptyText: _isOwnProfile
+                ? 'You have not added anything.'
+                : 'Nothing added by the patient.',
+            children: ownRoutine
+                .map(
+                  (item) => _productTile(
+                    '${_humanizeEnum(item.brand)} · ${_humanizeEnum(item.productType)}',
+                    item.discontinuedOn != null
+                        ? 'Stopped ${item.discontinuedOn}'
+                        : item.startedOn == null
+                        ? 'Not clinic advice'
+                        : 'Started ${item.startedOn} · not clinic advice',
+                    trailing: _routineTrailing(item),
+                    dimmed: item.discontinuedOn != null,
+                  ),
+                )
+                .toList(),
           ),
       ],
     );
   }
 
-  Widget _productTile(String title, String subtitle, {Widget? trailing}) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.bgCard,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
+  Widget? _routineTrailing(PatientProductRecord item) {
+    if (item.discontinuedOn != null) {
+      return Text(
+        'Stopped',
+        style: AppTypography.labelSmall(color: AppColors.textMuted),
+      );
+    }
+    if (widget.canManageProducts || widget.canChooseOwnProducts) {
+      return TextButton(
+        onPressed: () => _discontinuePatientProduct(item),
+        child: const Text('Discontinue'),
+      );
+    }
+    return null;
+  }
+
+  Widget _productFilterChip(String value, String label) {
+    final selected = _productFilter == value;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: () => setState(() => _productFilter = value),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
+          decoration: BoxDecoration(
+            color: selected ? AppColors.rosePale : AppColors.bgCard,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: selected ? AppColors.rose : AppColors.border,
+            ),
+          ),
+          child: Text(
+            label,
+            style: AppTypography.labelSmall(
+              color: selected ? AppColors.roseDark : AppColors.textMuted,
+            ).copyWith(fontWeight: selected ? FontWeight.w600 : FontWeight.w500),
+          ),
+        ),
       ),
-      child: Row(
+    );
+  }
+
+  /// Tinted panel, so the source reads instantly.
+  Widget _productGroup({
+    required String title,
+    required IconData icon,
+    required Color accent,
+    required Color background,
+    required Color border,
+    required int count,
+    required String emptyText,
+    required List<Widget> children,
+  }) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 4),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: AppColors.bgRose,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(Icons.spa, color: AppColors.rose, size: 22),
+          Row(
+            children: [
+              Icon(icon, size: 17, color: accent),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(title, style: AppTypography.labelMedium(color: accent)),
+              ),
+              Text(
+                '$count',
+                style: AppTypography.labelSmall(color: AppColors.textMuted),
+              ),
+            ],
           ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: AppTypography.labelLarge()),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: AppTypography.bodySmall(color: AppColors.textMuted),
-                ),
-              ],
-            ),
-          ),
-          ?trailing,
+          const SizedBox(height: 10),
+          if (children.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text(
+                emptyText,
+                style: AppTypography.bodySmall(color: AppColors.textMuted),
+              ),
+            )
+          else
+            ...children,
         ],
+      ),
+    );
+  }
+
+  Widget _productTile(
+    String title,
+    String subtitle, {
+    Widget? trailing,
+    bool dimmed = false,
+  }) {
+    return Opacity(
+      opacity: dimmed ? .6 : 1,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.bgCard,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(9),
+              decoration: BoxDecoration(
+                color: AppColors.bgAlt,
+                borderRadius: BorderRadius.circular(11),
+              ),
+              child: const Icon(
+                Icons.spa_outlined,
+                color: AppColors.textSub,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: AppTypography.labelLarge()),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: AppTypography.bodySmall(color: AppColors.textMuted),
+                  ),
+                ],
+              ),
+            ),
+            ?trailing,
+          ],
+        ),
       ),
     );
   }
@@ -1547,11 +1681,16 @@ class _SessionRecordDialogState extends State<_SessionRecordDialog> {
   }
 
   Future<void> _pickFollowUpDate() async {
+    final now = DateTime.now();
+    // A past follow-up would break the picker.
+    final start = _followUpDate == null || _followUpDate!.isBefore(now)
+        ? now
+        : _followUpDate!;
     final picked = await showDatePicker(
       context: context,
-      initialDate: _followUpDate ?? DateTime.now(),
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 3650)),
+      initialDate: start,
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 3650)),
     );
     if (picked != null) setState(() => _followUpDate = picked);
   }

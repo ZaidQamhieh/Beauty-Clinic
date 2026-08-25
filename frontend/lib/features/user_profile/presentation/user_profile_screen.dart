@@ -64,6 +64,12 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   DateTime? _selectedDateOfBirth;
   String? _selectedGender;
 
+  static const _phonePrefixes = <String>['059', '056'];
+  String _phonePrefix = _phonePrefixes.first;
+
+  /// Prefix plus the seven local digits.
+  String get _composedPhone => '$_phonePrefix${_phoneController.text.trim()}';
+
   static const _genders = <String, String>{
     'MALE': 'Male',
     'FEMALE': 'Female',
@@ -139,7 +145,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
     return _firstNameController.text != profile.firstName ||
         _lastNameController.text != profile.lastName ||
-        _phoneController.text != profile.phone ||
+        _composedPhone != profile.phone ||
         _emailController.text != profile.email ||
         _yearsOfExperienceController.text != years ||
         _selectedDateOfBirth != profile.dateOfBirth ||
@@ -190,7 +196,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   void _applyProfile(UserProfile profile) {
     _firstNameController.text = profile.firstName;
     _lastNameController.text = profile.lastName;
-    _phoneController.text = profile.phone;
+    _applyPhone(profile.phone);
     _emailController.text = profile.email;
     _selectedDateOfBirth = profile.dateOfBirth;
     _imageUrlController.text = profile.imageUrl ?? '';
@@ -233,6 +239,14 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       );
       return;
     }
+    if (_phoneController.text.trim().length != 7) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('A phone number is 7 digits after the prefix.'),
+        ),
+      );
+      return;
+    }
     if (_selectedDateOfBirth == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Date of birth is required.')),
@@ -268,7 +282,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       final updated = await _profileApi.update(
         firstName: _firstNameController.text,
         lastName: _lastNameController.text,
-        phone: _phoneController.text,
+        phone: _composedPhone,
         dateOfBirth: _selectedDateOfBirth!,
         gender: _selectedGender!,
         imageUrl: _hasPhoto ? _imageUrlController.text : null,
@@ -465,6 +479,67 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     );
   }
 
+  /// Prefix dropdown, then seven digits.
+  Widget _phoneRow() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 104,
+          child: AppDropdownField<String>(
+            initialValue: _phonePrefix,
+            decoration: const InputDecoration(
+              labelText: 'Prefix',
+              border: OutlineInputBorder(),
+            ),
+            items: _phonePrefixes
+                .map(
+                  (prefix) => DropdownMenuItem<String>(
+                    value: prefix,
+                    child: Text(prefix),
+                  ),
+                )
+                .toList(),
+            onChanged: (value) {
+              if (value != null) setState(() => _phonePrefix = value);
+            },
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: TextField(
+            controller: _phoneController,
+            keyboardType: TextInputType.number,
+            maxLength: 7,
+            decoration: InputDecoration(
+              labelText: 'Phone number *',
+              counterText: '',
+              border: const OutlineInputBorder(),
+              focusedBorder: OutlineInputBorder(
+                borderSide: BorderSide(color: _accent),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Splits a stored number by prefix.
+  void _applyPhone(String phone) {
+    final digits = phone.replaceAll(RegExp(r'\D'), '');
+    for (final prefix in _phonePrefixes) {
+      if (digits.startsWith(prefix)) {
+        _phonePrefix = prefix;
+        _phoneController.text = digits.substring(prefix.length);
+        return;
+      }
+    }
+    _phoneController.text = digits.length > 7
+        ? digits.substring(digits.length - 7)
+        : digits;
+  }
+
   Widget _ruleHeader(String label, {String? hint}) {
     return Row(
       children: [
@@ -488,11 +563,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       if (_editing) ...[
         _field('First name *', _firstNameController),
         _field('Last name *', _lastNameController),
-        _field(
-          'Phone number *',
-          _phoneController,
-          keyboardType: TextInputType.phone,
-        ),
+        _phoneRow(),
         _dateOfBirthField(),
         _genderField(),
         if (widget.role == Role.doctor)
@@ -510,7 +581,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       ] else ...[
         _readCell('First name', _firstNameController.text),
         _readCell('Last name', _lastNameController.text),
-        _readCell('Phone number', _phoneController.text),
+        _readCell('Phone number', _composedPhone),
         if (_hasPhoto)
           _readCell(
             'Profile picture',
@@ -1058,10 +1129,12 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
   Future<void> _pickDateOfBirth() async {
     final now = DateTime.now();
+    final stored =
+        _selectedDateOfBirth ?? DateTime(now.year - 25, now.month, now.day);
     final selected = await showDatePicker(
       context: context,
-      initialDate:
-          _selectedDateOfBirth ?? DateTime(now.year - 25, now.month, now.day),
+      // A future date would break it.
+      initialDate: stored.isAfter(now) ? now : stored,
       firstDate: DateTime(1900),
       lastDate: now,
     );

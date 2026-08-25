@@ -845,9 +845,11 @@ class _AvailabilityDialogState extends State<_AvailabilityDialog> {
     final minimum = widget.initial == null && !end
         ? _todayOnly()
         : DateTime(2000);
+    final wanted = end ? (_to ?? _from) : _from;
     final selected = await showDatePicker(
       context: context,
-      initialDate: end ? (_to ?? _from) : _from,
+      // Never open before the first allowed day.
+      initialDate: wanted.isBefore(minimum) ? minimum : wanted,
       firstDate: minimum,
       lastDate: DateTime(2100),
     );
