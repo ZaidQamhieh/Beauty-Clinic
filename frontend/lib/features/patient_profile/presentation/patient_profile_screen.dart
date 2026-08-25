@@ -489,7 +489,9 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
   Future<void> _discontinuePatientProduct(PatientProductRecord item) async {
     final targetId = widget.patientId ?? _patientData?['id']?.toString();
     final productApi = widget.productApi;
-    if (!widget.canManageProducts || targetId == null || productApi == null) {
+    if ((!widget.canManageProducts && !widget.canChooseOwnProducts) ||
+        targetId == null ||
+        productApi == null) {
       return;
     }
     try {

@@ -17,6 +17,7 @@ class AppShell extends StatefulWidget {
   final VoidCallback? onLogout;
   final VoidCallback? onProfileTap;
   final String? userName;
+  final String? userImageUrl;
 
   const AppShell({
     super.key,
@@ -28,6 +29,7 @@ class AppShell extends StatefulWidget {
     this.onLogout,
     this.onProfileTap,
     this.userName,
+    this.userImageUrl,
   });
 
   @override
@@ -50,6 +52,7 @@ class _AppShellState extends State<AppShell> {
         onLogout: widget.onLogout,
         onProfileTap: widget.onProfileTap,
         userName: widget.userName,
+        userImageUrl: widget.userImageUrl,
         isMobile: isMobile,
       ),
       drawer: isMobile ? _buildDrawer(context) : null,
