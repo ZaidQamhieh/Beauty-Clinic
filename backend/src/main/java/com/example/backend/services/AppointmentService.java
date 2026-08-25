@@ -24,6 +24,7 @@ import com.example.backend.repositories.UserAccountRepository;
 import com.example.backend.security.CurrentUser;
 import com.example.backend.security.Role;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -66,6 +67,7 @@ public class AppointmentService {
     private final CancellationPolicy cancellation;
     private final Clock clock;
 
+    @CacheEvict(value = "dashboardAnalytics", allEntries = true)
     @Transactional
     public AppointmentResponse book(BookAppointmentRequest request) {
         correlation.begin();
@@ -118,9 +120,9 @@ public class AppointmentService {
         // One day is one visit, so join.
         boolean joining = sameDay != null;
 
-        // Joining edits a visit already held.
+        // Judged on the treatment added, not visit.
         if (joining) {
-            cancellation.assertEditable(sameDay.getScheduledAt());
+            cancellation.assertEditable(requested.get(0).startTime());
         }
 
         Appointment appointment = joining
@@ -232,6 +234,7 @@ public class AppointmentService {
         appointments.flush();
     }
 
+    @CacheEvict(value = "dashboardAnalytics", allEntries = true)
     @Transactional
     public AppointmentResponse cancel(UUID id) {
         correlation.begin();

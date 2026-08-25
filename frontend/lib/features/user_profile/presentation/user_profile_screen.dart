@@ -1,9 +1,11 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../auth/role.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_dropdown.dart';
+import '../../../core/widgets/password_strength_meter.dart';
 import '../../../core/widgets/profile_avatar.dart';
 import '../../../core/widgets/skeleton.dart';
 import '../../../network/api_client.dart';
@@ -99,6 +101,49 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   UserProfileApi get _profileApi => UserProfileApi(widget.apiClient);
+
+  /// True when edits differ from the profile.
+  bool get _profileDirty {
+    final profile = _serverProfile;
+    if (profile == null) return false;
+
+    final years = profile.yearsOfExperience?.toString() ?? '';
+    final loadedSpecializations = profile.specializations
+        .where(_doctorSpecializations.containsKey)
+        .toSet();
+    final loadedGender = _genders.containsKey(profile.gender)
+        ? profile.gender
+        : null;
+
+    return _firstNameController.text != profile.firstName ||
+        _lastNameController.text != profile.lastName ||
+        _phoneController.text != profile.phone ||
+        _emailController.text != profile.email ||
+        _yearsOfExperienceController.text != years ||
+        _selectedDateOfBirth != profile.dateOfBirth ||
+        _selectedGender != loadedGender ||
+        !setEquals(_selectedSpecializations, loadedSpecializations);
+  }
+
+  /// True once any password field has text.
+  bool get _passwordDirty =>
+      _currentPasswordController.text.isNotEmpty ||
+      _newPasswordController.text.isNotEmpty ||
+      _confirmPasswordController.text.isNotEmpty;
+
+  Listenable get _profileFields => Listenable.merge([
+    _firstNameController,
+    _lastNameController,
+    _phoneController,
+    _emailController,
+    _yearsOfExperienceController,
+  ]);
+
+  Listenable get _passwordFields => Listenable.merge([
+    _currentPasswordController,
+    _newPasswordController,
+    _confirmPasswordController,
+  ]);
 
   Future<void> _loadProfile() async {
     try {
@@ -451,15 +496,18 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           ),
           if (_editing) ...[
             TextButton(onPressed: _cancel, child: const Text('Cancel')),
-            FilledButton(
-              onPressed: _saving ? null : _save,
-              child: _saving
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Text('Save'),
+            ListenableBuilder(
+              listenable: _profileFields,
+              builder: (context, _) => FilledButton(
+                onPressed: _saving || !_profileDirty ? null : _save,
+                child: _saving
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Save'),
+              ),
             ),
           ] else
             FilledButton.icon(
@@ -584,6 +632,12 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                   _showNewPassword,
                   () => setState(() => _showNewPassword = !_showNewPassword),
                 ),
+                ListenableBuilder(
+                  listenable: _newPasswordController,
+                  builder: (context, _) => PasswordStrengthMeter(
+                    password: _newPasswordController.text,
+                  ),
+                ),
                 const SizedBox(height: 12),
                 _passwordField(
                   'Confirm new password',
@@ -602,16 +656,23 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                       child: const Text('Cancel'),
                     ),
                     const SizedBox(width: 8),
-                    FilledButton.icon(
-                      onPressed: _changingPassword ? null : _changePassword,
-                      icon: const Icon(Icons.lock_reset_outlined, size: 17),
-                      label: _changingPassword
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Text('Update password'),
+                    ListenableBuilder(
+                      listenable: _passwordFields,
+                      builder: (context, _) => FilledButton.icon(
+                        onPressed: _changingPassword || !_passwordDirty
+                            ? null
+                            : _changePassword,
+                        icon: const Icon(Icons.lock_reset_outlined, size: 17),
+                        label: _changingPassword
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Text('Update password'),
+                      ),
                     ),
                   ],
                 ),

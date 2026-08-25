@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
@@ -676,7 +677,24 @@ class _QuestionDialogState extends State<_QuestionDialog> {
     options = TextEditingController(
       text: list.map((x) => '${x['value']}:${x['label']}').join('\n'),
     );
+    _initialSnapshot = _snapshot();
   }
+
+  late List<Object?> _initialSnapshot;
+
+  List<Object?> _snapshot() => [
+    fieldKey.text,
+    label.text,
+    help.text,
+    options.text,
+    type,
+    required,
+  ];
+
+  bool get _isDirty => !listEquals(_snapshot(), _initialSnapshot);
+
+  Listenable get _textFields =>
+      Listenable.merge([fieldKey, label, help, options]);
 
   @override
   void dispose() {
@@ -892,49 +910,56 @@ class _QuestionDialogState extends State<_QuestionDialog> {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  ElevatedButton(
-                    onPressed: () {
-                      final lines = options.text
-                          .split('\n')
-                          .where((v) => v.trim().isNotEmpty)
-                          .toList();
-                      Navigator.pop(context, {
-                        'fieldKey': fieldKey.text.trim(),
-                        'label': label.text.trim(),
-                        'helpText': help.text.trim().isEmpty
-                            ? null
-                            : help.text.trim(),
-                        'fieldType': type,
-                        'required': required,
-                        'displayOrder': widget.question == null
-                            ? 999
-                            : widget.question!['displayOrder'],
-                        'options': [
-                          for (var i = 0; i < lines.length; i++)
-                            {
-                              'value': lines[i].split(':').first.trim(),
-                              'label': lines[i].contains(':')
-                                  ? lines[i]
-                                        .substring(lines[i].indexOf(':') + 1)
-                                        .trim()
-                                  : lines[i].trim(),
-                              'displayOrder': i,
+                  ListenableBuilder(
+                    listenable: _textFields,
+                    builder: (context, _) => ElevatedButton(
+                      onPressed: !_isDirty
+                          ? null
+                          : () {
+                              final lines = options.text
+                                  .split('\n')
+                                  .where((v) => v.trim().isNotEmpty)
+                                  .toList();
+                              Navigator.pop(context, {
+                                'fieldKey': fieldKey.text.trim(),
+                                'label': label.text.trim(),
+                                'helpText': help.text.trim().isEmpty
+                                    ? null
+                                    : help.text.trim(),
+                                'fieldType': type,
+                                'required': required,
+                                'displayOrder': widget.question == null
+                                    ? 999
+                                    : widget.question!['displayOrder'],
+                                'options': [
+                                  for (var i = 0; i < lines.length; i++)
+                                    {
+                                      'value': lines[i].split(':').first.trim(),
+                                      'label': lines[i].contains(':')
+                                          ? lines[i]
+                                                .substring(
+                                                  lines[i].indexOf(':') + 1,
+                                                )
+                                                .trim()
+                                          : lines[i].trim(),
+                                      'displayOrder': i,
+                                    },
+                                ],
+                              });
                             },
-                        ],
-                      });
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.rose,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 12,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.rose,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                      child: const Text('Save'),
                     ),
-                    child: const Text('Save'),
                   ),
                 ],
               ),

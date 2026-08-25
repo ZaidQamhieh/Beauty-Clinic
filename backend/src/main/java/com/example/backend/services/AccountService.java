@@ -15,6 +15,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -45,6 +47,7 @@ public class AccountService {
     private final ObjectMapper objectMapper = new ObjectMapper()
             .registerModule(new JavaTimeModule());
 
+    @CacheEvict(value = "staffAccounts", allEntries = true)
     @Transactional
     public AccountResponse create(CreateAccountRequest request) {
         validateCreatePassword(request.password());
@@ -74,6 +77,7 @@ public class AccountService {
         return AccountResponse.of(account, doctorProfile);
     }
 
+    @CacheEvict(value = "staffAccounts", allEntries = true)
     @Transactional
     public AccountResponse update(UUID id, CreateAccountRequest request) {
         UserAccount account = users.findById(id)
@@ -132,6 +136,7 @@ public class AccountService {
         return AccountResponse.of(account, doctorProfile);
     }
 
+    @CacheEvict(value = "staffAccounts", allEntries = true)
     @Transactional
     public void delete(UUID id) {
         UserAccount account = users.findById(id)
@@ -235,6 +240,7 @@ public class AccountService {
                 "Only DOCTOR and RECEPTIONIST accounts may be updated here");
     }
 
+    @Cacheable(value = "staffAccounts", key = "#id")
     @Transactional(readOnly = true)
     public AccountResponse get(UUID id) {
         UserAccount account = users.findById(id)
@@ -247,6 +253,7 @@ public class AccountService {
         return AccountResponse.of(account, doctorProfile);
     }
 
+    @Cacheable(value = "staffAccounts", key = "#role != null ? #role : 'ALL'")
     @Transactional(readOnly = true)
     public List<AccountResponse> list(Role role) {
         if (role != null && !STAFF_ROLES.contains(role)) {
@@ -271,7 +278,7 @@ public class AccountService {
                 .map(account -> AccountResponse.of(
                         account,
                         doctorProfiles.get(account.getId())))
-                .toList();
+                .collect(Collectors.toCollection(ArrayList::new));
     }
 
     private void validateCreatePassword(String password) {

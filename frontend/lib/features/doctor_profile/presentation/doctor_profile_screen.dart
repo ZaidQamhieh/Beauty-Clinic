@@ -4,6 +4,7 @@ import 'package:beauty_clinic_app/core/widgets/profile_avatar.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/widgets/skeleton.dart';
 import '../../../../core/widgets/status_pill.dart';
 import '../../../../network/api_client.dart';
 import '../../appointments/data/appointment_api.dart';
@@ -14,8 +15,7 @@ import '../../doctor_availability/data/doctor_availability_api.dart';
 import '../../doctor_availability/presentation/widgets/availability_sessions_view.dart';
 import '../data/doctor_detail_api.dart';
 
-/// Admin-facing doctor detail view: account overview, a day-by-day
-/// availability & sessions timeline, and statistics for one doctor.
+/// Admin doctor detail: overview, timeline, statistics.
 class DoctorProfileScreen extends StatefulWidget {
   const DoctorProfileScreen({
     super.key,
@@ -79,12 +79,7 @@ class _DoctorProfileScreenState extends State<DoctorProfileScreen>
             future: _accountFuture,
             builder: (context, snapshot) {
               if (snapshot.connectionState != ConnectionState.done) {
-                return const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 48),
-                  child: Center(
-                    child: CircularProgressIndicator(color: AppColors.rose),
-                  ),
-                );
+                return const SkeletonDetail(scrollable: false);
               }
               if (snapshot.hasError || !snapshot.hasData) {
                 return _ErrorCard(
@@ -124,9 +119,7 @@ class _DoctorProfileScreenState extends State<DoctorProfileScreen>
                   future: _accountFuture,
                   builder: (context, snapshot) {
                     if (snapshot.connectionState != ConnectionState.done) {
-                      return const Center(
-                        child: CircularProgressIndicator(color: AppColors.rose),
-                      );
+                      return const SkeletonDetail();
                     }
                     if (snapshot.hasError || !snapshot.hasData) {
                       return _ErrorCard(
@@ -289,9 +282,7 @@ class _ErrorCard extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────
 // OVERVIEW TAB
-// ─────────────────────────────────────────────────────────────────────────
 
 class _OverviewTab extends StatelessWidget {
   const _OverviewTab({required this.account});
@@ -416,9 +407,7 @@ class _OverviewTab extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────
 // STATISTICS TAB
-// ─────────────────────────────────────────────────────────────────────────
 
 class _StatisticsTab extends StatefulWidget {
   const _StatisticsTab({required this.doctorId, required this.detailApi});
@@ -450,9 +439,7 @@ class _StatisticsTabState extends State<_StatisticsTab> {
       future: _statsFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
-          return const Center(
-            child: CircularProgressIndicator(color: AppColors.rose),
-          );
+          return const SkeletonGrid(itemCount: 4);
         }
         if (snapshot.hasError || !snapshot.hasData) {
           return _ErrorCard(

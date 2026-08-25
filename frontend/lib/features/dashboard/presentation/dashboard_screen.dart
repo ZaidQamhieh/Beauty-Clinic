@@ -58,9 +58,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
     } else if (widget.activeRole == 'doctor') {
       _loadDoctorAnalytics();
     } else if (widget.activeRole == 'receptionist') {
-      _receptionAppointments = _loadReceptionAppointments();
-      _receptionDoctorCount = _loadReceptionDoctorCount();
+      // Resolved futures survive, so FutureBuilder never re-waits.
+      _receptionAppointments = _keepFuture(
+        'receptionAppointments',
+        _loadReceptionAppointments,
+      );
+      _receptionDoctorCount = _keepFuture(
+        'receptionDoctorCount',
+        _loadReceptionDoctorCount,
+      );
     }
+  }
+
+  Future<T> _keepFuture<T>(String key, Future<T> Function() load) {
+    final kept = widget.apiClient?.readViewState<Future<T>>(key);
+    if (kept != null) return kept;
+
+    final started = load();
+    widget.apiClient?.writeViewState(key, started);
+    return started;
   }
 
   Future<List<Appointment>> _loadReceptionAppointments() async {
@@ -76,14 +92,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return response.data?.length ?? 0;
   }
 
+  String get _doctorAnalyticsKey =>
+      'doctorAnalytics:${_doctorDateRange.name}:${_doctorCustomDateRange?.start}-${_doctorCustomDateRange?.end}';
+
   Future<void> _loadDoctorAnalytics() async {
-    setState(() => _isLoadingAnalytics = true);
+    // Repaint last result, refresh behind it.
+    _doctorDashboardData ??= widget.apiClient
+        ?.readViewState<DoctorDashboardData>(_doctorAnalyticsKey);
+
+    setState(() => _isLoadingAnalytics = _doctorDashboardData == null);
     try {
       final data = await DoctorDashboardRepository.fetchDashboardData(
         widget.apiClient,
         rangeType: _doctorDateRange,
         customRange: _doctorCustomDateRange,
       );
+      widget.apiClient?.writeViewState(_doctorAnalyticsKey, data);
       if (!mounted) return;
       setState(() {
         _doctorDashboardData = data;
@@ -95,9 +119,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
+  String get _analyticsKey =>
+      'adminAnalytics:${_adminDateRange.name}:${_customDateRange?.start}-${_customDateRange?.end}';
+
   Future<void> _loadAnalytics() async {
+    // Repaint last result, refresh behind it.
+    _adminDashboardData ??= widget.apiClient?.readViewState<AdminDashboardData>(
+      _analyticsKey,
+    );
+
     setState(() {
-      _isLoadingAnalytics = true;
+      _isLoadingAnalytics = _adminDashboardData == null;
       _adminAnalyticsError = null;
     });
     try {
@@ -106,6 +138,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         customRange: _customDateRange,
         apiClient: widget.apiClient,
       );
+      widget.apiClient?.writeViewState(_analyticsKey, data);
       if (!mounted) return;
       setState(() {
         _adminDashboardData = data;
@@ -114,7 +147,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _adminAnalyticsError = 'Could not load live clinic analytics.';
+        // Keep showing the last good figures.
+        if (_adminDashboardData == null) {
+          _adminAnalyticsError = 'Could not load live clinic analytics.';
+        }
         _isLoadingAnalytics = false;
       });
     }
@@ -231,15 +267,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final adminData = _adminDashboardData;
 
     if (adminData == null) {
+      if (_isLoadingAnalytics) {
+        return const SkeletonGrid(
+          itemCount: 6,
+          shrinkWrap: true,
+          padding: EdgeInsets.zero,
+        );
+      }
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 80),
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (_isLoadingAnalytics)
-                const CircularProgressIndicator(color: AppColors.rose)
-              else ...[
+              ...[
                 Text(
                   _adminAnalyticsError ?? 'Live analytics are unavailable.',
                   style: AppTypography.bodyMedium(color: AppColors.textMuted),
@@ -268,6 +309,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             setState(() {
               _adminDateRange = type;
               _customDateRange = customRange;
+              // Belongs to the old range; drop it.
+              _adminDashboardData = null;
             });
             _loadAnalytics();
           },

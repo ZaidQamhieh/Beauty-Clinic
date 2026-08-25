@@ -17,6 +17,8 @@ import com.example.backend.repositories.ProductRepository;
 import com.example.backend.repositories.SessionRecordRepository;
 import com.example.backend.security.CurrentUser;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -24,9 +26,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -54,14 +58,16 @@ public class SessionRecordService {
                 .map(record -> SessionRecordResponse.of(record, prescribedProductIds(record)));
     }
 
+    @Cacheable(value = "patientData", key = "'prescribed:' + #patientUserId")
     @Transactional(readOnly = true)
     public List<Product> prescribedProducts(UUID patientUserId) {
         return prescriptions.findForPatient(patientUserId).stream()
                 .map(PrescriptionProduct::getProduct)
                 .distinct()
-                .toList();
+                .collect(Collectors.toCollection(ArrayList::new));
     }
 
+    @CacheEvict(value = "patientData", allEntries = true)
     @Transactional
     public SessionRecordResponse create(UUID patientUserId, CreateSessionRecordRequest request) {
         AppointmentSession session = requireSessionOf(patientUserId, request.sessionId());
@@ -80,6 +86,7 @@ public class SessionRecordService {
         return SessionRecordResponse.of(record, prescribedIds);
     }
 
+    @CacheEvict(value = "patientData", allEntries = true)
     @Transactional
     public SessionRecordResponse amend(UUID patientUserId, UUID recordId, AmendSessionRecordRequest request) {
         SessionRecord original = records.findById(recordId)

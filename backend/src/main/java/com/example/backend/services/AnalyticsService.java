@@ -15,6 +15,7 @@ import com.example.backend.repositories.AppointmentSessionRepository;
 import com.example.backend.repositories.DoctorProfileRepository;
 import com.example.backend.repositories.PatientProfileRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,6 +44,8 @@ public class AnalyticsService {
 
     private static final ZoneId CLINIC_ZONE = ZoneId.of("Asia/Hebron");
 
+    @Cacheable(value = "dashboardAnalytics",
+            key = "'admin:' + (#from != null ? #from : 'null') + ':' + (#to != null ? #to : 'null')")
     @Transactional(readOnly = true)
     public AdminAnalyticsResponse calculateAnalytics(Instant from, Instant to) {
         Instant now = clock.instant();
@@ -54,9 +57,7 @@ public class AnalyticsService {
         Instant todayFrom = todayStart.toInstant();
         Instant todayTo = todayStart.plusDays(1).toInstant();
 
-        // ─────────────────────────────────────────────────────────────────────
-        // 1. Overview Data (Live Counts from DB)
-        // ─────────────────────────────────────────────────────────────────────
+        // 1. Overview data (live DB counts)
         List<PatientProfile> allPatients = patients.findAllWithUser();
         int totalPatients = allPatients.size();
 
@@ -78,14 +79,12 @@ public class AnalyticsService {
         int todaySessionsCount = todaySessionsList.size();
         int completedSessionsCount = (int) todaySessionsList.stream().filter(s -> s.getStatus() == SessionStatus.COMPLETED).count();
         int ongoingSessionsCount = (int) todaySessionsList.stream().filter(s -> s.getStatus() == SessionStatus.PLANNED).count();
-        // findBetweenWithDetails has no status filter, so cancelled/no-show rows are
-        // still in todaySessionsList above; exclude them wherever a session's presence
-        // implies it's actually happening (the live feed, "in session" status).
+        // Excludes cancelled/no-show from "active now".
         List<AppointmentSession> activeTodaySessionsList = todaySessionsList.stream()
                 .filter(s -> s.getStatus() != SessionStatus.CANCELLED && s.getStatus() != SessionStatus.NO_SHOW)
                 .toList();
 
-        // Calculate patient growth in window vs previous period
+        // Patient growth vs previous period
         long windowDays = Math.max(1, ChronoUnit.DAYS.between(effectiveFrom, effectiveTo));
         Instant previousPeriodFrom = effectiveFrom.minus(windowDays, ChronoUnit.DAYS);
         long newPatientsInWindow = allPatients.stream()
@@ -118,9 +117,7 @@ public class AnalyticsService {
                 ongoingSessionsCount
         );
 
-        // ─────────────────────────────────────────────────────────────────────
-        // 2. Service Analytics (Completed Sessions Grouped by Treatment)
-        // ─────────────────────────────────────────────────────────────────────
+        // 2. Completed sessions grouped by treatment
         List<AppointmentSession> windowSessions = sessions.findBetweenWithDetails(effectiveFrom, effectiveTo).stream()
                 .filter(s -> s.getStatus() == SessionStatus.COMPLETED)
                 .toList();
@@ -162,14 +159,12 @@ public class AnalyticsService {
                 patientTrendStr
         );
 
-        // ─────────────────────────────────────────────────────────────────────
-        // 3. Doctor Analytics (Live Practitioner Utilization & Free Slots)
-        // ─────────────────────────────────────────────────────────────────────
+        // 3. Doctor utilization and free slots
         List<DoctorUtilizationDto> utilizationList = new ArrayList<>();
         List<DoctorSlotDto> slotList = new ArrayList<>();
         double totalUtilizationSum = 0.0;
 
-        // Estimated available working hours in window (approx 8 hours per weekday)
+        // Approx. 8 working hours per weekday
         double totalAvailableHoursPerDoctor = Math.max(8.0, (windowDays * 8.0 * 5.0 / 7.0));
 
         for (DoctorProfile doc : allDoctors) {
@@ -178,7 +173,7 @@ public class AnalyticsService {
             String initials = (doc.getUser().getFirstName().isEmpty() ? "D" : doc.getUser().getFirstName().substring(0, 1))
                     + (doc.getUser().getLastName().isEmpty() ? "R" : doc.getUser().getLastName().substring(0, 1));
 
-            // Sum booked minutes for this practitioner in window
+            // Booked minutes for this practitioner
             long bookedMinutes = windowSessions.stream()
                     .filter(s -> s.getPractitioner().getUserId().equals(doc.getUserId()) && s.getStatus() != SessionStatus.CANCELLED)
                     .mapToLong(AppointmentSession::getDurationMinutes)
@@ -228,9 +223,7 @@ public class AnalyticsService {
                 totalFreeSlotsToday
         );
 
-        // ─────────────────────────────────────────────────────────────────────
-        // 4. Appointment Analytics (Live Trends, Outcomes & Hourly Peak)
-        // ─────────────────────────────────────────────────────────────────────
+        // 4. Trends, outcomes, hourly peak
         List<AppointmentTrendPointDto> trendPoints = buildAppointmentTrendPoints(effectiveFrom, effectiveTo, windowSessions);
 
         int completedCount = (int) windowSessions.stream().filter(s -> s.getStatus() == SessionStatus.COMPLETED).count();
@@ -308,9 +301,7 @@ public class AnalyticsService {
                 rescheduled
         );
 
-        // ─────────────────────────────────────────────────────────────────────
-        // 5. Patient Analytics (Live Registration & Retention Rates)
-        // ─────────────────────────────────────────────────────────────────────
+        // 5. Registration and retention rates
         Set<UUID> uniquePatientsInWindow = windowSessions.stream()
                 .map(AppointmentSession::getPatientUserId)
                 .collect(Collectors.toSet());
@@ -355,9 +346,7 @@ public class AnalyticsService {
                 retention
         );
 
-        // ─────────────────────────────────────────────────────────────────────
-        // 6. Live Daily Operations (Today's Real Appointments & Active Staff)
-        // ─────────────────────────────────────────────────────────────────────
+        // 6. Today's appointments and active staff
         DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm");
         List<TodayAppointmentItemDto> todayAppointmentItems = new ArrayList<>();
         for (AppointmentSession s : activeTodaySessionsList) {
@@ -388,19 +377,14 @@ public class AnalyticsService {
         List<StaffDutyItemDto> staffList = new ArrayList<>();
         for (DoctorProfile doc : allDoctors) {
             String docName = "Dr. " + doc.getUser().getFirstName() + " " + doc.getUser().getLastName();
-            // The account's actual role, not a specialization guess.
+            // Real role, not a specialization guess.
             String role = "Doctor";
             long apptsToday = activeTodaySessionsList.stream()
                     .filter(s -> s.getPractitioner().getUserId().equals(doc.getUserId()))
                     .count();
             boolean hasSessionNow = activeTodaySessionsList.stream()
                     .anyMatch(s -> s.getPractitioner().getUserId().equals(doc.getUserId()) && s.getStartTime().isBefore(now) && s.getEndTime().isAfter(now));
-            // "Available" means actually within a configured availability window right
-            // now - recurring rules set up in the past (open-ended or not) and
-            // overrides whose date range spans today both resolve into
-            // todaysWindows via the same openWindowsOn used to gate real bookings.
-            // A doctor between sessions or on a break is neither in a session nor
-            // truly available, and status is never inferred from appointment counts.
+            // True only within a real availability window.
             boolean withinAvailabilityNow = todaysWindows.getOrDefault(doc.getUserId(), List.of())
                     .stream()
                     .anyMatch(window -> window.covers(nowTime, nowTime));
@@ -566,13 +550,12 @@ public class AnalyticsService {
         };
     }
 
-    // Shared with the "Staff Today" list, so the two surfaces never disagree.
+    // Keeps Staff Today status consistent.
     private static String dutyStatus(boolean hasSessionNow, boolean withinAvailabilityNow) {
         return hasSessionNow ? "In Session" : (withinAvailabilityNow ? "Available" : "Off Duty");
     }
 
-    // A single doctor's live status, cheap enough to call from a detail view
-    // without pulling the full admin analytics aggregate.
+    // Cheap single-doctor status, skips full aggregate.
     @Transactional(readOnly = true)
     public com.example.backend.dtos.DoctorStatusResponse getDoctorStatus(UUID doctorUserId) {
         Instant now = clock.instant();
@@ -597,6 +580,8 @@ public class AnalyticsService {
                 todaySessions.size());
     }
 
+    @Cacheable(value = "dashboardAnalytics",
+            key = "'doctor:' + #doctorId + ':' + (#from != null ? #from : 'null') + ':' + (#to != null ? #to : 'null')")
     @Transactional(readOnly = true)
     public com.example.backend.dtos.DoctorAnalyticsResponse calculateDoctorAnalytics(UUID doctorId, Instant from, Instant to) {
         Instant now = clock.instant();
@@ -612,11 +597,10 @@ public class AnalyticsService {
         int activePatientsCount = sessions.countActivePatients(doctorId);
         int todayPatientsCount = sessions.countActivePatientsBetween(doctorId, todayFrom, todayTo);
 
-        // Fetch sessions for this doctor in date range
+        // This doctor's sessions in range
         List<AppointmentSession> doctorSessions = sessions.findForPractitionerBetweenWithDetails(doctorId, effectiveFrom, effectiveTo);
 
-        // 2. Appointments Over Time
-        // Group doctorSessions by day in window
+        // 2. Appointments over time, grouped daily
         long daysBetween = Math.max(1, ChronoUnit.DAYS.between(effectiveFrom, effectiveTo));
         Map<String, Integer> dateCounts = new LinkedHashMap<>();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("d MMM").withZone(CLINIC_ZONE);
@@ -634,7 +618,7 @@ public class AnalyticsService {
                 .map(e -> new com.example.backend.dtos.DoctorAnalyticsResponse.AppointmentTrendPointDto(e.getKey(), e.getValue()))
                 .toList();
 
-        // 3. Appointment Outcomes (Completed / Cancelled / No-show / Rescheduled) for doctor's sessions
+        // 3. Completed, cancelled, no-show, rescheduled counts
         int completedCount = (int) doctorSessions.stream().filter(s -> s.getStatus() == SessionStatus.COMPLETED).count();
         int cancelledCount = (int) doctorSessions.stream().filter(s -> s.getStatus() == SessionStatus.CANCELLED).count();
         int noShowCount = (int) doctorSessions.stream().filter(s -> s.getStatus() == SessionStatus.NO_SHOW).count();
@@ -660,8 +644,7 @@ public class AnalyticsService {
                 Math.round((rescheduledCount * 100.0 / outcomeTotal) * 10.0) / 10.0
             );
 
-        // 4. Treatments Performed
-        // Group completed sessions by treatment name.
+        // 4. Completed sessions grouped by treatment
         List<AppointmentSession> completedDoctorSessions = doctorSessions.stream()
                 .filter(s -> s.getStatus() == SessionStatus.COMPLETED)
                 .toList();
@@ -695,7 +678,7 @@ public class AnalyticsService {
                 .sorted(Comparator.comparingInt(com.example.backend.dtos.DoctorAnalyticsResponse.ServiceBookingDto::bookingsCount).reversed())
                 .toList();
 
-        // 5. Today's Appointments with status (using doctorSessions for today)
+        // 5. Today's appointments, with status
         List<AppointmentSession> todaySessions = sessions.findForPractitionerBetweenWithDetails(doctorId, todayFrom, todayTo).stream()
                 .filter(s -> s.getStatus() == AppointmentSession.SessionStatus.PLANNED)
                 .toList();
@@ -719,7 +702,7 @@ public class AnalyticsService {
                 })
                 .toList();
 
-        // 6. Upcoming Appointments (using doctorSessions from now onwards)
+        // 6. Upcoming appointments from now
         List<AppointmentSession> upcomingSessions = sessions.findForPractitionerBetweenWithDetails(doctorId, now, now.plus(30, ChronoUnit.DAYS));
         List<com.example.backend.dtos.DoctorAnalyticsResponse.DoctorAppointmentDto> upcomingAppointments = upcomingSessions.stream()
                 .map(s -> {

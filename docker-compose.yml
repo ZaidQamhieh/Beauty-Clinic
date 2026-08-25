@@ -16,6 +16,17 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    container_name: beauty-clinic-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   backend:
     build:
       context: ./backend
@@ -28,6 +39,8 @@ services:
       DB_NAME: ${POSTGRES_DB:-beauty_clinic}
       DB_USER: ${POSTGRES_USER:-beauty_clinic}
       DB_PASSWORD: ${POSTGRES_PASSWORD:-beauty_clinic}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
       AUTH_JWT_SECRET: ${AUTH_JWT_SECRET:?AUTH_JWT_SECRET is required}
       AUTH_TOKEN_ISSUER: ${AUTH_TOKEN_ISSUER:-https://beauty-clinic.example}
       AUTH_ACCESS_TTL: ${AUTH_ACCESS_TTL:-15m}
@@ -35,6 +48,8 @@ services:
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:?CORS_ALLOWED_ORIGINS is required}
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     ports:
       - "8080:8080"

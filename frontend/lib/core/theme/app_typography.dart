@@ -1,16 +1,48 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'app_colors.dart';
+import 'app_fonts.dart';
 
-/// Typography System for Beauty Clinic App
-/// Uses Google Fonts:
-/// - DM Sans: Clean, modern sans-serif for body, buttons, and UI controls
-/// - Cormorant Upright: Elegant serif for headers, titles, and display numbers
-/// - Noto Naskh Arabic: For Arabic typography and localization
+/// Type scale. Families come from [AppFonts].
 abstract class AppTypography {
-  // ─── Display Styles (Cormorant Upright) ─────────────────────────────────
+  static TextStyle _display({
+    required double fontSize,
+    required FontWeight fontWeight,
+    required Color color,
+    double? height,
+    double? letterSpacing,
+  }) {
+    return TextStyle(
+      fontFamily: AppFonts.display,
+      fontFamilyFallback: AppFonts.displayFallback,
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      color: color,
+      height: height,
+      letterSpacing: letterSpacing,
+    );
+  }
+
+  static TextStyle _body({
+    required double fontSize,
+    required FontWeight fontWeight,
+    required Color color,
+    double? height,
+    double? letterSpacing,
+  }) {
+    return TextStyle(
+      fontFamily: AppFonts.body,
+      fontFamilyFallback: AppFonts.bodyFallback,
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      color: color,
+      height: height,
+      letterSpacing: letterSpacing,
+    );
+  }
+
+  // ─── Display ────────────────────────────────────────────────────────────
   static TextStyle displayHero({Color color = AppColors.text}) {
-    return GoogleFonts.cormorantUpright(
+    return _display(
       fontSize: 42,
       fontWeight: FontWeight.w600,
       color: color,
@@ -19,7 +51,7 @@ abstract class AppTypography {
   }
 
   static TextStyle displayTitle({Color color = AppColors.text}) {
-    return GoogleFonts.cormorantUpright(
+    return _display(
       fontSize: 28,
       fontWeight: FontWeight.w600,
       color: color,
@@ -28,7 +60,7 @@ abstract class AppTypography {
   }
 
   static TextStyle displaySubtitle({Color color = AppColors.text}) {
-    return GoogleFonts.cormorantUpright(
+    return _display(
       fontSize: 22,
       fontWeight: FontWeight.w500,
       color: color,
@@ -37,16 +69,12 @@ abstract class AppTypography {
   }
 
   static TextStyle displayStat({Color color = AppColors.text}) {
-    return GoogleFonts.cormorantUpright(
-      fontSize: 26,
-      fontWeight: FontWeight.w600,
-      color: color,
-    );
+    return _display(fontSize: 26, fontWeight: FontWeight.w600, color: color);
   }
 
-  // ─── Body Styles (DM Sans) ──────────────────────────────────────────────
+  // ─── Body ───────────────────────────────────────────────────────────────
   static TextStyle bodyLarge({Color color = AppColors.text}) {
-    return GoogleFonts.dmSans(
+    return _body(
       fontSize: 16,
       fontWeight: FontWeight.w400,
       color: color,
@@ -55,7 +83,7 @@ abstract class AppTypography {
   }
 
   static TextStyle bodyMedium({Color color = AppColors.text}) {
-    return GoogleFonts.dmSans(
+    return _body(
       fontSize: 14,
       fontWeight: FontWeight.w400,
       color: color,
@@ -64,7 +92,7 @@ abstract class AppTypography {
   }
 
   static TextStyle bodySmall({Color color = AppColors.textMuted}) {
-    return GoogleFonts.dmSans(
+    return _body(
       fontSize: 12,
       fontWeight: FontWeight.w400,
       color: color,
@@ -72,9 +100,9 @@ abstract class AppTypography {
     );
   }
 
-  // ─── Label / Button / Navigation Styles (DM Sans) ───────────────────────
+  // ─── Label ──────────────────────────────────────────────────────────────
   static TextStyle labelLarge({Color color = AppColors.text}) {
-    return GoogleFonts.dmSans(
+    return _body(
       fontSize: 14,
       fontWeight: FontWeight.w600,
       color: color,
@@ -83,15 +111,11 @@ abstract class AppTypography {
   }
 
   static TextStyle labelMedium({Color color = AppColors.text}) {
-    return GoogleFonts.dmSans(
-      fontSize: 13,
-      fontWeight: FontWeight.w500,
-      color: color,
-    );
+    return _body(fontSize: 13, fontWeight: FontWeight.w500, color: color);
   }
 
   static TextStyle labelSmall({Color color = AppColors.textMuted}) {
-    return GoogleFonts.dmSans(
+    return _body(
       fontSize: 11,
       fontWeight: FontWeight.w500,
       color: color,
@@ -99,9 +123,29 @@ abstract class AppTypography {
     );
   }
 
-  // ─── Arabic Typography (Noto Naskh Arabic) ─────────────────────────────
+  // Corbel defaults to old-style figures; force lining.
+  static TextStyle numeric({
+    Color color = AppColors.text,
+    double fontSize = 14,
+    FontWeight fontWeight = FontWeight.w500,
+  }) {
+    return _body(
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      color: color,
+    ).copyWith(
+      fontFeatures: const [
+        FontFeature.liningFigures(),
+        FontFeature.tabularFigures(),
+      ],
+    );
+  }
+
+  // ─── Arabic ─────────────────────────────────────────────────────────────
   static TextStyle arabicHeader({Color color = AppColors.text}) {
-    return GoogleFonts.notoNaskhArabic(
+    return TextStyle(
+      fontFamily: AppFonts.arabic,
+      fontFamilyFallback: AppFonts.arabicFallback,
       fontSize: 20,
       fontWeight: FontWeight.w600,
       color: color,
@@ -109,7 +153,9 @@ abstract class AppTypography {
   }
 
   static TextStyle arabicBody({Color color = AppColors.text}) {
-    return GoogleFonts.notoNaskhArabic(
+    return TextStyle(
+      fontFamily: AppFonts.arabic,
+      fontFamilyFallback: AppFonts.arabicFallback,
       fontSize: 14,
       fontWeight: FontWeight.w400,
       color: color,

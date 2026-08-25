@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -920,7 +921,19 @@ class _SessionRecordDialogState extends State<_SessionRecordDialog> {
     _followUp = initial?.followUpDate == null
         ? null
         : DateTime.tryParse(initial!.followUpDate!);
+    _initialSnapshot = _snapshot();
   }
+
+  late List<Object?> _initialSnapshot;
+
+  List<Object?> _snapshot() => [
+    _note.text,
+    _reaction,
+    _followUp,
+    ..._products.toList()..sort(),
+  ];
+
+  bool get _isDirty => !listEquals(_snapshot(), _initialSnapshot);
 
   @override
   void dispose() {
@@ -1007,16 +1020,26 @@ class _SessionRecordDialogState extends State<_SessionRecordDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Cancel'),
         ),
-        FilledButton(
-          onPressed: () => Navigator.of(context).pop(
-            _SessionRecordInput(
-              note: _note.text.trim().isEmpty ? null : _note.text.trim(),
-              skinReaction: _reaction,
-              followUpDate: _followUp?.toIso8601String().split('T').first,
-              prescribedProductIds: _products.toList(),
-            ),
+        ListenableBuilder(
+          listenable: _note,
+          builder: (context, _) => FilledButton(
+            onPressed: !_isDirty
+                ? null
+                : () => Navigator.of(context).pop(
+                    _SessionRecordInput(
+                      note: _note.text.trim().isEmpty
+                          ? null
+                          : _note.text.trim(),
+                      skinReaction: _reaction,
+                      followUpDate: _followUp
+                          ?.toIso8601String()
+                          .split('T')
+                          .first,
+                      prescribedProductIds: _products.toList(),
+                    ),
+                  ),
+            child: const Text('Save session record'),
           ),
-          child: const Text('Save session record'),
         ),
       ],
     );

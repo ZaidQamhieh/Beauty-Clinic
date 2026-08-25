@@ -32,6 +32,7 @@ class AppointmentsScreen extends StatefulWidget {
     this.clinicalApi,
     this.onNavigateToForms,
     this.focusedAppointmentId,
+    this.refreshSignal,
   });
 
   final AppointmentApi appointmentApi;
@@ -43,6 +44,9 @@ class AppointmentsScreen extends StatefulWidget {
 
   /// Fires when booked elsewhere; cleared once read.
   final ValueNotifier<Appointment?> bookedSignal;
+
+  /// Chatbot wrote; reload without a skeleton.
+  final Listenable? refreshSignal;
 
   @override
   State<AppointmentsScreen> createState() => _AppointmentsScreenState();
@@ -88,9 +92,19 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
   void initState() {
     super.initState();
     widget.bookedSignal.addListener(_onExternalBooking);
+    widget.refreshSignal?.addListener(_reloadAfterMutation);
     _useClinicRules();
     _checkClinicalForm();
     _load();
+  }
+
+  @override
+  void didUpdateWidget(AppointmentsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshSignal != widget.refreshSignal) {
+      oldWidget.refreshSignal?.removeListener(_reloadAfterMutation);
+      widget.refreshSignal?.addListener(_reloadAfterMutation);
+    }
   }
 
   // Best-effort; failure just hides the nudge.
@@ -133,6 +147,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
   @override
   void dispose() {
     widget.bookedSignal.removeListener(_onExternalBooking);
+    widget.refreshSignal?.removeListener(_reloadAfterMutation);
     super.dispose();
   }
 

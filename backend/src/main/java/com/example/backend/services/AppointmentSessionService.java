@@ -18,6 +18,7 @@ import com.example.backend.repositories.AppointmentSessionRepository;
 import com.example.backend.repositories.DoctorProfileRepository;
 import com.example.backend.repositories.PatientProfileRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -51,6 +52,7 @@ public class AppointmentSessionService {
     private final CancellationPolicy cancellation;
     private final Clock clock;
 
+    @CacheEvict(value = "dashboardAnalytics", allEntries = true)
     @Transactional
     public AppointmentSessionResponse add(UUID appointmentId, AddSessionRequest request) {
         correlation.begin();
@@ -71,7 +73,8 @@ public class AppointmentSessionService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Appointment is not booked");
         }
 
-        cancellation.assertEditable(appointment.getScheduledAt());
+        // Judged on the treatment added, not visit.
+        cancellation.assertEditable(request.startTime());
 
         // Taken once; patient overlap lacks a constraint.
         patients.lockForBooking(appointment.getPatient().getUserId())
@@ -231,6 +234,7 @@ public class AppointmentSessionService {
     }
 
     // Drops one treatment; same cutoff applies.
+    @CacheEvict(value = "dashboardAnalytics", allEntries = true)
     @Transactional
     public AppointmentSessionResponse cancel(UUID appointmentId, UUID sessionId) {
         correlation.begin();
@@ -269,6 +273,7 @@ public class AppointmentSessionService {
     }
 
     // Lower cutoff only; visit locked first.
+    @CacheEvict(value = "dashboardAnalytics", allEntries = true)
     @Transactional
     public AppointmentSessionResponse markAttended(UUID appointmentId, UUID sessionId) {
         lockVisit(appointmentId);
@@ -280,6 +285,7 @@ public class AppointmentSessionService {
         return transition(session, SessionStatus.COMPLETED);
     }
 
+    @CacheEvict(value = "dashboardAnalytics", allEntries = true)
     @Transactional
     public AppointmentSessionResponse markNoShow(UUID appointmentId, UUID sessionId) {
         lockVisit(appointmentId);

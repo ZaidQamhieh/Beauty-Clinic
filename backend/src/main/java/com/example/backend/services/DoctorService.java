@@ -10,6 +10,8 @@ import com.example.backend.repositories.UserAccountRepository;
 import com.example.backend.security.CurrentUser;
 import com.example.backend.security.Role;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,6 +35,7 @@ public class DoctorService {
     private final ActivityLogService activityLogs;
     private final CurrentUser currentUser;
 
+    @CacheEvict(value = "doctors", allEntries = true)
     @Transactional
     public DoctorResponse register(UUID userId, DoctorProfileRequest request) {
         UserAccount account = users.findById(userId)
@@ -63,19 +66,22 @@ public class DoctorService {
         return created;
     }
 
+    @Cacheable("doctors")
     @Transactional(readOnly = true)
     public List<DoctorResponse> list() {
         return doctors.findAll().stream()
                 .map(DoctorResponse::of)
                 .sorted(Comparator.comparing(DoctorResponse::fullName))
-                .toList();
+                .collect(Collectors.toCollection(ArrayList::new));
     }
 
+    @Cacheable(value = "doctors", key = "#userId")
     @Transactional(readOnly = true)
     public DoctorResponse read(UUID userId) {
         return DoctorResponse.of(require(userId));
     }
 
+    @CacheEvict(value = "doctors", allEntries = true)
     @Transactional
     public DoctorResponse updateProfile(UUID userId, DoctorProfileRequest request) {
         DoctorProfile doctor = require(userId);
@@ -93,6 +99,7 @@ public class DoctorService {
         return DoctorResponse.of(doctor);
     }
 
+    @CacheEvict(value = "doctors", allEntries = true)
     @Transactional
     public void delete(UUID userId) {
         DoctorProfile doctor = require(userId);

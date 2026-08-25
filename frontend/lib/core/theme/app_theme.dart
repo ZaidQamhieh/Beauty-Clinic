@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'app_colors.dart';
+import 'app_fonts.dart';
 import 'app_typography.dart';
 
-/// Central ThemeData configuration for the Beauty Clinic App
+/// Central ThemeData for the clinic app.
 class AppTheme {
   static ThemeData get lightTheme {
     return ThemeData(
@@ -24,7 +24,8 @@ class AppTheme {
         onSurface: AppColors.text,
         outline: AppColors.border,
       ),
-      fontFamily: GoogleFonts.dmSans().fontFamily,
+      fontFamily: AppFonts.body,
+      fontFamilyFallback: AppFonts.bodyFallback,
       appBarTheme: const AppBarTheme(
         backgroundColor: AppColors.bg,
         elevation: 0,

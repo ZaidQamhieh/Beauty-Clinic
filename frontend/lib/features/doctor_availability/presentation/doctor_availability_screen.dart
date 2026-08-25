@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
@@ -14,12 +15,10 @@ class DoctorAvailabilityScreen extends StatefulWidget {
     super.key,
     required this.api,
     required this.appointmentApi,
-    this.onBack,
   });
 
   final DoctorAvailabilityApi api;
   final AppointmentApi appointmentApi;
-  final VoidCallback? onBack;
 
   @override
   State<DoctorAvailabilityScreen> createState() =>
@@ -229,12 +228,6 @@ class _DoctorAvailabilityScreenState extends State<DoctorAvailabilityScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (widget.onBack != null)
-            TextButton.icon(
-              onPressed: widget.onBack,
-              icon: const Icon(Icons.arrow_back, size: 16),
-              label: const Text('Dashboard'),
-            ),
           Padding(
             padding: const EdgeInsets.fromLTRB(24, 12, 24, 18),
             child: LayoutBuilder(
@@ -817,7 +810,22 @@ class _AvailabilityDialogState extends State<_AvailabilityDialog> {
     }
     _to = item?.effectiveTo;
     _available = item?.available ?? true;
+    _initialSnapshot = _snapshot();
   }
+
+  late List<Object?> _initialSnapshot;
+
+  List<Object?> _snapshot() => [
+    _kind,
+    _day,
+    _start,
+    _end,
+    _from,
+    _to,
+    _available,
+  ];
+
+  bool get _isDirty => !listEquals(_snapshot(), _initialSnapshot);
 
   TimeOfDay? _parseTime(String? value) {
     if (value == null) {
@@ -1040,7 +1048,10 @@ class _AvailabilityDialogState extends State<_AvailabilityDialog> {
           onPressed: () => Navigator.pop(context),
           child: const Text('Cancel'),
         ),
-        FilledButton(onPressed: _save, child: const Text('Save')),
+        FilledButton(
+          onPressed: _isDirty ? _save : null,
+          child: const Text('Save'),
+        ),
       ],
     );
   }

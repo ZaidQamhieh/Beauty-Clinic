@@ -128,6 +128,7 @@ public class ActivityLogService {
                 patientUserId, ActivityAction.CLINICAL_PROFILE_UPDATED, pageable);
     }
 
+    // Page doesn't round-trip through the Redis ObjectMapper.
     @Transactional(readOnly = true)
     public Page<ActivityLogResponse> search(ActivityAction action, Instant from, Instant to, String search, Pageable pageable) {
         String term = search == null || search.isBlank() ? null : search.trim();

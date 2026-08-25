@@ -3,13 +3,11 @@ import 'package:intl/intl.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/widgets/skeleton.dart';
 import '../../../appointments/data/appointment.dart';
 import '../../data/doctor_availability_api.dart';
 
-// ─────────────────────────────────────────────────────────────────────────
-// Shared availability-window math, used by both the full [_DayTimelineView]
-// (via [AvailabilitySessionsView]) and the compact [DayHoursBar].
-// ─────────────────────────────────────────────────────────────────────────
+// Window math shared by timeline and DayHoursBar.
 
 /// A `[start, end)` span of minutes.
 class DayWindow {
@@ -29,8 +27,7 @@ const List<AvailabilityDay> _weekdaysInOrder = [
   AvailabilityDay.sunday,
 ];
 
-/// The doctor's available minute-ranges (minutes since midnight) for [date]:
-/// date-specific overrides take precedence over the recurring weekly rule.
+/// Open minutes for [date]; overrides beat recurring.
 List<DayWindow> resolveAvailableWindows(
   DateTime date,
   List<DoctorAvailability> availability,
@@ -65,8 +62,7 @@ List<DayWindow> resolveAvailableWindows(
       .toList();
 }
 
-/// Clamps absolute day-minute [windows] into the `[startHour, endHour)`
-/// display range, expressed as minutes since [startHour].
+/// Clamps windows to display range, from [startHour].
 List<DayWindow> clampToDisplayRange(
   List<DayWindow> windows,
   int startHour,
@@ -86,9 +82,7 @@ List<DayWindow> clampToDisplayRange(
   return clamped;
 }
 
-/// The gaps in [windows] (already sorted, clamped to `[0, totalMinutes]`).
-/// When [windows] is empty, the entire range is one gap - a day with no
-/// availability configured at all reads as unavailable, not blank.
+/// Gaps between windows; no rules means closed.
 List<DayWindow> invertWindows(List<DayWindow> windows, int totalMinutes) {
   final gaps = <DayWindow>[];
   var cursor = 0;
@@ -117,11 +111,7 @@ int _parseMinutes(String hhmm) {
   return hours * 60 + minutes;
 }
 
-/// A day-by-day timeline of booked sessions shaded against configured
-/// availability, with a prev/next/date-picker day filter. Used both by the
-/// admin's doctor detail view (for any doctor) and a doctor's own calendar
-/// (for themselves) - the caller supplies how to fetch each day's sessions
-/// and the doctor's availability rules.
+/// Day timeline of sessions shaded against availability.
 class AvailabilitySessionsView extends StatefulWidget {
   const AvailabilitySessionsView({
     super.key,
@@ -218,11 +208,10 @@ class _AvailabilitySessionsViewState extends State<AvailabilitySessionsView> {
                     availabilitySnapshot.connectionState !=
                         ConnectionState.done;
                 if (loading) {
-                  return const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 48),
-                    child: Center(
-                      child: CircularProgressIndicator(color: AppColors.rose),
-                    ),
+                  return const SkeletonList(
+                    itemCount: 5,
+                    shrinkWrap: true,
+                    padding: EdgeInsets.zero,
                   );
                 }
                 if (sessionsSnapshot.hasError) {
@@ -488,8 +477,7 @@ class _DayTimelineView extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    // Completed/no-show sessions stay in the rose "booked" family, just
-    // softer, so they don't collide with the sage "available" shading.
+    // Softer rose; sage still reads open.
     final isPast = session.status == 'COMPLETED' || session.status == 'NO_SHOW';
     final accent = isPast ? AppColors.roseLight : AppColors.rose;
     final background = isPast ? AppColors.rosePale : AppColors.bgRose;
@@ -517,8 +505,7 @@ class _DayTimelineView extends StatelessWidget {
               final timeRange =
                   '${DateFormat('h:mm a').format(session.startTime)}–${DateFormat('h:mm a').format(session.endTime)}';
 
-              // Below two comfortable lines of text, cram everything onto
-              // one line rather than dropping details.
+              // Too short for two lines; use one.
               if (constraints.maxHeight < 28) {
                 return Align(
                   alignment: Alignment.centerLeft,
@@ -584,15 +571,9 @@ class _DayTimelineView extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────
 // DAY HOURS BAR
-// ─────────────────────────────────────────────────────────────────────────
 
-/// A compact single-row summary of one day's hours: open (available),
-/// closed (unavailable), and booked segments, from [startHour] to
-/// [endHour] (7am-midnight by default, matching [_DayTimelineView]). Meant
-/// to sit above a day's list of recurring/override rules as an at-a-glance
-/// picture of that day, without the full timeline's detail.
+/// One-row summary of open, closed, booked hours.
 class DayHoursBar extends StatelessWidget {
   const DayHoursBar({
     super.key,
@@ -683,7 +664,7 @@ class DayHoursBar extends StatelessWidget {
     );
   }
 
-  /// Every hour along the bar, from [startHour] through [endHour].
+  /// Every hour from [startHour] to [endHour].
   List<int> _labelHours() => [for (var h = startHour; h <= endHour; h++) h];
 
   Widget _tickLine(int hour, double width) {
