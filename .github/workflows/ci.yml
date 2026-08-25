@@ -101,7 +101,9 @@ jobs:
         run: dart format .
         working-directory: frontend
 
-      # Pushing with GITHUB_TOKEN starts no new run, so this cannot loop.
+      # This push does start another run, and it would be attributed to
+      # github-actions[bot], which sits unstarted at "action_required"
+      # until a human approves it. [skip ci] is what stops that.
       - name: Commit whatever changed
         env:
           AUTHOR_LOGIN: ${{ github.event.pull_request.user.login }}
@@ -116,7 +118,7 @@ jobs:
           git config user.email "$AUTHOR_ID+$AUTHOR_LOGIN@users.noreply.github.com"
           # dart fix can add files, which -a alone would leave behind.
           git add -A
-          git commit -m "Apply dart fix and dart format"
+          git commit -m "Apply dart fix and dart format [skip ci]"
           git push
 
   frontend:
