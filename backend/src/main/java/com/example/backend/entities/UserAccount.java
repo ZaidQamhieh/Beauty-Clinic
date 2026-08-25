@@ -44,6 +44,9 @@ public class UserAccount {
     @Column(length = 30)
     private String phone;
 
+    @Column(name = "image_url", length = 2048)
+    private String imageUrl;
+
     // Every registration path requires a password now.
     @Column(name = "password_hash")
     private String passwordHash;
