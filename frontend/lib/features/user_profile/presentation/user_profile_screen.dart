@@ -620,8 +620,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     return LayoutBuilder(
       builder: (context, constraints) {
         const gap = 24.0;
-        final width =
-            (constraints.maxWidth - gap * (columns - 1)) / columns;
+        final width = (constraints.maxWidth - gap * (columns - 1)) / columns;
         return Wrap(
           spacing: gap,
           runSpacing: 16,
@@ -776,18 +775,18 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-          Text(name, style: AppTypography.displaySubtitle()),
-          const SizedBox(height: 4),
-          Text(
-            '$_roleLabel · ${_emailController.text}',
-            style: AppTypography.bodySmall(color: AppColors.textMuted),
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _pill(_statusLabel(status), AppColors.sageDark),
+        Text(name, style: AppTypography.displaySubtitle()),
+        const SizedBox(height: 4),
+        Text(
+          '$_roleLabel · ${_emailController.text}',
+          style: AppTypography.bodySmall(color: AppColors.textMuted),
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            _pill(_statusLabel(status), AppColors.sageDark),
             if (widget.role == Role.doctor && !_editing)
               _pill(_doctorSummary, _accentDark),
           ],
@@ -1157,9 +1156,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     decoration: InputDecoration(
       labelText: label,
       border: const OutlineInputBorder(),
-      focusedBorder: OutlineInputBorder(
-        borderSide: BorderSide(color: _accent),
-      ),
+      focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: _accent)),
     ),
   );
 

@@ -748,10 +748,7 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: AppTypography.labelSmall().copyWith(fontSize: 10),
-          ),
+          Text(label, style: AppTypography.labelSmall().copyWith(fontSize: 10)),
           const SizedBox(height: 2),
           Text(
             value,
@@ -1239,7 +1236,8 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
     final prescribedRoutine = routine
         .where((item) => item.source == 'PRESCRIBED')
         .toList();
-    final prescribedCount = _prescribedProducts.length + prescribedRoutine.length;
+    final prescribedCount =
+        _prescribedProducts.length + prescribedRoutine.length;
     final showPrescribed = _productFilter != 'OWN';
     final showOwn = _productFilter != 'PRESCRIBED';
 
@@ -1256,7 +1254,10 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
                     'ALL',
                     'All ${prescribedCount + ownRoutine.length}',
                   ),
-                  _productFilterChip('PRESCRIBED', 'Prescribed $prescribedCount'),
+                  _productFilterChip(
+                    'PRESCRIBED',
+                    'Prescribed $prescribedCount',
+                  ),
                   _productFilterChip(
                     'OWN',
                     _isOwnProfile
@@ -1283,7 +1284,9 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
         const SizedBox(height: 16),
         if (showPrescribed)
           _productGroup(
-            title: _isOwnProfile ? 'From your doctor' : 'Prescribed by the clinic',
+            title: _isOwnProfile
+                ? 'From your doctor'
+                : 'Prescribed by the clinic',
             icon: Icons.medical_services_outlined,
             accent: AppColors.roseDark,
             background: AppColors.bgRose,
@@ -1373,9 +1376,12 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
           ),
           child: Text(
             label,
-            style: AppTypography.labelSmall(
-              color: selected ? AppColors.roseDark : AppColors.textMuted,
-            ).copyWith(fontWeight: selected ? FontWeight.w600 : FontWeight.w500),
+            style:
+                AppTypography.labelSmall(
+                  color: selected ? AppColors.roseDark : AppColors.textMuted,
+                ).copyWith(
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                ),
           ),
         ),
       ),
@@ -1408,7 +1414,10 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
               Icon(icon, size: 17, color: accent),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(title, style: AppTypography.labelMedium(color: accent)),
+                child: Text(
+                  title,
+                  style: AppTypography.labelMedium(color: accent),
+                ),
               ),
               Text(
                 '$count',
