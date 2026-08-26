@@ -104,9 +104,6 @@ class HeaderBar extends StatelessWidget implements PreferredSizeWidget {
                           horizontal: compactText ? 10 : 14,
                           vertical: 8,
                         ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
-                        ),
                       ),
                       icon: const Icon(Icons.add_rounded, size: 16),
                       label: Text(

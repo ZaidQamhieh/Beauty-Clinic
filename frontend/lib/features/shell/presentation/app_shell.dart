@@ -285,6 +285,11 @@ class _AppShellState extends State<AppShell> {
             'label': 'Treatments & Visits',
             'icon': Icons.calendar_today_outlined,
           },
+          {
+            'id': 'products',
+            'label': 'My Products',
+            'icon': Icons.inventory_2_outlined,
+          },
         ];
       case 'receptionist':
         return [

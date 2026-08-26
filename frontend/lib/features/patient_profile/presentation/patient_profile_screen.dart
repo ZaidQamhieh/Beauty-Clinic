@@ -369,30 +369,57 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
       if (input == null) return;
 
       final recordsApi = SessionRecordApi(apiClient);
-      if (record == null) {
-        await recordsApi.create(
-          patientId: patientId,
-          sessionId: session.id,
-          note: input.note,
-          skinReaction: input.skinReaction,
-          followUpDate: input.followUpDate,
-          prescribedProductIds: input.prescribedProductIds,
-        );
-      } else {
-        await recordsApi.amend(
-          patientId: patientId,
-          recordId: record.id,
-          note: input.note,
-          skinReaction: input.skinReaction,
-          followUpDate: input.followUpDate,
-          prescribedProductIds: input.prescribedProductIds,
-        );
-      }
-      await _loadSessionRecords();
-      if (mounted) {
+      final previousRecords = _sessionRecords;
+      // Shows now; server confirms after.
+      final optimistic = SessionRecord(
+        id: record?.id ?? 'pending-${DateTime.now().microsecondsSinceEpoch}',
+        sessionId: session.id,
+        authorName: record?.authorName,
+        note: input.note,
+        skinReaction: input.skinReaction,
+        followUpDate: input.followUpDate,
+        createdAt: record?.createdAt ?? DateTime.now(),
+        prescribedProductIds: input.prescribedProductIds,
+      );
+      setState(() {
+        _sessionRecords = [
+          for (final current in _sessionRecords)
+            if (current.sessionId != session.id) current,
+          optimistic,
+        ];
+      });
+
+      try {
+        if (record == null) {
+          await recordsApi.create(
+            patientId: patientId,
+            sessionId: session.id,
+            note: input.note,
+            skinReaction: input.skinReaction,
+            followUpDate: input.followUpDate,
+            prescribedProductIds: input.prescribedProductIds,
+          );
+        } else {
+          await recordsApi.amend(
+            patientId: patientId,
+            recordId: record.id,
+            note: input.note,
+            skinReaction: input.skinReaction,
+            followUpDate: input.followUpDate,
+            prescribedProductIds: input.prescribedProductIds,
+          );
+        }
+        if (!mounted) return;
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('Session record saved.')));
+        await _loadSessionRecords();
+      } catch (_) {
+        if (!mounted) return;
+        setState(() => _sessionRecords = previousRecords);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not save the session record.')),
+        );
       }
     } catch (_) {
       if (!mounted) return;
@@ -452,21 +479,46 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
       ),
     );
     if (selection == null) return;
+
+    final startedOn = DateTime.now().toIso8601String().split('T').first;
+    // Stands in until the server answers.
+    final pending = PatientProductRecord(
+      id: 'pending-${DateTime.now().microsecondsSinceEpoch}',
+      productId: selection.product.id,
+      brand: selection.product.brand,
+      productType: selection.product.productType,
+      source: selection.source,
+      startedOn: startedOn,
+    );
+    setState(() => _patientProducts = [..._patientProducts, pending]);
+
     try {
-      await productApi.addForPatient(
+      final created = await productApi.addForPatient(
         targetId,
         productId: selection.product.id,
         source: selection.source,
-        startedOn: DateTime.now().toIso8601String().split('T').first,
+        startedOn: startedOn,
       );
-      _loadProducts();
+      if (!mounted) return;
+      setState(() => _replaceProduct(pending.id, created));
     } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not assign product.')),
-        );
-      }
+      if (!mounted) return;
+      // The card leaves again; nothing was saved.
+      setState(() => _replaceProduct(pending.id, null));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not assign product.')),
+      );
     }
+  }
+
+  void _replaceProduct(String id, PatientProductRecord? next) {
+    _patientProducts = [
+      for (final current in _patientProducts)
+        if (current is PatientProductRecord && current.id == id) ...[
+          ?next,
+        ] else
+          current,
+    ];
   }
 
   Future<void> _discontinuePatientProduct(PatientProductRecord item) async {
@@ -477,15 +529,28 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
         productApi == null) {
       return;
     }
+    // Stops at once; reverts if refused.
+    final stopped = PatientProductRecord(
+      id: item.id,
+      productId: item.productId,
+      brand: item.brand,
+      productType: item.productType,
+      source: item.source,
+      startedOn: item.startedOn,
+      discontinuedOn: DateTime.now().toIso8601String().split('T').first,
+    );
+    setState(() => _replaceProduct(item.id, stopped));
+
     try {
-      await productApi.discontinueForPatient(targetId, item.id);
-      _loadProducts();
+      final updated = await productApi.discontinueForPatient(targetId, item.id);
+      if (!mounted) return;
+      setState(() => _replaceProduct(item.id, updated));
     } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not discontinue product.')),
-        );
-      }
+      if (!mounted) return;
+      setState(() => _replaceProduct(item.id, item));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not discontinue product.')),
+      );
     }
   }
 
@@ -1363,13 +1428,13 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(12),
         onTap: () => setState(() => _productFilter = value),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
           decoration: BoxDecoration(
             color: selected ? AppColors.rosePale : AppColors.bgCard,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: selected ? AppColors.rose : AppColors.border,
             ),

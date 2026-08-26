@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/app_search_field.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/skeleton.dart';
 import '../../../network/api_client.dart';
@@ -191,52 +192,18 @@ class _ReceptionPatientsScreenState extends State<ReceptionPatientsScreen> {
     return Row(
       children: [
         Expanded(
-          child: TextField(
+          child: AppSearchField(
             controller: _searchController,
+            hintText: 'Search by patient name, email, or phone number...',
+            onSubmitted: (query) => _load(query.trim()),
             onChanged: (value) {
               _scheduleSearch();
               setState(() {});
             },
-            decoration: InputDecoration(
-              hintText: 'Search by patient name, email, or phone number...',
-              hintStyle: AppTypography.bodySmall(color: AppColors.textMuted),
-              prefixIcon: const Icon(
-                Icons.search,
-                color: AppColors.textMuted,
-                size: 20,
-              ),
-              suffixIcon: _searchController.text.isEmpty
-                  ? null
-                  : IconButton(
-                      icon: const Icon(
-                        Icons.clear,
-                        size: 18,
-                        color: AppColors.textMuted,
-                      ),
-                      onPressed: () {
-                        _searchController.clear();
-                        _load();
-                      },
-                    ),
-              filled: true,
-              fillColor: AppColors.bgCard,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 14,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: const BorderSide(color: AppColors.border),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: const BorderSide(color: AppColors.border),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: const BorderSide(color: AppColors.rose, width: 1.5),
-              ),
-            ),
+            onClear: () {
+              _searchController.clear();
+              _load();
+            },
           ),
         ),
         const SizedBox(width: 12),
@@ -248,9 +215,6 @@ class _ReceptionPatientsScreenState extends State<ReceptionPatientsScreen> {
             backgroundColor: AppColors.rose,
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-            ),
             elevation: 0,
           ),
         ),
