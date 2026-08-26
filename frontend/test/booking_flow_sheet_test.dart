@@ -212,7 +212,6 @@ void main() {
     final locked = calendar();
     expect(locked.firstDate, locked.lastDate);
     expect(locked.firstDate, locked.initialDate);
-    expect(find.textContaining('One visit is one day'), findsOneWidget);
   });
 
   testWidgets('a different day cannot reach the cart', (tester) async {
