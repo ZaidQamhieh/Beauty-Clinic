@@ -22,7 +22,10 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.UUID;
 
-// RECURRING carries the weekly pattern; OVERRIDE is a dated one-off and always wins.
+// REGULAR carries the weekly pattern. VACATION/MODIFIED/EXTRA_DAY are dated
+// exceptions resolved by priority in DoctorAvailabilityService.resolveDay -
+// VACATION and MODIFIED replace the day outright; EXTRA_DAY only ever fills a day
+// that would otherwise resolve to nothing.
 @Entity
 @Table(name = "doctor_availability")
 @SoftDelete
@@ -48,16 +51,11 @@ public class DoctorAvailability {
     @Column(name = "day_of_week", length = 10)
     private DayOfWeek dayOfWeek;
 
-    @NotNull
-    @Column(name = "start_time", nullable = false)
+    @Column(name = "start_time")
     private LocalTime startTime;
 
-    @NotNull
-    @Column(name = "end_time", nullable = false)
+    @Column(name = "end_time")
     private LocalTime endTime;
-
-    @Column(name = "is_available", nullable = false)
-    private boolean available = true;
 
     @NotNull
     @Column(name = "effective_from", nullable = false)
@@ -83,7 +81,9 @@ public class DoctorAvailability {
     }
 
     public enum AvailabilityKind {
-        RECURRING,
-        OVERRIDE
+        REGULAR,
+        VACATION,
+        MODIFIED,
+        EXTRA_DAY
     }
 }

@@ -14,7 +14,6 @@ public record DoctorAvailabilityResponse(
         DayOfWeek dayOfWeek,
         LocalTime startTime,
         LocalTime endTime,
-        boolean available,
         LocalDate effectiveFrom,
         LocalDate effectiveTo
 ) {
@@ -25,7 +24,6 @@ public record DoctorAvailabilityResponse(
                 availability.getDayOfWeek(),
                 availability.getStartTime(),
                 availability.getEndTime(),
-                availability.isAvailable(),
                 availability.getEffectiveFrom(),
                 availability.getEffectiveTo()
         );

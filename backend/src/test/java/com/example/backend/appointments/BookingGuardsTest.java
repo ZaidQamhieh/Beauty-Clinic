@@ -224,14 +224,16 @@ class BookingGuardsTest extends AbstractIntegrationTest {
                     "doctor-" + unique + "@example.com", "hash", "Dee", "Oakes", Role.DOCTOR));
             DoctorProfile doctor = doctors.save(new DoctorProfile(doctorAccount));
 
-            // Open all day, every day, so working hours are never what a test is measuring.
-            availabilities.save(new DoctorAvailability(
+            // Open all day, on DAY, so working hours are never what a test is measuring.
+            DoctorAvailability allDay = new DoctorAvailability(
                     doctor,
-                    AvailabilityKind.OVERRIDE,
+                    AvailabilityKind.MODIFIED,
                     null,
                     LocalTime.of(0, 0),
                     LocalTime.of(23, 59),
-                    DAY));
+                    DAY);
+            allDay.setEffectiveTo(DAY);
+            availabilities.save(allDay);
 
             UserAccount patientAccount = users.save(new UserAccount(
                     "patient-" + unique + "@example.com", "hash", "Pat", "Ient", Role.PATIENT));

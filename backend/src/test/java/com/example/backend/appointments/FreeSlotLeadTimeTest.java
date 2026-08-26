@@ -258,13 +258,15 @@ class FreeSlotLeadTimeTest extends AbstractIntegrationTest {
             doctor.setSpecializations(List.of(Specialization.LASER_THERAPY));
             doctors.save(doctor);
 
-            availabilities.save(new DoctorAvailability(
+            DoctorAvailability allDay = new DoctorAvailability(
                     doctor,
-                    AvailabilityKind.OVERRIDE,
+                    AvailabilityKind.MODIFIED,
                     null,
                     LocalTime.of(0, 0),
                     LocalTime.of(23, 59),
-                    DAY));
+                    DAY);
+            allDay.setEffectiveTo(DAY);
+            availabilities.save(allDay);
 
             return doctor.getUserId();
         });
@@ -302,13 +304,15 @@ class FreeSlotLeadTimeTest extends AbstractIntegrationTest {
             doctor.setSpecializations(List.of(Specialization.LASER_THERAPY));
             doctors.save(doctor);
 
-            availabilities.save(new DoctorAvailability(
+            DoctorAvailability allDay = new DoctorAvailability(
                     doctor,
-                    AvailabilityKind.OVERRIDE,
+                    AvailabilityKind.MODIFIED,
                     null,
                     LocalTime.of(0, 0),
                     LocalTime.of(23, 59),
-                    DAY));
+                    DAY);
+            allDay.setEffectiveTo(DAY);
+            availabilities.save(allDay);
 
             UserAccount patientAccount = users.save(new UserAccount(
                     "patient-" + unique + "@example.com", "hash", "Pat", "Ient", Role.PATIENT));
