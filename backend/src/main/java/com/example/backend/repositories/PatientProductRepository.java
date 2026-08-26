@@ -9,4 +9,6 @@ import java.util.UUID;
 public interface PatientProductRepository extends JpaRepository<PatientProduct, UUID> {
 
     List<PatientProduct> findByPatientUserId(UUID patientUserId);
+
+    boolean existsByPatientUserIdAndProductId(UUID patientUserId, UUID productId);
 }

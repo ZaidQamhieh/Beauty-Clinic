@@ -519,6 +519,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   flex: isDesktop ? 1 : 0,
                   child: PatientGrowthLineChart(
                     data: adminData.patientAnalytics.growthTimeline,
+                    valueLabel: 'Patients',
                   ),
                 ),
               ],
@@ -932,6 +933,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   child: PatientGrowthLineChart(
                     data: _doctorDashboardData!.appointmentsOverTime,
                     title: 'Completed Sessions Over Time',
+                    valueLabel: 'Completed Sessions',
                     subtitle:
                         'Number of completed patient consultations per day in the selected period',
                     badgeText: 'Completed only',

@@ -65,6 +65,13 @@ public interface AppointmentRepository extends JpaRepository<Appointment, UUID> 
             """)
     List<Appointment> findBetween(@Param("from") Instant from, @Param("to") Instant to);
 
+                @Query("""
+                                                select a from Appointment a
+                                                where a.createdAt >= :from
+                                                        and a.createdAt < :to
+                                                """)
+                List<Appointment> findCreatedBetween(@Param("from") Instant from, @Param("to") Instant to);
+
     // Visit a same-day booking joins, earliest first.
     @Query("""
             select a.id from Appointment a

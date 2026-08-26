@@ -240,11 +240,7 @@ class _AppShellState extends State<AppShell> {
             'label': 'Dashboard',
             'icon': Icons.calendar_today_outlined,
           },
-          {
-            'id': 'patients',
-            'label': 'My Patients',
-            'icon': Icons.people_outline,
-          },
+          {'id': 'patients', 'label': 'Patients', 'icon': Icons.people_outline},
           {
             'id': 'appointments',
             'label': 'Appointments',
@@ -348,7 +344,7 @@ class _AppShellState extends State<AppShell> {
           },
           {
             'id': 'patients',
-            'label': 'Patients Directory',
+            'label': 'Patients',
             'icon': Icons.people_alt_outlined,
           },
           {
