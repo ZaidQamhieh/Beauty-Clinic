@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:beauty_clinic_app/auth/auth_session.dart';
 import 'package:beauty_clinic_app/core/theme/app_colors.dart';
 import 'package:beauty_clinic_app/core/theme/app_typography.dart';
@@ -19,6 +21,8 @@ class ActivityLogScreen extends StatefulWidget {
 class _ActivityLogScreenState extends State<ActivityLogScreen> {
   late final ApiClient _api;
   final _search = TextEditingController();
+  Timer? _searchDebounce;
+  int _loadGeneration = 0;
   List<ActivityEntry> _entries = [];
   String? _action;
   bool _loading = true;
@@ -35,11 +39,13 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
   @override
   void dispose() {
     _search.dispose();
+    _searchDebounce?.cancel();
     _api.close();
     super.dispose();
   }
 
   Future<void> _load() async {
+    final generation = ++_loadGeneration;
     setState(() {
       _loading = true;
       _error = null;
@@ -56,7 +62,7 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
       );
       final payload = response.data as Map<String, dynamic>;
       final content = (payload['content'] as List<dynamic>? ?? []);
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
       setState(
         () => _entries = content
             .map(
@@ -66,15 +72,22 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
             .toList(),
       );
     } on DioException catch (error) {
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
       setState(
         () => _error = error.response?.statusCode == 403
             ? 'Only administrators can view the activity log.'
             : 'Could not load activity records. Please try again.',
       );
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && generation == _loadGeneration) {
+        setState(() => _loading = false);
+      }
     }
+  }
+
+  void _scheduleSearch() {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 300), _load);
   }
 
   @override
@@ -108,7 +121,7 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
         width: 300,
         child: TextField(
           controller: _search,
-          onSubmitted: (_) => _load(),
+          onChanged: (_) => _scheduleSearch(),
           decoration: InputDecoration(
             prefixIcon: const Icon(Icons.search),
             hintText: 'Search name, email, or entity',
@@ -194,19 +207,30 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
     );
   }
 
-  Widget _tile(ActivityEntry entry) => ListTile(
-    leading: CircleAvatar(
-      backgroundColor: entry.color.withValues(alpha: .14),
-      child: Icon(entry.icon, color: entry.color),
-    ),
-    title: Text(entry.label, style: AppTypography.labelLarge()),
-    subtitle: Text(entry.subject, style: AppTypography.bodySmall()),
-    trailing: Text(
-      DateFormat('MMM d, HH:mm').format(entry.createdAt.toLocal()),
-      style: AppTypography.bodySmall(),
-    ),
-    onTap: () => setState(() => _selected = entry),
-  );
+  Widget _tile(ActivityEntry entry) {
+    final isSelected = identical(entry, _selected);
+    return ListTile(
+      selected: isSelected,
+      selectedTileColor: AppColors.bgLavender,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(
+          color: isSelected ? AppColors.borderLav : Colors.transparent,
+        ),
+      ),
+      leading: CircleAvatar(
+        backgroundColor: entry.color.withValues(alpha: .14),
+        child: Icon(entry.icon, color: entry.color),
+      ),
+      title: Text(entry.label, style: AppTypography.labelLarge()),
+      subtitle: Text(entry.subject, style: AppTypography.bodySmall()),
+      trailing: Text(
+        DateFormat('MMM d, HH:mm').format(entry.createdAt.toLocal()),
+        style: AppTypography.bodySmall(),
+      ),
+      onTap: () => setState(() => _selected = entry),
+    );
+  }
 
   Widget _detail(ActivityEntry entry) => Card(
     color: AppColors.bgCard,

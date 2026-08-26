@@ -76,7 +76,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // Verify header and patients loaded
-    expect(find.text('Patients Directory'), findsOneWidget);
+    expect(find.text('Patients'), findsOneWidget);
     expect(find.text('Lina Haddad'), findsOneWidget);
     expect(find.text('Yara Saleh'), findsOneWidget);
 

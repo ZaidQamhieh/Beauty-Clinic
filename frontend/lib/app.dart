@@ -500,7 +500,7 @@ class _BeautyClinicAppState extends State<BeautyClinicApp> {
           key: const ValueKey('patients_directory'),
           clinicalApi: _clinicalApi,
           onSelectPatient: _onViewPatient,
-          title: _activeRole == 'doctor' ? 'My Patients' : null,
+          title: _activeRole == 'doctor' ? 'Patients' : null,
           subtitle: _activeRole == 'doctor'
               ? 'Review patient intake status, treatment context, and clinical records.'
               : null,
