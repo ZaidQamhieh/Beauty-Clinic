@@ -625,9 +625,6 @@ class _BookingFlowSheetState extends State<BookingFlowSheet>
               backgroundColor: AppColors.rosePale,
               side: const BorderSide(color: AppColors.borderRose, width: 1.4),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
               textStyle: AppTypography.labelMedium(
                 color: AppColors.roseDark,
               ).copyWith(fontWeight: FontWeight.w700),

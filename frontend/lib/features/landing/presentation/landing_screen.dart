@@ -84,9 +84,6 @@ class LandingScreen extends StatelessWidget {
             onPressed: onBookClick,
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(24),
-              ),
             ),
             icon: const Icon(Icons.calendar_month_outlined, size: 20),
             label: Text(

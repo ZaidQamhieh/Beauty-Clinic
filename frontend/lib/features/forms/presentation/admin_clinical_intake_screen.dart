@@ -200,6 +200,8 @@ class _AdminClinicalIntakeScreenState extends State<AdminClinicalIntakeScreen> {
               },
               decoration: const InputDecoration(
                 hintText: 'Search patients by name, email, or skin type...',
+                // Prevents the theme's fill from doubling up.
+                filled: false,
                 border: InputBorder.none,
                 enabledBorder: InputBorder.none,
                 focusedBorder: InputBorder.none,
@@ -924,9 +926,6 @@ class _ClinicalHistoryState extends State<_ClinicalHistory> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.rose,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
                   ),
                   child: const Text('Close'),
                 ),

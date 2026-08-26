@@ -262,9 +262,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 padding: const EdgeInsets.symmetric(
                                   vertical: 16,
                                 ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
                               ),
                               child: _submitting
                                   ? const SizedBox.square(

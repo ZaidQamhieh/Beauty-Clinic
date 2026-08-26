@@ -12,6 +12,9 @@ import '../data/booking_exceptions.dart';
 import '../data/clinic_time.dart';
 import '../data/doctor_api.dart';
 import '../data/treatment_api.dart';
+import '../../patient_profile/data/session_record.dart';
+import '../../patient_profile/data/session_record_api.dart';
+import '../../products/data/product_api.dart';
 import 'appointment_card.dart';
 import 'booking_flow_sheet.dart';
 import 'booking_format.dart';
@@ -29,11 +32,19 @@ class AppointmentsScreen extends StatefulWidget {
     this.onNavigateToForms,
     this.focusedAppointmentId,
     this.refreshSignal,
+    this.apiClient,
+    this.patientId,
   });
 
   final AppointmentApi appointmentApi;
   final TreatmentApi treatmentApi;
   final DoctorApi doctorApi;
+
+  /// Reads the treatment records; null hides them.
+  final ApiClient? apiClient;
+
+  /// Whose records to read, own id.
+  final String? patientId;
   final VoidCallback? onNavigateToForms;
   final String? focusedAppointmentId;
 
@@ -52,6 +63,9 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
   List<Appointment>? _history;
   bool _loading = true;
   String? _error;
+
+  Map<String, SessionRecord> _recordsBySession = const {};
+  Map<String, String> _productNamesById = const {};
 
   int _upcomingPage = 0;
   int _historyPage = 0;
@@ -164,6 +178,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
         // Insert dedupes by id.
         if (pending != null) _insertUpcoming(pending);
       });
+      _loadTreatmentRecords();
     } catch (_) {
       if (!mounted || run != _loadRun) return;
       // A quiet refresh must not blank list.
@@ -172,6 +187,48 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
         _loading = false;
         _error = 'Could not load appointments.';
       });
+    }
+  }
+
+  // Records arrive after the visits they annotate.
+  Future<void> _loadTreatmentRecords() async {
+    final apiClient = widget.apiClient;
+    final patientId = widget.patientId;
+    if (apiClient == null || patientId == null) return;
+    try {
+      final records = await SessionRecordApi(
+        apiClient,
+      ).listForPatient(patientId);
+      if (!mounted) return;
+      setState(() {
+        _recordsBySession = {
+          for (final record in records) record.sessionId: record,
+        };
+      });
+      await _loadPrescribedNames(records);
+    } catch (_) {
+      // Visits still read without them.
+    }
+  }
+
+  Future<void> _loadPrescribedNames(List<SessionRecord> records) async {
+    final apiClient = widget.apiClient;
+    final patientId = widget.patientId;
+    if (apiClient == null || patientId == null) return;
+    if (records.every((record) => record.prescribedProductIds.isEmpty)) return;
+    try {
+      final products = await ProductApi(
+        apiClient,
+      ).prescribedForPatient(patientId);
+      if (!mounted) return;
+      setState(() {
+        _productNamesById = {
+          for (final product in products)
+            product.id: '${product.brandLabel} ${product.name}'.trim(),
+        };
+      });
+    } catch (_) {
+      // Ids stay hidden rather than raw.
     }
   }
 
@@ -268,29 +325,57 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     );
     if (confirmed != true) return;
 
+    final restore = _snapshotLists();
+    // Moves to history now; server confirms after.
+    setState(() {
+      _upcoming?.removeWhere((a) => a.id == appointment.id);
+      final history = _history;
+      if (history != null) {
+        history.removeWhere((a) => a.id == appointment.id);
+        history.insert(0, appointment.copyWith(status: 'CANCELLED'));
+      }
+    });
+
     try {
       final cancelled = await widget.appointmentApi.cancel(appointment.id);
       if (!mounted) return;
-      // Move it into history locally, no refetch.
       setState(() {
-        _upcoming?.removeWhere((a) => a.id == appointment.id);
         final history = _history;
         if (history != null) {
-          history.removeWhere((a) => a.id == cancelled.id);
-          history.insert(0, cancelled);
+          final at = history.indexWhere((a) => a.id == cancelled.id);
+          if (at >= 0) history[at] = cancelled;
         }
       });
       _snack('Appointment cancelled.');
       _reloadAfterMutation();
     } on BookingConflictException catch (error) {
-      if (mounted) _snack(error.message);
+      if (!mounted) return;
+      _restoreLists(restore);
+      _snack(error.message);
     } on ForbiddenException {
-      if (mounted) _snack('That appointment is not yours to cancel.');
+      if (!mounted) return;
+      _restoreLists(restore);
+      _snack('That appointment is not yours to cancel.');
     } catch (_) {
-      if (mounted) {
-        _snack('Could not cancel. Check your connection and try again.');
-      }
+      if (!mounted) return;
+      _restoreLists(restore);
+      _snack('Could not cancel. Check your connection and try again.');
     }
+  }
+
+  ({List<Appointment>? upcoming, List<Appointment>? history})
+  _snapshotLists() => (
+    upcoming: _upcoming == null ? null : [..._upcoming!],
+    history: _history == null ? null : [..._history!],
+  );
+
+  void _restoreLists(
+    ({List<Appointment>? upcoming, List<Appointment>? history}) saved,
+  ) {
+    setState(() {
+      _upcoming = saved.upcoming;
+      _history = saved.history;
+    });
   }
 
   // Drops one treatment; backend resyncs or closes.
@@ -322,20 +407,45 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     );
     if (confirmed != true) return;
 
+    final restore = _snapshotLists();
+    // Drops the row now; server confirms after.
+    setState(() => _dropSession(appointment.id, session.id));
+
     try {
       await widget.appointmentApi.cancelSession(appointment.id, session.id);
       if (!mounted) return;
       _snack('Treatment cancelled.');
       _reloadAfterMutation();
     } on BookingConflictException catch (error) {
-      if (mounted) _snack(error.message);
+      if (!mounted) return;
+      _restoreLists(restore);
+      _snack(error.message);
     } on ForbiddenException {
-      if (mounted) _snack('That treatment is not yours to cancel.');
+      if (!mounted) return;
+      _restoreLists(restore);
+      _snack('That treatment is not yours to cancel.');
     } catch (_) {
-      if (mounted) {
-        _snack('Could not cancel. Check your connection and try again.');
-      }
+      if (!mounted) return;
+      _restoreLists(restore);
+      _snack('Could not cancel. Check your connection and try again.');
     }
+  }
+
+  void _dropSession(String appointmentId, String sessionId) {
+    final upcoming = _upcoming;
+    if (upcoming == null) return;
+    final at = upcoming.indexWhere((a) => a.id == appointmentId);
+    if (at < 0) return;
+    final visit = upcoming[at];
+    upcoming[at] = visit.copyWith(
+      sessions: [
+        for (final current in visit.sessions)
+          if (current.id == sessionId)
+            current.withStatus('CANCELLED')
+          else
+            current,
+      ],
+    );
   }
 
   // Fresh visit; same sheet, nothing to replace.
@@ -418,9 +528,6 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                     style: ElevatedButton.styleFrom(
                       minimumSize: const Size(0, 40),
                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
-                      ),
                     ),
                     icon: const Icon(Icons.add_rounded, size: 16),
                     label: Text(
@@ -452,7 +559,6 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
           color: active > 0 ? AppColors.borderRose : AppColors.border,
         ),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),
       icon: Icon(
         Icons.tune_rounded,
@@ -522,7 +628,11 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
             child: _list(
               filteredHistory,
               _historyEmptyText(dayLabel),
-              (appointment) => HistoryCard(appointment: appointment),
+              (appointment) => HistoryCard(
+                appointment: appointment,
+                recordsBySession: _recordsBySession,
+                productNamesById: _productNamesById,
+              ),
               // Load more would page past active filters.
               hasMore: unfiltered && _historyHasMore,
               onLoadMore: () => _loadMore(upcoming: false),

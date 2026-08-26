@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/app_search_field.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/skeleton.dart';
 import '../../../network/api_client.dart';
@@ -94,6 +95,25 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
     }
   }
 
+  // Refetch behind the screen, no skeleton.
+  Future<void> _refreshQuietly() async {
+    try {
+      final page = await widget.appointmentApi.allForStaff();
+      if (!mounted) return;
+      setState(() => _appointments = page.items);
+      await _loadSessionRecords(page.items);
+    } catch (_) {
+      // What is on screen already stands.
+    }
+  }
+
+  void _replaceAppointment(Appointment next) {
+    _appointments = [
+      for (final current in _appointments)
+        current.id == next.id ? next : current,
+    ];
+  }
+
   Future<void> _loadDoctors() async {
     try {
       final doctors = await widget.doctorApi.list();
@@ -182,11 +202,20 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
       ),
     );
     if (confirmed != true || !mounted) return;
+
+    final previous = _appointments;
+    // Reads cancelled now; reverts if refused.
+    setState(
+      () => _replaceAppointment(appointment.copyWith(status: 'CANCELLED')),
+    );
+
     try {
       await widget.appointmentApi.cancel(appointment.id);
-      await _load();
+      if (!mounted) return;
+      await _refreshQuietly();
     } catch (_) {
       if (!mounted) return;
+      setState(() => _appointments = previous);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Could not cancel the appointment.')),
       );
@@ -206,7 +235,9 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
       session: session,
     );
     if (saved) {
-      await _load();
+      // No skeleton for a routine refresh - what's on screen already stands
+      // until the confirmed data replaces it.
+      await _refreshQuietly();
     }
   }
 
@@ -238,7 +269,7 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
       patientUserId: patientUserId,
     );
     if (saved) {
-      await _load();
+      await _refreshQuietly();
     }
   }
 
@@ -496,38 +527,14 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
   }
 
   Widget _buildSearchField() {
-    return TextField(
+    return AppSearchField(
       controller: _searchController,
+      hintText: 'Search patient or treatment',
       onChanged: (value) => setState(() => _query = value.trim().toLowerCase()),
-      style: AppTypography.bodyMedium(),
-      decoration: InputDecoration(
-        isDense: true,
-        filled: true,
-        fillColor: AppColors.bgAlt,
-        hintText: 'Search patient or treatment',
-        hintStyle: AppTypography.bodySmall(color: AppColors.textMuted),
-        prefixIcon: const Icon(
-          Icons.search,
-          size: 18,
-          color: AppColors.textMuted,
-        ),
-        prefixIconConstraints: const BoxConstraints(minWidth: 38),
-        suffixIcon: _query.isEmpty
-            ? null
-            : IconButton(
-                icon: const Icon(Icons.close, size: 16),
-                color: AppColors.textMuted,
-                onPressed: () {
-                  _searchController.clear();
-                  setState(() => _query = '');
-                },
-              ),
-        contentPadding: const EdgeInsets.symmetric(vertical: 11),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide.none,
-        ),
-      ),
+      onClear: () {
+        _searchController.clear();
+        setState(() => _query = '');
+      },
     );
   }
 
@@ -562,7 +569,6 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
         side: BorderSide(
           color: _dateFilter == null ? AppColors.border : AppColors.borderRose,
         ),
-        shape: const StadiumBorder(),
       ),
     );
   }
@@ -972,7 +978,6 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
             label: Text(modifiable ? 'Reschedule' : 'Book follow-up'),
             style: FilledButton.styleFrom(
               backgroundColor: AppColors.rose,
-              shape: const StadiumBorder(),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             ),
           ),

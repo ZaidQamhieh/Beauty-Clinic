@@ -88,6 +88,7 @@ abstract class AppRoutes {
       'patient_profile',
       'appointments',
       'my_calendar',
+      'products',
     },
     'receptionist' => {
       'dashboard',

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/status_pill.dart';
+import '../../patient_profile/data/session_record.dart';
 import '../data/appointment.dart';
 import 'booking_format.dart';
 
@@ -104,9 +105,20 @@ class UpcomingCard extends StatelessWidget {
 }
 
 class HistoryCard extends StatelessWidget {
-  const HistoryCard({super.key, required this.appointment});
+  const HistoryCard({
+    super.key,
+    required this.appointment,
+    this.recordsBySession = const {},
+    this.productNamesById = const {},
+  });
 
   final Appointment appointment;
+
+  /// The doctor's record per treatment.
+  final Map<String, SessionRecord> recordsBySession;
+
+  /// Names for products the record prescribes.
+  final Map<String, String> productNamesById;
 
   @override
   Widget build(BuildContext context) {
@@ -116,6 +128,34 @@ class HistoryCard extends StatelessWidget {
       sessions: [...appointment.sessions]
         ..sort((a, b) => a.startTime.compareTo(b.startTime)),
       statusLabel: historyStatus(appointment),
+      footer: Align(
+        alignment: Alignment.centerRight,
+        child: Tooltip(
+          message: _hasAnyRecord
+              ? 'Read what the doctor wrote'
+              : 'The doctor wrote no notes for this visit',
+          child: OutlinedButton.icon(
+            onPressed: _hasAnyRecord ? () => _openNotes(context) : null,
+            icon: const Icon(Icons.description_outlined, size: 16),
+            label: const Text('Doctor\'s notes'),
+          ),
+        ),
+      ),
+    );
+  }
+
+  bool get _hasAnyRecord => appointment.sessions.any(
+    (session) => recordsBySession[session.id] != null,
+  );
+
+  void _openNotes(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => TreatmentNotesDialog(
+        appointment: appointment,
+        recordsBySession: recordsBySession,
+        productNamesById: productNamesById,
+      ),
     );
   }
 
@@ -129,8 +169,7 @@ class HistoryCard extends StatelessWidget {
     if (sessions.every((s) => s.status == 'CANCELLED')) return 'Cancelled';
     if (sessions.every((s) => s.status == 'NO_SHOW')) return 'Missed';
 
-    // A visit is only fully complete when every treatment in it is complete.
-    // If any session remains planned or is still pending, the appointment stays pending.
+    // Any planned treatment keeps the visit pending.
     final hasPlanned = sessions.any((s) => s.isPlanned);
     if (sessions.any((s) => s.status == 'COMPLETED') && !hasPlanned) {
       return 'Completed';
@@ -141,6 +180,173 @@ class HistoryCard extends StatelessWidget {
 
 /// Side inset every row but next.
 const EdgeInsets _inset = EdgeInsets.symmetric(horizontal: 8);
+
+/// What the doctor wrote after a treatment.
+class TreatmentRecordPanel extends StatelessWidget {
+  const TreatmentRecordPanel({
+    super.key,
+    required this.record,
+    this.productNamesById = const {},
+  });
+
+  final SessionRecord record;
+  final Map<String, String> productNamesById;
+
+  @override
+  Widget build(BuildContext context) {
+    final note = record.note?.trim();
+    final reaction = record.skinReaction;
+    final products = record.prescribedProductIds
+        .map((id) => productNamesById[id])
+        .whereType<String>()
+        .toList();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.bgAlt,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.description_outlined,
+                size: 14,
+                color: AppColors.textMuted,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'Treatment record · ${BookingFormat.dayWithYear(record.createdAt)}',
+                  style: AppTypography.labelSmall(),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            note == null || note.isEmpty
+                ? 'The doctor left no written note.'
+                : note,
+            style: AppTypography.bodySmall(),
+          ),
+          if (record.authorName != null && record.authorName!.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              record.authorName!,
+              style: AppTypography.bodySmall(color: AppColors.textMuted),
+            ),
+          ],
+          if (reaction != null && reaction != 'NONE')
+            _line('Skin reaction: ${_humanize(reaction)}'),
+          if (record.followUpDate != null)
+            _line('Follow-up: ${record.followUpDate}'),
+          if (products.isNotEmpty) _line('Prescribed: ${products.join(', ')}'),
+        ],
+      ),
+    );
+  }
+
+  Widget _line(String text) => Padding(
+    padding: const EdgeInsets.only(top: 6),
+    child: Text(
+      text,
+      style: AppTypography.bodySmall(color: AppColors.textMuted),
+    ),
+  );
+
+  static String _humanize(String value) => value
+      .toLowerCase()
+      .split('_')
+      .map(
+        (word) => word.isEmpty
+            ? word
+            : '${word[0].toUpperCase()}${word.substring(1)}',
+      )
+      .join(' ');
+}
+
+/// One visit's treatments and records.
+class TreatmentNotesDialog extends StatelessWidget {
+  const TreatmentNotesDialog({
+    super.key,
+    required this.appointment,
+    required this.recordsBySession,
+    this.productNamesById = const {},
+  });
+
+  final Appointment appointment;
+  final Map<String, SessionRecord> recordsBySession;
+  final Map<String, String> productNamesById;
+
+  @override
+  Widget build(BuildContext context) {
+    final sessions = [...appointment.sessions]
+      ..sort((a, b) => a.startTime.compareTo(b.startTime));
+
+    return AlertDialog(
+      backgroundColor: AppColors.bgCard,
+      title: Text('Doctor\'s notes', style: AppTypography.displaySubtitle()),
+      content: SizedBox(
+        width: 460,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '${BookingFormat.dayWithYear(appointment.scheduledAt)} · '
+                '${sessions.length} treatment(s)',
+                style: AppTypography.bodySmall(color: AppColors.textMuted),
+              ),
+              const SizedBox(height: 16),
+              if (sessions.isEmpty)
+                Text(
+                  'This visit has no treatments on it.',
+                  style: AppTypography.bodySmall(color: AppColors.textMuted),
+                ),
+              for (final session in sessions) ...[
+                Text(
+                  session.treatmentLabel,
+                  style: AppTypography.labelMedium(),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${BookingFormat.time12(session.startTime)} · '
+                  '${session.practitionerName}',
+                  style: AppTypography.bodySmall(color: AppColors.textMuted),
+                ),
+                const SizedBox(height: 8),
+                if (recordsBySession[session.id] case final record?)
+                  TreatmentRecordPanel(
+                    record: record,
+                    productNamesById: productNamesById,
+                  )
+                else
+                  Text(
+                    'No record for this treatment.',
+                    style: AppTypography.bodySmall(color: AppColors.textMuted),
+                  ),
+                const SizedBox(height: 18),
+              ],
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Close'),
+        ),
+      ],
+    );
+  }
+}
 
 class _AppointmentCard extends StatelessWidget {
   const _AppointmentCard({

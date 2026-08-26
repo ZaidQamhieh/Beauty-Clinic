@@ -9,11 +9,15 @@ import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CachingConfigurer;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.cache.interceptor.CacheErrorHandler;
+import org.springframework.cache.support.NoOpCacheManager;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.cache.RedisCacheManager;
+import org.springframework.data.redis.connection.RedisConnection;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
@@ -36,8 +40,22 @@ public class CacheConfig implements CachingConfigurer {
     private static final Duration PATIENT_DATA_TTL = Duration.ofSeconds(30);
 
 
+    @Value("${app.cache.redis.enabled:true}")
+    private boolean redisCacheEnabled;
+
     @Bean
-    public CacheManager cacheManager(RedisConnectionFactory connectionFactory) {
+    public CacheManager cacheManager(ObjectProvider<RedisConnectionFactory> connectionFactories) {
+        RedisConnectionFactory connectionFactory = connectionFactories.getIfAvailable();
+
+        if (!redisCacheEnabled) {
+            log.info("Redis cache switched off; running uncached");
+            return new NoOpCacheManager();
+        }
+        if (connectionFactory == null || !reachable(connectionFactory)) {
+            log.warn("Redis not reachable; running uncached");
+            return new NoOpCacheManager();
+        }
+
         // NON_FINAL drops root-record type tags.
         ObjectMapper mapper = new ObjectMapper()
                 .registerModule(new JavaTimeModule())
@@ -68,6 +86,17 @@ public class CacheConfig implements CachingConfigurer {
                         "dashboardAnalytics", analyticsConfig,
                         "patientData", patientDataConfig))
                 .build();
+    }
+
+    // One ping; dev machines may lack Redis.
+    private boolean reachable(RedisConnectionFactory connectionFactory) {
+        try (RedisConnection connection = connectionFactory.getConnection()) {
+            connection.ping();
+            return true;
+        } catch (RuntimeException e) {
+            log.debug("Redis ping failed: {}", e.getMessage());
+            return false;
+        }
     }
 
     // Honoured via CachingConfigurer, not a bean.

@@ -93,6 +93,26 @@ class _DoctorAvailabilityScreenState extends State<DoctorAvailabilityScreen> {
     AvailabilityDraft draft, {
     required bool acknowledgeShadow,
   }) async {
+    final previous = _items;
+    // Shows now; server confirms after.
+    final optimistic = DoctorAvailability(
+      id: item?.id ?? 'pending-${DateTime.now().microsecondsSinceEpoch}',
+      kind: draft.kind,
+      dayOfWeek: draft.day,
+      startTime: draft.start,
+      endTime: draft.end,
+      effectiveFrom: draft.from,
+      effectiveTo: draft.to,
+    );
+    setState(() {
+      _items = item == null
+          ? [..._items, optimistic]
+          : [
+              for (final current in _items)
+                current.id == item.id ? optimistic : current,
+            ];
+    });
+
     try {
       final DoctorAvailability saved;
       if (item == null) {
@@ -106,7 +126,14 @@ class _DoctorAvailabilityScreenState extends State<DoctorAvailabilityScreen> {
           acknowledgeShadow: acknowledgeShadow,
           doctorId: widget.doctorId,
         );
-        if (mounted) setState(() => _items = [..._items, saved]);
+        if (mounted) {
+          setState(() {
+            _items = [
+              for (final current in _items)
+                current.id == optimistic.id ? saved : current,
+            ];
+          });
+        }
       } else {
         saved = await widget.api.update(
           item,
@@ -129,24 +156,29 @@ class _DoctorAvailabilityScreenState extends State<DoctorAvailabilityScreen> {
         }
       }
     } on DoctorAvailabilityShadowedException catch (error) {
+      if (!mounted) return;
+      // Not saved yet - roll back the optimistic entry while confirming.
+      setState(() => _items = previous);
       final confirmed = await _confirmShadow(error);
       if (confirmed == true) {
         await _save(item, draft, acknowledgeShadow: true);
       }
     } on DoctorAvailabilityConflictException catch (error) {
-      if (mounted) _showBlockingError('Booked appointments would be affected', error.message);
+      if (!mounted) return;
+      setState(() => _items = previous);
+      _showBlockingError('Booked appointments would be affected', error.message);
     } on DoctorAvailabilityException catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(error.message)));
-      }
+      if (!mounted) return;
+      setState(() => _items = previous);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
     } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Unable to save availability.')),
-        );
-      }
+      if (!mounted) return;
+      setState(() => _items = previous);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to save availability.')),
+      );
     }
   }
 
@@ -235,27 +267,30 @@ class _DoctorAvailabilityScreenState extends State<DoctorAvailabilityScreen> {
       value == null || value.length < 5 ? (value ?? '') : value.substring(0, 5);
 
   Future<void> _remove(DoctorAvailability item) async {
+    final previous = _items;
+    // Leaves now; the cutoff may refuse it.
+    setState(() {
+      _items = _items.where((current) => current.id != item.id).toList();
+    });
+
     try {
       await widget.api.remove(item, doctorId: widget.doctorId);
-      if (mounted) {
-        setState(() {
-          _items = _items.where((current) => current.id != item.id).toList();
-        });
-      }
     } on DoctorAvailabilityConflictException catch (error) {
-      if (mounted) _showBlockingError('Booked appointments would be affected', error.message);
+      if (!mounted) return;
+      setState(() => _items = previous);
+      _showBlockingError('Booked appointments would be affected', error.message);
     } on DoctorAvailabilityException catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(error.message)));
-      }
+      if (!mounted) return;
+      setState(() => _items = previous);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
     } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Unable to delete availability.')),
-        );
-      }
+      if (!mounted) return;
+      setState(() => _items = previous);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to delete availability.')),
+      );
     }
   }
 

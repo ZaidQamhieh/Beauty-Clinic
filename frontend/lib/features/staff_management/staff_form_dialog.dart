@@ -366,9 +366,6 @@ class _StaffFormDialogState extends State<_StaffFormDialog> {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: accent,
                           foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
                         ),
                         child: _isSubmitting
                             ? const SizedBox(

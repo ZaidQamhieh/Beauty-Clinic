@@ -1,3 +1,4 @@
+import '../../../core/widgets/app_search_field.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -206,49 +207,14 @@ class _DoctorDirectoryScreenState extends State<DoctorDirectoryScreen> {
   }
 
   Widget _buildSearchBar() {
-    return TextField(
+    return AppSearchField(
       controller: _searchController,
+      hintText: 'Search by doctor name or specialty...',
       onChanged: (value) => setState(() => _query = value.trim().toLowerCase()),
-      decoration: InputDecoration(
-        hintText: 'Search by doctor name or specialty...',
-        hintStyle: AppTypography.bodySmall(color: AppColors.textMuted),
-        prefixIcon: const Icon(
-          Icons.search,
-          color: AppColors.textMuted,
-          size: 20,
-        ),
-        suffixIcon: _query.isEmpty
-            ? null
-            : IconButton(
-                icon: const Icon(
-                  Icons.clear,
-                  size: 18,
-                  color: AppColors.textMuted,
-                ),
-                onPressed: () {
-                  _searchController.clear();
-                  setState(() => _query = '');
-                },
-              ),
-        filled: true,
-        fillColor: AppColors.bgCard,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 14,
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: AppColors.border),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: AppColors.border),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: AppColors.rose, width: 1.5),
-        ),
-      ),
+      onClear: () {
+        _searchController.clear();
+        setState(() => _query = '');
+      },
     );
   }
 

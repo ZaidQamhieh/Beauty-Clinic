@@ -277,7 +277,12 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       );
       return;
     }
-    setState(() => _saving = true);
+    // Closes the editor now; reopens if refused.
+    setState(() {
+      _saving = true;
+      _editing = false;
+      _saved = true;
+    });
     try {
       final updated = await _profileApi.update(
         firstName: _firstNameController.text,
@@ -304,7 +309,11 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       await widget.onProfileUpdated?.call();
     } catch (_) {
       if (!mounted) return;
-      setState(() => _saving = false);
+      setState(() {
+        _saving = false;
+        _editing = true;
+        _saved = false;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Unable to save your profile.')),
       );

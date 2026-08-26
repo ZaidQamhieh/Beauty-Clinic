@@ -16,7 +16,9 @@ class FormBuilderAdminScreen extends StatefulWidget {
 }
 
 class _FormBuilderAdminScreenState extends State<FormBuilderAdminScreen> {
-  late Future<List<Map<String, dynamic>>> _future;
+  List<Map<String, dynamic>> _questions = const [];
+  bool _loading = true;
+  Object? _loadError;
   String _filter = 'ALL'; // ALL, ACTIVE, HIDDEN
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
@@ -24,7 +26,7 @@ class _FormBuilderAdminScreenState extends State<FormBuilderAdminScreen> {
   @override
   void initState() {
     super.initState();
-    _future = widget.api.fetchAdminQuestionsRaw();
+    _reload();
   }
 
   @override
@@ -33,10 +35,25 @@ class _FormBuilderAdminScreenState extends State<FormBuilderAdminScreen> {
     super.dispose();
   }
 
-  void _reload() {
+  Future<void> _reload() async {
     setState(() {
-      _future = widget.api.fetchAdminQuestionsRaw();
+      _loading = true;
+      _loadError = null;
     });
+    try {
+      final questions = await widget.api.fetchAdminQuestionsRaw();
+      if (!mounted) return;
+      setState(() {
+        _questions = questions;
+        _loading = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loadError = error;
+        _loading = false;
+      });
+    }
   }
 
   Future<void> _save([Map<String, dynamic>? q]) async {
@@ -45,12 +62,74 @@ class _FormBuilderAdminScreenState extends State<FormBuilderAdminScreen> {
       builder: (_) => _QuestionDialog(question: q),
     );
     if (data == null) return;
-    if (q == null) {
-      await widget.api.createQuestion(data);
-    } else {
-      await widget.api.updateQuestion(q['id'] as String, data);
+
+    final previous = _questions;
+    final id =
+        q?['id']?.toString() ??
+        'pending-${DateTime.now().microsecondsSinceEpoch}';
+    // Shows now; server confirms after.
+    final optimistic = {...?q, ...data, 'id': id};
+    setState(() {
+      _questions = q == null
+          ? [..._questions, optimistic]
+          : [
+              for (final current in _questions)
+                current['id'] == q['id'] ? optimistic : current,
+            ];
+    });
+
+    try {
+      if (q == null) {
+        await widget.api.createQuestion(data);
+      } else {
+        await widget.api.updateQuestion(q['id'] as String, data);
+      }
+      if (!mounted) return;
+      // Server owns ids and ordering.
+      await _refreshQuietly();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _questions = previous);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not save the question.')),
+      );
     }
-    _reload();
+  }
+
+  Future<void> _setActive(Map<String, dynamic> q, bool active) async {
+    final previous = _questions;
+    setState(() {
+      _questions = [
+        for (final current in _questions)
+          current['id'] == q['id'] ? {...current, 'active': active} : current,
+      ];
+    });
+
+    try {
+      active
+          ? await widget.api.activateQuestion(q['id'] as String)
+          : await widget.api.deactivateQuestion(q['id'] as String);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _questions = previous);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            active ? 'Could not show the question.' : 'Could not hide it.',
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _refreshQuietly() async {
+    try {
+      final questions = await widget.api.fetchAdminQuestionsRaw();
+      if (!mounted) return;
+      setState(() => _questions = questions);
+    } catch (_) {
+      // What is on screen already stands.
+    }
   }
 
   @override
@@ -72,13 +151,12 @@ class _FormBuilderAdminScreenState extends State<FormBuilderAdminScreen> {
 
           // Main Questions List
           Expanded(
-            child: FutureBuilder<List<Map<String, dynamic>>>(
-              future: _future,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState != ConnectionState.done) {
+            child: Builder(
+              builder: (context) {
+                if (_loading) {
                   return const SkeletonList();
                 }
-                if (snapshot.hasError) {
+                if (_loadError != null) {
                   return Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -90,7 +168,7 @@ class _FormBuilderAdminScreenState extends State<FormBuilderAdminScreen> {
                         ),
                         const SizedBox(height: 12),
                         Text(
-                          'Could not load the form: ${snapshot.error}',
+                          'Could not load the form: $_loadError',
                           style: AppTypography.bodyMedium(
                             color: AppColors.textSub,
                           ),
@@ -110,7 +188,7 @@ class _FormBuilderAdminScreenState extends State<FormBuilderAdminScreen> {
                   );
                 }
 
-                final rawQuestions = snapshot.data ?? const [];
+                final rawQuestions = _questions;
                 final filtered = rawQuestions.where((q) {
                   final matchesFilter = switch (_filter) {
                     'ACTIVE' => q['active'] == true,
@@ -139,20 +217,10 @@ class _FormBuilderAdminScreenState extends State<FormBuilderAdminScreen> {
                       question: q,
                       onEdit: () => _save(q),
                       onHide: q['active'] == true
-                          ? () async {
-                              await widget.api.deactivateQuestion(
-                                q['id'] as String,
-                              );
-                              _reload();
-                            }
+                          ? () => _setActive(q, false)
                           : null,
                       onShow: q['active'] != true
-                          ? () async {
-                              await widget.api.activateQuestion(
-                                q['id'] as String,
-                              );
-                              _reload();
-                            }
+                          ? () => _setActive(q, true)
                           : null,
                     );
                   },
@@ -216,9 +284,6 @@ class _FormBuilderAdminScreenState extends State<FormBuilderAdminScreen> {
               foregroundColor: Colors.white,
               elevation: 0,
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
             ),
           ),
         ],
@@ -249,6 +314,8 @@ class _FormBuilderAdminScreenState extends State<FormBuilderAdminScreen> {
                         setState(() => _searchQuery = val.trim()),
                     decoration: const InputDecoration(
                       hintText: 'Search by question title or field key...',
+                      // Prevents the theme's fill from doubling up.
+                      filled: false,
                       border: InputBorder.none,
                       enabledBorder: InputBorder.none,
                       focusedBorder: InputBorder.none,
@@ -300,12 +367,12 @@ class _FormBuilderAdminScreenState extends State<FormBuilderAdminScreen> {
     final isSelected = _filter == key;
     return InkWell(
       onTap: () => setState(() => _filter = key),
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
         decoration: BoxDecoration(
           color: isSelected ? AppColors.bgCard : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(12),
           boxShadow: isSelected
               ? const [
                   BoxShadow(
@@ -556,9 +623,6 @@ class _QuestionCard extends StatelessWidget {
                     style: IconButton.styleFrom(
                       foregroundColor: AppColors.textSub,
                       backgroundColor: AppColors.bgAlt,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
                     ),
                   ),
                   const SizedBox(width: 6),
@@ -570,9 +634,6 @@ class _QuestionCard extends StatelessWidget {
                       style: IconButton.styleFrom(
                         foregroundColor: AppColors.textMuted,
                         backgroundColor: AppColors.bgAlt,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
                       ),
                     ),
                   if (onShow != null)
@@ -583,9 +644,6 @@ class _QuestionCard extends StatelessWidget {
                       style: IconButton.styleFrom(
                         foregroundColor: AppColors.rose,
                         backgroundColor: AppColors.bgRose,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
                       ),
                     ),
                 ],
@@ -953,9 +1011,6 @@ class _QuestionDialogState extends State<_QuestionDialog> {
                         padding: const EdgeInsets.symmetric(
                           horizontal: 20,
                           vertical: 12,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
                         ),
                       ),
                       child: const Text('Save'),
