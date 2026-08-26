@@ -346,14 +346,6 @@ class _DoctorAvailabilityScreenState extends State<DoctorAvailabilityScreen> {
                       'Availability Schedule',
                       style: AppTypography.displaySubtitle(),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Set your weekly hours and manage vacations, extra days, '
-                      'and modified hours.',
-                      style: AppTypography.bodySmall(
-                        color: AppColors.textMuted,
-                      ),
-                    ),
                   ],
                 );
                 final action = FilledButton.icon(

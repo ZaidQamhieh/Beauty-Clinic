@@ -292,11 +292,6 @@ class _StaffFormDialogState extends State<_StaffFormDialog> {
                     }
                   },
                 ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Created at and updated at are set by the backend automatically.',
-                  style: TextStyle(fontSize: 12, color: AppColors.textMuted),
-                ),
                 if (_isDoctor) ...[
                   const SizedBox(height: 20),
                   _sectionLabel('Professional Details', accent),

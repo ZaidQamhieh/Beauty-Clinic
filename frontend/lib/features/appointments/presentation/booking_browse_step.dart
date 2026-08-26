@@ -126,13 +126,7 @@ class BookingBrowseStep extends StatelessWidget {
         const SizedBox(height: 8),
         // After fixed children, note keeps space.
         if (fill) Expanded(child: calendar) else calendar,
-        if (dayLocked) ...[
-          const SizedBox(height: 8),
-          Text(
-            'One visit is one day. Remove your treatments to pick another date.',
-            style: AppTypography.bodySmall(),
-          ),
-        ] else if (isReschedule && alreadyInVisit.isNotEmpty) ...[
+        if (!dayLocked && isReschedule && alreadyInVisit.isNotEmpty) ...[
           const SizedBox(height: 8),
           Text(
             'Picking a different day starts this visit over — kept '

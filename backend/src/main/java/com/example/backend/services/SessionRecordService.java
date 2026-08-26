@@ -50,10 +50,6 @@ public class SessionRecordService {
 
     @Transactional(readOnly = true)
     public Page<SessionRecordResponse> list(UUID patientUserId, Pageable pageable) {
-        activityLogs.recordIndependently(
-                currentUser.id().orElse(null), patientUserId,
-                ActivityAction.SESSION_RECORDS_VIEWED, "session_record", null);
-
         return records.findBySessionAppointmentPatientUserIdOrderByCreatedAtDesc(patientUserId, pageable)
                 .map(record -> SessionRecordResponse.of(record, prescribedProductIds(record)));
     }

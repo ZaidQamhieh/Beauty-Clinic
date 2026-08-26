@@ -428,13 +428,6 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Appointments', style: AppTypography.displayTitle()),
-                const SizedBox(height: 4),
-                Text(
-                  widget.canAuthorSessionRecords
-                      ? 'Your assigned consultations and clinical follow-up.'
-                      : 'Clinic schedule and patient visits.',
-                  style: AppTypography.bodySmall(color: AppColors.textSub),
-                ),
                 const SizedBox(height: 8),
                 _buildHeaderCounts(),
               ],
@@ -528,8 +521,8 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
 
   Widget _buildSearchField() {
     return AppSearchField(
-      controller: _searchController,
       hintText: 'Search patient or treatment',
+      controller: _searchController,
       onChanged: (value) => setState(() => _query = value.trim().toLowerCase()),
       onClear: () {
         _searchController.clear();

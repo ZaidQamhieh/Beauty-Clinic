@@ -450,18 +450,12 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _ruleHeader(
-            _editing ? 'EDITABLE DETAILS' : 'MY DETAILS',
-            hint: _editing ? 'Nothing saves until you press Save' : null,
-          ),
+          _ruleHeader(_editing ? 'EDITABLE DETAILS' : 'MY DETAILS'),
           const SizedBox(height: 14),
           _grid(_detailCells(), columns),
           if (widget.role == Role.doctor) ...[
             const SizedBox(height: 24),
-            _ruleHeader(
-              'SPECIALIZATIONS',
-              hint: '${_selectedSpecializations.length} active',
-            ),
+            _ruleHeader('SPECIALIZATIONS'),
             const SizedBox(height: 14),
             if (_editing)
               _buildSpecializationPicker()
@@ -480,7 +474,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               ),
           ],
           const SizedBox(height: 24),
-          _ruleHeader('SIGN-IN', hint: 'Email is set by the clinic'),
+          _ruleHeader('SIGN-IN'),
           const SizedBox(height: 14),
           _buildSignInSection(columns),
         ],
@@ -549,19 +543,12 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         : digits;
   }
 
-  Widget _ruleHeader(String label, {String? hint}) {
+  Widget _ruleHeader(String label) {
     return Row(
       children: [
         Text(label, style: AppTypography.labelSmall()),
         const SizedBox(width: 12),
         Expanded(child: Container(height: 1, color: AppColors.hairline)),
-        if (hint != null) ...[
-          const SizedBox(width: 12),
-          Text(
-            hint,
-            style: AppTypography.bodySmall(color: AppColors.textMuted),
-          ),
-        ],
       ],
     );
   }
@@ -680,14 +667,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(_pageTitle, style: AppTypography.displayTitle()),
-              const SizedBox(height: 3),
-              Text(
-                'Everything on your account, on one screen.',
-                style: AppTypography.bodySmall(color: AppColors.textMuted),
-              ),
-            ],
+            children: [Text(_pageTitle, style: AppTypography.displayTitle())],
           ),
         ),
         _buildSaveState(),

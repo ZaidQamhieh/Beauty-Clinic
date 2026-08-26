@@ -8,7 +8,7 @@ import '../theme/app_typography.dart';
 class AppSearchField extends StatelessWidget {
   const AppSearchField({
     super.key,
-    required this.hintText,
+    this.hintText,
     this.controller,
     this.onChanged,
     this.onSubmitted,
@@ -17,7 +17,7 @@ class AppSearchField extends StatelessWidget {
     this.contentPadding = const EdgeInsets.symmetric(vertical: 12),
   });
 
-  final String hintText;
+  final String? hintText;
   final TextEditingController? controller;
   final ValueChanged<String>? onChanged;
   final ValueChanged<String>? onSubmitted;

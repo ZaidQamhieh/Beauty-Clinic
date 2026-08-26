@@ -4,6 +4,16 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../data/admin_analytics_models.dart';
 
+/// Gridline step that suits the data, so small clinics still get a grid.
+double _axisStep(double top) {
+  if (top <= 0) return 1;
+  final double rough = top / 4;
+  for (final double nice in [1, 2, 5, 10, 20, 25, 50, 100, 200, 500, 1000]) {
+    if (rough <= nice) return nice;
+  }
+  return 2000;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // 1. SERVICE ANALYTICS WIDGETS
 // ─────────────────────────────────────────────────────────────────────────────
@@ -33,19 +43,43 @@ class ServiceBookingsBarChart extends StatelessWidget {
           ? '$finishedAppointments finished appointments'
           : null,
       badgeColor: AppColors.rose,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: data.bookingsByService.isEmpty
-            ? [
-                Text(
-                  'No completed bookings in this period.',
-                  style: AppTypography.bodySmall(color: AppColors.textMuted),
-                ),
-              ]
-            : data.bookingsByService
-                  .map((item) => _buildServiceRow(item))
-                  .toList(),
-      ),
+      child: data.bookingsByService.isEmpty
+          ? Text(
+              'No completed bookings in this period.',
+              style: AppTypography.bodySmall(color: AppColors.textMuted),
+            )
+          : LayoutBuilder(
+              builder: (context, constraints) {
+                // Two rows abreast once there is room for both names.
+                final int columns = constraints.maxWidth >= 440 ? 2 : 1;
+                final items = data.bookingsByService;
+                final List<Widget> lines = [];
+
+                for (int start = 0; start < items.length; start += columns) {
+                  final slice = items.skip(start).take(columns).toList();
+                  lines.add(
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        for (int i = 0; i < columns; i++) ...[
+                          if (i > 0) const SizedBox(width: 20),
+                          Expanded(
+                            child: i < slice.length
+                                ? _buildServiceRow(slice[i])
+                                : const SizedBox.shrink(),
+                          ),
+                        ],
+                      ],
+                    ),
+                  );
+                }
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: lines,
+                );
+              },
+            ),
     );
   }
 
@@ -126,6 +160,20 @@ class ServiceGrowthLineChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final double top = data.growthOverTime.isEmpty
+        ? 0
+        : data.growthOverTime
+              .expand(
+                (point) => [
+                  point.laserCount,
+                  point.facialCount,
+                  point.contourCount,
+                  point.injectableCount,
+                ],
+              )
+              .reduce((a, b) => a > b ? a : b);
+    final double step = _axisStep(top);
+
     return _AnalyticsCard(
       title: 'Service Growth Over Time',
       subtitle: 'Volume trajectory across core treatment categories',
@@ -146,17 +194,17 @@ class ServiceGrowthLineChart extends StatelessWidget {
               _LegendItem(label: 'Injectables', color: AppColors.gold),
             ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 14),
 
           // Line Chart
           SizedBox(
-            height: 240,
+            height: 220,
             child: LineChart(
               LineChartData(
                 gridData: FlGridData(
                   show: true,
                   drawVerticalLine: false,
-                  horizontalInterval: 10,
+                  horizontalInterval: step,
                   getDrawingHorizontalLine: (value) =>
                       FlLine(color: AppColors.hairline, strokeWidth: 1),
                 ),
@@ -171,7 +219,7 @@ class ServiceGrowthLineChart extends StatelessWidget {
                     sideTitles: SideTitles(
                       showTitles: true,
                       reservedSize: 32,
-                      interval: 15,
+                      interval: step,
                       getTitlesWidget: (value, meta) => Text(
                         value.toInt().toString(),
                         style: AppTypography.bodySmall(
@@ -436,124 +484,129 @@ class AvailableSlotsWidget extends StatelessWidget {
       icon: Icons.event_available_outlined,
       badgeText: '${data.totalFreeSlotsToday} Open Slots Today',
       badgeColor: AppColors.sageDark,
-      child: Column(
-        children: data.availableSlotsList.map((item) {
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColors.bgCard,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.border),
-                boxShadow: const [
-                  BoxShadow(
-                    color: AppColors.shadow,
-                    blurRadius: 6,
-                    offset: Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          CircleAvatar(
-                            radius: 18,
-                            backgroundColor: AppColors.bgLavender,
-                            child: Text(
-                              item.avatarInitials,
-                              style: AppTypography.labelSmall(
-                                color: AppColors.lavDark,
-                              ).copyWith(fontWeight: FontWeight.w700),
+      child: data.availableSlotsList.isEmpty
+          ? Text(
+              'No open slots left today.',
+              style: AppTypography.bodySmall(color: AppColors.textMuted),
+            )
+          : Column(
+              children: data.availableSlotsList.map((item) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Container(
+                    padding: const EdgeInsets.all(11),
+                    decoration: BoxDecoration(
+                      color: AppColors.bgCard,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.border),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: AppColors.shadow,
+                          blurRadius: 6,
+                          offset: Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                CircleAvatar(
+                                  radius: 18,
+                                  backgroundColor: AppColors.bgLavender,
+                                  child: Text(
+                                    item.avatarInitials,
+                                    style: AppTypography.labelSmall(
+                                      color: AppColors.lavDark,
+                                    ).copyWith(fontWeight: FontWeight.w700),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      item.doctorName,
+                                      style: AppTypography.labelMedium(
+                                        color: AppColors.text,
+                                      ),
+                                    ),
+                                    Text(
+                                      '${item.specialty} · ${item.room}',
+                                      style: AppTypography.bodySmall(
+                                        color: AppColors.textMuted,
+                                      ).copyWith(fontSize: 11),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                item.doctorName,
-                                style: AppTypography.labelMedium(
-                                  color: AppColors.text,
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColors.bgSage,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: AppColors.sage.withValues(alpha: 0.3),
                                 ),
                               ),
-                              Text(
-                                '${item.specialty} · ${item.room}',
-                                style: AppTypography.bodySmall(
-                                  color: AppColors.textMuted,
-                                ).copyWith(fontSize: 11),
+                              child: Text(
+                                '${item.availableSlotsCount} free slots',
+                                style: AppTypography.labelSmall(
+                                  color: AppColors.sageDark,
+                                ).copyWith(fontWeight: FontWeight.w700),
                               ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.bgSage,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: AppColors.sage.withValues(alpha: 0.3),
-                          ),
-                        ),
-                        child: Text(
-                          '${item.availableSlotsCount} free slots',
-                          style: AppTypography.labelSmall(
-                            color: AppColors.sageDark,
-                          ).copyWith(fontWeight: FontWeight.w700),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: item.slots.map((slot) {
-                      return Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.bgLavender,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: AppColors.borderLav),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.schedule,
-                              size: 12,
-                              color: AppColors.lavDark,
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              slot,
-                              style: AppTypography.labelSmall(
-                                color: AppColors.lavDark,
-                              ).copyWith(fontWeight: FontWeight.w600),
                             ),
                           ],
                         ),
-                      );
-                    }).toList(),
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: item.slots.map((slot) {
+                            return Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColors.bgLavender,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: AppColors.borderLav),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    Icons.schedule,
+                                    size: 12,
+                                    color: AppColors.lavDark,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    slot,
+                                    style: AppTypography.labelSmall(
+                                      color: AppColors.lavDark,
+                                    ).copyWith(fontWeight: FontWeight.w600),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                    ),
                   ),
-                ],
-              ),
+                );
+              }).toList(),
             ),
-          );
-        }).toList(),
-      ),
     );
   }
 }
@@ -707,14 +760,14 @@ class AppointmentOutcomesDonut extends StatelessWidget {
       child: Column(
         children: [
           SizedBox(
-            height: 180,
+            height: 150,
             child: Stack(
               alignment: Alignment.center,
               children: [
                 PieChart(
                   PieChartData(
                     sectionsSpace: 3,
-                    centerSpaceRadius: 55,
+                    centerSpaceRadius: 44,
                     sections: [
                       PieChartSectionData(
                         value: data.completed.toDouble(),
@@ -763,7 +816,7 @@ class AppointmentOutcomesDonut extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 12),
           _buildOutcomePill(
             label: 'Completed Sessions',
             count: data.completed,
@@ -771,7 +824,7 @@ class AppointmentOutcomesDonut extends StatelessWidget {
             color: AppColors.sage,
             icon: Icons.check_circle_outline,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           _buildOutcomePill(
             label: 'Rescheduled',
             count: data.rescheduled,
@@ -779,7 +832,7 @@ class AppointmentOutcomesDonut extends StatelessWidget {
             color: AppColors.lav,
             icon: Icons.update,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           _buildOutcomePill(
             label: 'Cancelled Ahead',
             count: data.cancelled,
@@ -787,7 +840,7 @@ class AppointmentOutcomesDonut extends StatelessWidget {
             color: AppColors.gold,
             icon: Icons.cancel_outlined,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           _buildOutcomePill(
             label: 'No-Show Patients',
             count: data.noShow,
@@ -808,7 +861,7 @@ class AppointmentOutcomesDonut extends StatelessWidget {
     required IconData icon,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
       decoration: BoxDecoration(
         color: AppColors.bgAlt,
         borderRadius: BorderRadius.circular(12),
@@ -867,6 +920,11 @@ class PeakTimesAndRescheduledWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final int busiest = data.peakBookingTimes.fold<int>(
+      0,
+      (top, slot) => slot.bookingVolume > top ? slot.bookingVolume : top,
+    );
+
     return _AnalyticsCard(
       title: 'Peak Booking Times & Reschedules',
       subtitle: 'Hourly demand distribution and reschedule impact',
@@ -884,14 +942,14 @@ class PeakTimesAndRescheduledWidget extends StatelessWidget {
 
           // Hourly distribution bars
           SizedBox(
-            height: 120,
+            height: 220,
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: data.peakBookingTimes.map((slot) {
-                final double factor = (slot.bookingVolume / 80).clamp(
-                  0.15,
-                  1.0,
-                );
+                // Scale against the busiest slot, not a fixed ceiling.
+                final double factor = busiest == 0
+                    ? 0.15
+                    : (slot.bookingVolume / busiest).clamp(0.15, 1.0);
                 return Expanded(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 3),
@@ -917,7 +975,7 @@ class PeakTimesAndRescheduledWidget extends StatelessWidget {
                           message:
                               '${slot.timeSlot}: ${slot.bookingVolume} bookings',
                           child: Container(
-                            height: 70 * factor,
+                            height: 176 * factor,
                             decoration: BoxDecoration(
                               color: slot.isPeak
                                   ? AppColors.rose
@@ -979,14 +1037,14 @@ class NewVsReturningDonut extends StatelessWidget {
       child: Column(
         children: [
           SizedBox(
-            height: 170,
+            height: 150,
             child: Stack(
               alignment: Alignment.center,
               children: [
                 PieChart(
                   PieChartData(
                     sectionsSpace: 4,
-                    centerSpaceRadius: 50,
+                    centerSpaceRadius: 40,
                     sections: [
                       PieChartSectionData(
                         value: data.returningPatients.toDouble(),
@@ -1125,6 +1183,13 @@ class PatientGrowthLineChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final double top = data.isEmpty
+        ? 0
+        : data
+              .map((point) => point.totalCumulative)
+              .reduce((a, b) => a > b ? a : b);
+    final double step = _axisStep(top);
+
     return _AnalyticsCard(
       title: title,
       subtitle: subtitle,
@@ -1134,13 +1199,13 @@ class PatientGrowthLineChart extends StatelessWidget {
       child: Column(
         children: [
           SizedBox(
-            height: 200,
+            height: 220,
             child: LineChart(
               LineChartData(
                 gridData: FlGridData(
                   show: true,
                   drawVerticalLine: false,
-                  horizontalInterval: 100,
+                  horizontalInterval: step,
                   getDrawingHorizontalLine: (value) =>
                       FlLine(color: AppColors.hairline, strokeWidth: 1),
                 ),
@@ -1155,7 +1220,7 @@ class PatientGrowthLineChart extends StatelessWidget {
                     sideTitles: SideTitles(
                       showTitles: true,
                       reservedSize: 42,
-                      interval: 200,
+                      interval: step,
                       getTitlesWidget: (value, meta) => Text(
                         value.toInt().toString(),
                         style: AppTypography.bodySmall(
@@ -1407,7 +1472,7 @@ class _AnalyticsCard extends StatelessWidget {
     final Color effectiveBadgeColor = badgeColor ?? AppColors.rose;
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppColors.bgCard,
         borderRadius: BorderRadius.circular(20),
@@ -1486,7 +1551,7 @@ class _AnalyticsCard extends StatelessWidget {
               ],
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 12),
           child,
         ],
       ),

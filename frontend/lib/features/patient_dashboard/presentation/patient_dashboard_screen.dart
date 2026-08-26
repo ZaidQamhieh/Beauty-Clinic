@@ -195,11 +195,6 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                   'Welcome back, $firstName',
                   style: AppTypography.displayTitle(),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  'Your care plan, visits, and skin progress in one place.',
-                  style: AppTypography.bodySmall(color: AppColors.textSub),
-                ),
               ],
             ),
           ),

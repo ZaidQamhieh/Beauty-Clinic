@@ -39,136 +39,97 @@ class HeaderBar extends StatelessWidget implements PreferredSizeWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final bool showSearch = constraints.maxWidth > 840;
           final bool compactText = constraints.maxWidth < 650;
 
-          return Stack(
-            alignment: Alignment.center,
+          return Row(
             children: [
-              // Search sits dead-center, independent of side widths.
-              if (showSearch && !isMobile) _searchField(),
+              if (isMobile) ...[
+                Builder(
+                  builder: (ctx) => IconButton(
+                    icon: const Icon(Icons.menu, color: AppColors.text),
+                    onPressed: () => Scaffold.of(ctx).openDrawer(),
+                  ),
+                ),
+                const SizedBox(width: 4),
+              ],
 
+              // Clinic Brand Logo & Title
               Row(
                 children: [
-                  if (isMobile) ...[
-                    Builder(
-                      builder: (ctx) => IconButton(
-                        icon: const Icon(Icons.menu, color: AppColors.text),
-                        onPressed: () => Scaffold.of(ctx).openDrawer(),
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                  ],
-
-                  // Clinic Brand Logo & Title
-                  Row(
-                    children: [
-                      const YasmineLogo(size: 32),
-                      const SizedBox(width: 8),
-                      if (!compactText)
-                        Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'YASMINE',
-                              style: AppTypography.displayTitle(
-                                color: AppColors.text,
-                              ).copyWith(fontSize: 17, letterSpacing: 1.1),
-                            ),
-                            Text(
-                              'BEAUTY & DERMA',
-                              style: AppTypography.labelSmall(
-                                color: AppColors.rose,
-                              ).copyWith(fontSize: 8.5, letterSpacing: 0.6),
-                            ),
-                          ],
+                  const YasmineLogo(size: 32),
+                  const SizedBox(width: 8),
+                  if (!compactText)
+                    Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'YASMINE',
+                          style: AppTypography.displayTitle(
+                            color: AppColors.text,
+                          ).copyWith(fontSize: 17, letterSpacing: 1.1),
                         ),
-                    ],
-                  ),
-
-                  const SizedBox(width: 12),
-
-                  // Read-only; sign in to switch role.
-                  _buildRoleBadge(compact: compactText),
-
-                  const Spacer(),
-
-                  // Booking is per-page, shown only when passed.
-                  if (onBookClick != null) ...[
-                    const SizedBox(width: 8),
-                    ElevatedButton.icon(
-                      onPressed: onBookClick,
-                      style: ElevatedButton.styleFrom(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: compactText ? 10 : 14,
-                          vertical: 8,
+                        Text(
+                          'BEAUTY & DERMA',
+                          style: AppTypography.labelSmall(
+                            color: AppColors.rose,
+                          ).copyWith(fontSize: 8.5, letterSpacing: 0.6),
                         ),
-                      ),
-                      icon: const Icon(Icons.add_rounded, size: 16),
-                      label: Text(
-                        compactText || isMobile ? 'Book' : 'New Appt',
-                        style: AppTypography.labelSmall(color: AppColors.white),
-                      ),
+                      ],
                     ),
-                  ],
-
-                  const SizedBox(width: 12),
-                  Container(height: 24, width: 1, color: AppColors.border),
-                  const SizedBox(width: 12),
-                  if (onLogout != null) ...[
-                    IconButton(
-                      tooltip: 'Log out',
-                      onPressed: onLogout,
-                      constraints: const BoxConstraints(
-                        minWidth: 36,
-                        minHeight: 36,
-                      ),
-                      padding: EdgeInsets.zero,
-                      icon: const Icon(
-                        Icons.logout_outlined,
-                        color: AppColors.textSub,
-                        size: 20,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                  ],
-                  _buildUserAvatar(),
                 ],
               ),
+
+              const SizedBox(width: 12),
+
+              // Read-only; sign in to switch role.
+              _buildRoleBadge(compact: compactText),
+
+              const Spacer(),
+
+              // Booking is per-page, shown only when passed.
+              if (onBookClick != null) ...[
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  onPressed: onBookClick,
+                  style: ElevatedButton.styleFrom(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: compactText ? 10 : 14,
+                      vertical: 8,
+                    ),
+                  ),
+                  icon: const Icon(Icons.add_rounded, size: 16),
+                  label: Text(
+                    compactText || isMobile ? 'Book' : 'New Appt',
+                    style: AppTypography.labelSmall(color: AppColors.white),
+                  ),
+                ),
+              ],
+
+              const SizedBox(width: 12),
+              Container(height: 24, width: 1, color: AppColors.border),
+              const SizedBox(width: 12),
+              if (onLogout != null) ...[
+                IconButton(
+                  tooltip: 'Log out',
+                  onPressed: onLogout,
+                  constraints: const BoxConstraints(
+                    minWidth: 36,
+                    minHeight: 36,
+                  ),
+                  padding: EdgeInsets.zero,
+                  icon: const Icon(
+                    Icons.logout_outlined,
+                    color: AppColors.textSub,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 4),
+              ],
+              _buildUserAvatar(),
             ],
           );
         },
-      ),
-    );
-  }
-
-  Widget _searchField() {
-    return Container(
-      constraints: const BoxConstraints(maxWidth: 260),
-      height: 36,
-      decoration: BoxDecoration(
-        color: AppColors.bgAlt,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: TextField(
-        style: AppTypography.bodySmall(color: AppColors.text),
-        decoration: InputDecoration(
-          hintText: 'Search...',
-          hintStyle: AppTypography.bodySmall(color: AppColors.textMuted),
-          prefixIcon: const Icon(
-            Icons.search,
-            size: 16,
-            color: AppColors.textMuted,
-          ),
-          contentPadding: const EdgeInsets.symmetric(vertical: 6),
-          // Prevents the theme's fill from doubling up.
-          filled: false,
-          border: InputBorder.none,
-          enabledBorder: InputBorder.none,
-          focusedBorder: InputBorder.none,
-        ),
       ),
     );
   }

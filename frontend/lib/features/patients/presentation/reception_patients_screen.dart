@@ -150,14 +150,7 @@ class _ReceptionPatientsScreenState extends State<ReceptionPatientsScreen> {
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Patients', style: AppTypography.displayTitle()),
-                const SizedBox(height: 4),
-                Text(
-                  'Contact and demographic records for front-desk operations.',
-                  style: AppTypography.bodySmall(color: AppColors.textSub),
-                ),
-              ],
+              children: [Text('Patients', style: AppTypography.displayTitle())],
             ),
           ),
           Container(
@@ -193,8 +186,8 @@ class _ReceptionPatientsScreenState extends State<ReceptionPatientsScreen> {
       children: [
         Expanded(
           child: AppSearchField(
-            controller: _searchController,
             hintText: 'Search by patient name, email, or phone number...',
+            controller: _searchController,
             onSubmitted: (query) => _load(query.trim()),
             onChanged: (value) {
               _scheduleSearch();

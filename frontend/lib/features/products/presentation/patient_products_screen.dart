@@ -166,11 +166,6 @@ class _PatientProductsScreenState extends State<PatientProductsScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('My products', style: AppTypography.displayTitle()),
-          const SizedBox(height: 4),
-          Text(
-            'Prescribed by your doctor. Buy them at any pharmacy.',
-            style: AppTypography.bodySmall(),
-          ),
           if (_latestNote != null) ...[
             const SizedBox(height: 14),
             _noteStrip(_latestNote!),

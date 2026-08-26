@@ -527,9 +527,6 @@ class _BeautyClinicAppState extends State<BeautyClinicApp> {
           clinicalApi: _clinicalApi,
           onSelectPatient: _onViewPatient,
           title: _activeRole == 'doctor' ? 'Patients' : null,
-          subtitle: _activeRole == 'doctor'
-              ? 'Review patient intake status, treatment context, and clinical records.'
-              : null,
         );
       case 'clinical_forms':
         return AdminClinicalIntakeScreen(

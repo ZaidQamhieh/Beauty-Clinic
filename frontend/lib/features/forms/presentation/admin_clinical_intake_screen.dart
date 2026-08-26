@@ -142,12 +142,6 @@ class _AdminClinicalIntakeScreenState extends State<AdminClinicalIntakeScreen> {
                     color: AppColors.text,
                   ).copyWith(fontSize: 20),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  widget.subtitle ??
-                      'Track every clinic health form modification — who changed it, when, and exact field values.',
-                  style: AppTypography.bodySmall(color: AppColors.textSub),
-                ),
               ],
             ),
           ),
