@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -27,6 +28,8 @@ class AdminClinicalIntakeScreen extends StatefulWidget {
 
 class _AdminClinicalIntakeScreenState extends State<AdminClinicalIntakeScreen> {
   final _searchController = TextEditingController();
+  Timer? _searchDebounce;
+  int _loadGeneration = 0;
   List<Map<String, dynamic>> _patients = const [];
   Map<String, dynamic>? _selected;
   bool _loading = true;
@@ -41,10 +44,12 @@ class _AdminClinicalIntakeScreenState extends State<AdminClinicalIntakeScreen> {
   @override
   void dispose() {
     _searchController.dispose();
+    _searchDebounce?.cancel();
     super.dispose();
   }
 
   Future<void> _load() async {
+    final generation = ++_loadGeneration;
     setState(() {
       _loading = true;
       _error = null;
@@ -53,7 +58,7 @@ class _AdminClinicalIntakeScreenState extends State<AdminClinicalIntakeScreen> {
       final patients = await widget.api.searchClinical(
         _searchController.text.trim(),
       );
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
       setState(() {
         _patients = patients;
         if (_selected != null) {
@@ -67,12 +72,17 @@ class _AdminClinicalIntakeScreenState extends State<AdminClinicalIntakeScreen> {
         _loading = false;
       });
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
       setState(() {
         _error = 'Unable to load clinical records: $e';
         _loading = false;
       });
     }
+  }
+
+  void _scheduleSearch() {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 300), _load);
   }
 
   @override
@@ -184,7 +194,10 @@ class _AdminClinicalIntakeScreenState extends State<AdminClinicalIntakeScreen> {
           Expanded(
             child: TextField(
               controller: _searchController,
-              onSubmitted: (_) => _load(),
+              onChanged: (_) {
+                setState(() {});
+                _scheduleSearch();
+              },
               decoration: const InputDecoration(
                 hintText: 'Search patients by name, email, or skin type...',
                 border: InputBorder.none,
@@ -281,7 +294,7 @@ class _AdminClinicalIntakeScreenState extends State<AdminClinicalIntakeScreen> {
               children: [
                 Expanded(
                   child: Text(
-                    'Patient Directory',
+                    'Patients',
                     style: AppTypography.labelLarge(),
                     overflow: TextOverflow.ellipsis,
                   ),

@@ -482,6 +482,7 @@ class _StatisticsTabState extends State<_StatisticsTab> {
                       child: PatientGrowthLineChart(
                         data: data.appointmentsOverTime,
                         title: 'Completed Sessions Over Time',
+                        valueLabel: 'Completed Sessions',
                         subtitle:
                             'Completed patient consultations per period, over the last 30 days',
                         badgeText: 'Completed only',

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -34,6 +36,8 @@ class ReceptionPatientsScreen extends StatefulWidget {
 
 class _ReceptionPatientsScreenState extends State<ReceptionPatientsScreen> {
   final TextEditingController _searchController = TextEditingController();
+  Timer? _searchDebounce;
+  int _loadGeneration = 0;
   List<Map<String, dynamic>> _patients = const [];
   bool _loading = true;
   String? _error;
@@ -47,11 +51,13 @@ class _ReceptionPatientsScreenState extends State<ReceptionPatientsScreen> {
   @override
   void dispose() {
     _searchController.dispose();
+    _searchDebounce?.cancel();
     super.dispose();
   }
 
   // Reception reads /api/patients, never the clinical list.
   Future<void> _load([String query = '']) async {
+    final generation = ++_loadGeneration;
     setState(() {
       _loading = true;
       _error = null;
@@ -61,7 +67,7 @@ class _ReceptionPatientsScreenState extends State<ReceptionPatientsScreen> {
         '/api/patients',
         queryParameters: {'q': query, 'size': 50, 'sort': 'user.lastName,asc'},
       );
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
       setState(() {
         _patients = (response.data?['content'] as List<dynamic>? ?? const [])
             .map((item) => Map<String, dynamic>.from(item as Map))
@@ -69,7 +75,7 @@ class _ReceptionPatientsScreenState extends State<ReceptionPatientsScreen> {
         _loading = false;
       });
     } on DioException catch (error) {
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
       final status = error.response?.statusCode;
       setState(() {
         _loading = false;
@@ -77,12 +83,20 @@ class _ReceptionPatientsScreenState extends State<ReceptionPatientsScreen> {
             'Could not load the patient directory${status == null ? '' : ' ($status)'}.';
       });
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
       setState(() {
         _loading = false;
         _error = 'Could not load the patient directory.';
       });
     }
+  }
+
+  void _scheduleSearch() {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(
+      const Duration(milliseconds: 300),
+      () => _load(_searchController.text.trim()),
+    );
   }
 
   @override
@@ -179,9 +193,8 @@ class _ReceptionPatientsScreenState extends State<ReceptionPatientsScreen> {
         Expanded(
           child: TextField(
             controller: _searchController,
-            onSubmitted: (query) => _load(query.trim()),
             onChanged: (value) {
-              if (value.isEmpty) _load();
+              _scheduleSearch();
               setState(() {});
             },
             decoration: InputDecoration(
@@ -260,7 +273,7 @@ class _ReceptionPatientsScreenState extends State<ReceptionPatientsScreen> {
             crossAxisCount: crossAxisCount,
             crossAxisSpacing: 16,
             mainAxisSpacing: 16,
-            mainAxisExtent: 232,
+            mainAxisExtent: 180,
           ),
           itemCount: _patients.length,
           itemBuilder: (_, index) => _buildPatientCard(_patients[index]),
@@ -316,7 +329,6 @@ class _ReceptionPatientsScreenState extends State<ReceptionPatientsScreen> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(height: 2),
                         Text(
                           email,
                           style: AppTypography.bodySmall(
@@ -360,7 +372,6 @@ class _ReceptionPatientsScreenState extends State<ReceptionPatientsScreen> {
                     _badge(gender, AppColors.bgSage, AppColors.sageDark),
                 ],
               ),
-              const Spacer(),
               const Divider(height: 1),
               const SizedBox(height: 6),
               Row(

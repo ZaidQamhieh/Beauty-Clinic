@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -9,6 +11,7 @@ import '../../../network/api_client.dart';
 import '../data/appointment.dart';
 import '../data/appointment_api.dart';
 import '../data/doctor_api.dart';
+import '../data/doctor_summary.dart';
 import '../data/treatment_api.dart';
 import '../../patient_profile/data/session_record_api.dart';
 import '../../patient_profile/data/session_record.dart';
@@ -48,9 +51,11 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
 
   String _statusFilter = 'ALL';
   DateTime? _dateFilter;
+  String? _doctorFilter;
   String _query = '';
   String? _selectedId;
   List<Appointment> _appointments = const [];
+  List<DoctorSummary> _doctors = const [];
   bool _loading = true;
   String? _error;
   Map<String, SessionRecord> _recordsBySession = {};
@@ -59,7 +64,8 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
   @override
   void initState() {
     super.initState();
-    _load();
+    unawaited(_load());
+    unawaited(_loadDoctors());
   }
 
   @override
@@ -88,6 +94,14 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
         _error = 'Could not load clinic appointments.';
       });
     }
+  }
+
+  Future<void> _loadDoctors() async {
+    try {
+      final doctors = await widget.doctorApi.list();
+      if (!mounted) return;
+      setState(() => _doctors = doctors);
+    } catch (_) {}
   }
 
   Future<void> _loadSessionRecords(List<Appointment> appointments) async {
@@ -317,7 +331,15 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
           (scheduled.year == _dateFilter!.year &&
               scheduled.month == _dateFilter!.month &&
               scheduled.day == _dateFilter!.day);
-      return matchesStatus && matchesDate && _matchesQuery(appointment);
+      final matchesDoctor =
+          _doctorFilter == null ||
+          appointment.sessions.any(
+            (session) => session.practitionerUserId == _doctorFilter,
+          );
+      return matchesStatus &&
+          matchesDate &&
+          matchesDoctor &&
+          _matchesQuery(appointment);
     }).toList();
     sorted.sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
     return sorted;
@@ -523,6 +545,7 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
                   child: _buildSearchField(),
                 ),
                 _buildDateFilterButton(),
+                if (widget.doctorUserId == null) _buildDoctorFilterButton(),
                 for (final status in statuses) _statusChoiceChip(status),
               ],
             );
@@ -532,6 +555,10 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
               Expanded(child: _buildSearchField()),
               const SizedBox(width: 10),
               _buildDateFilterButton(),
+              if (widget.doctorUserId == null) ...[
+                const SizedBox(width: 10),
+                _buildDoctorFilterButton(),
+              ],
               for (final status in statuses) ...[
                 const SizedBox(width: 8),
                 _statusChoiceChip(status),
@@ -611,6 +638,72 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
           color: _dateFilter == null ? AppColors.border : AppColors.borderRose,
         ),
         shape: const StadiumBorder(),
+      ),
+    );
+  }
+
+  Widget _buildDoctorFilterButton() {
+    DoctorSummary? selectedDoctor;
+    for (final doctor in _doctors) {
+      if (doctor.userId == _doctorFilter) {
+        selectedDoctor = doctor;
+        break;
+      }
+    }
+    final label = selectedDoctor?.fullName ?? 'Any doctor';
+
+    return PopupMenuButton<String>(
+      tooltip: 'Filter by doctor',
+      initialValue: _doctorFilter ?? '',
+      onSelected: (value) =>
+          setState(() => _doctorFilter = value.isEmpty ? null : value),
+      itemBuilder: (context) => [
+        const PopupMenuItem<String>(value: '', child: Text('Any doctor')),
+        ..._doctors.map(
+          (doctor) => PopupMenuItem<String>(
+            value: doctor.userId,
+            child: Text(doctor.fullName),
+          ),
+        ),
+      ],
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: AppColors.bgCard,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: _doctorFilter == null
+                ? AppColors.border
+                : AppColors.borderRose,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              _doctorFilter == null
+                  ? Icons.medical_services_outlined
+                  : Icons.person_search_outlined,
+              size: 16,
+              color: _doctorFilter == null
+                  ? AppColors.textSub
+                  : AppColors.roseDark,
+            ),
+            const SizedBox(width: 8),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 180),
+              child: Text(
+                label,
+                overflow: TextOverflow.ellipsis,
+                style: AppTypography.labelMedium(
+                  color: _doctorFilter == null
+                      ? AppColors.textSub
+                      : AppColors.roseDark,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
