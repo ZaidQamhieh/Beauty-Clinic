@@ -174,9 +174,12 @@ class _AvailabilityEntryDialogState extends State<AvailabilityEntryDialog> {
 
   Future<void> _pickDate(bool end) async {
     final minimum = widget.initial == null && !end ? _todayOnly() : DateTime(2000);
+    final wanted = end ? (_to ?? _from) : _from;
     final selected = await showDatePicker(
       context: context,
-      initialDate: end ? (_to ?? _from) : _from,
+      // Never open before the first allowed day - showDatePicker asserts if
+      // initialDate precedes firstDate.
+      initialDate: wanted.isBefore(minimum) ? minimum : wanted,
       firstDate: minimum,
       lastDate: DateTime(2100),
     );
