@@ -309,13 +309,6 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
                               'Staff Management',
                               style: AppTypography.displayTitle(),
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Register, edit, and remove doctor and receptionist accounts, and manage each doctor\'s specializations and experience.',
-                              style: AppTypography.bodySmall(
-                                color: AppColors.textSub,
-                              ),
-                            ),
                           ],
                         ),
                       ),
@@ -422,8 +415,8 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       AppSearchField(
-                        controller: _searchController,
                         hintText: _searchHint(),
+                        controller: _searchController,
                       ),
                       if (_selectedFilter == _StaffFilter.doctor) ...[
                         const SizedBox(height: 14),

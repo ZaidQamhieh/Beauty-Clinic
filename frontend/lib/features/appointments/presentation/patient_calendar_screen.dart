@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../doctor_availability/presentation/widgets/availability_sessions_view.dart';
 import '../data/appointment_api.dart';
@@ -23,11 +22,6 @@ class PatientCalendarScreen extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('My Calendar', style: AppTypography.displaySubtitle()),
-          const SizedBox(height: 4),
-          Text(
-            'Your booked appointments, day by day.',
-            style: AppTypography.bodySmall(color: AppColors.textSub),
-          ),
           const SizedBox(height: 20),
           SizedBox(
             height: 700,

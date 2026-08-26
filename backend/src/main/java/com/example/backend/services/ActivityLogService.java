@@ -151,9 +151,11 @@ public class ActivityLogService {
                 predicates.add(matching(root, cb, term, accountIds));
             }
 
-            // Auth events clutter the admin log.
+            // Auth events and plain reads clutter the admin log.
             predicates.add(cb.not(
-                    root.get("action").in(ActivityAction.LOGIN, ActivityAction.LOGOUT, ActivityAction.LOGIN_FAILED)
+                    root.get("action").in(ActivityAction.LOGIN, ActivityAction.LOGOUT, ActivityAction.LOGIN_FAILED,
+                            ActivityAction.CLINICAL_PROFILE_VIEWED, ActivityAction.CLINICAL_HISTORY_VIEWED,
+                            ActivityAction.CLINICAL_LIST_VIEWED, ActivityAction.SESSION_RECORDS_VIEWED)
             ));
 
             return cb.and(predicates.toArray(new Predicate[0]));

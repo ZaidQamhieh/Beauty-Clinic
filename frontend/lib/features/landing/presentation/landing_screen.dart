@@ -70,15 +70,6 @@ class LandingScreen extends StatelessWidget {
             style: AppTypography.displayHero(color: AppColors.text),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 16),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 580),
-            child: Text(
-              'Personalized dermatological treatments, laser skin resurfacing, and luxury clinical facial therapies guided by leading specialists.',
-              style: AppTypography.bodyLarge(color: AppColors.textSub),
-              textAlign: TextAlign.center,
-            ),
-          ),
           const SizedBox(height: 32),
           ElevatedButton.icon(
             onPressed: onBookClick,
@@ -100,8 +91,6 @@ class LandingScreen extends StatelessWidget {
     final services = [
       {
         'title': 'HydraFacial Glow',
-        'desc':
-            'Deep cleansing, gentle exfoliation, and intense hydration serum infusion.',
         'price': '£120',
         'time': '45 min',
         'icon': Icons.spa_outlined,
@@ -109,8 +98,6 @@ class LandingScreen extends StatelessWidget {
       },
       {
         'title': 'Laser Skin Resurfacing',
-        'desc':
-            'Target pigmentation, fine lines, and acne scars with precision laser.',
         'price': '£250',
         'time': '60 min',
         'icon': Icons.auto_awesome,
@@ -118,8 +105,6 @@ class LandingScreen extends StatelessWidget {
       },
       {
         'title': 'Botox & Dermal Fillers',
-        'desc':
-            'Natural facial contouring and wrinkle smoothing consultations.',
         'price': '£180',
         'time': '30 min',
         'icon': Icons.face_retouching_natural,
@@ -127,8 +112,6 @@ class LandingScreen extends StatelessWidget {
       },
       {
         'title': 'Medical Chemical Peel',
-        'desc':
-            'Cellular renewal and texture refining for dull or congested skin.',
         'price': '£140',
         'time': '40 min',
         'icon': Icons.clean_hands_outlined,
@@ -193,11 +176,6 @@ class LandingScreen extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(s['title'] as String, style: AppTypography.labelLarge()),
-          const SizedBox(height: 6),
-          Text(
-            s['desc'] as String,
-            style: AppTypography.bodySmall(color: AppColors.textSub),
-          ),
           const Spacer(),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,

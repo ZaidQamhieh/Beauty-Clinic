@@ -291,8 +291,6 @@ class _ChatPanelState extends State<ChatPanel> {
                 isDense: true,
                 filled: true,
                 fillColor: AppColors.bg,
-                hintText: 'Type a message',
-                hintStyle: AppTypography.bodySmall(),
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 14,
                   vertical: 11,

@@ -188,16 +188,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       'patient': 'My Health & Beauty Portal',
     };
 
-    final Map<String, String> subtitles = {
-      'admin': 'Real-time clinic analytics, appointments, and operations.',
-      'doctor':
-          'Your clinical workspace — appointments, analytics, and patient care.',
-      'receptionist':
-          'Daily operations, appointments, patients, and practitioner schedules.',
-      'patient':
-          'View upcoming appointments, treatment history, and skin progress.',
-    };
-
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
@@ -247,12 +237,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   style: AppTypography.displaySubtitle(
                     color: AppColors.text,
                   ).copyWith(fontSize: 20, fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  subtitles[widget.activeRole] ??
-                      'Welcome to Yasmine Beauty Clinic',
-                  style: AppTypography.bodySmall(color: AppColors.textSub),
                 ),
               ],
             ),
@@ -345,7 +329,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ],
 
-        const SizedBox(height: 28),
+        const SizedBox(height: 20),
 
         // 2. CLINIC OVERVIEW SECTION
         _buildSectionHeader(
@@ -411,123 +395,92 @@ class _DashboardScreenState extends State<DashboardScreen> {
           },
         ),
 
-        const SizedBox(height: 36),
+        const SizedBox(height: 24),
 
-        // 3. SERVICE ANALYTICS SECTION
+        // 3. ANALYTICS
         _buildSectionHeader(
-          title: 'Service Analytics',
+          title: 'Analytics',
           subtitle:
-              'Treatment popularity, procedure breakdown, and growth trajectory',
-          icon: Icons.spa_outlined,
+              'Services, appointments, and patients over the selected window',
+          icon: Icons.insights_outlined,
           color: AppColors.roseDark,
         ),
         const SizedBox(height: 16),
         LayoutBuilder(
           builder: (context, constraints) {
-            final bool isDesktop = constraints.maxWidth > 960;
-            return Flex(
-              direction: isDesktop ? Axis.horizontal : Axis.vertical,
+            // Three across reclaims a whole row of vertical space.
+            final int columns = constraints.maxWidth > 1180
+                ? 3
+                : (constraints.maxWidth > 780 ? 2 : 1);
+            final List<Widget> cards = [
+              ServiceGrowthLineChart(data: adminData.serviceAnalytics),
+              AppointmentOutcomesDonut(
+                data: adminData.appointmentAnalytics.outcomes,
+              ),
+              PeakTimesAndRescheduledWidget(
+                data: adminData.appointmentAnalytics,
+              ),
+              NewVsReturningDonut(
+                data: adminData.patientAnalytics.newVsReturning,
+              ),
+              PatientGrowthLineChart(
+                data: adminData.patientAnalytics.growthTimeline,
+                valueLabel: 'Patients',
+              ),
+              AvailableSlotsWidget(data: adminData.doctorAnalytics),
+            ];
+
+            final Widget bookings = ServiceBookingsBarChart(
+              data: adminData.serviceAnalytics,
+            );
+
+            if (columns == 1) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  bookings,
+                  for (final card in cards) ...[
+                    const SizedBox(height: 16),
+                    card,
+                  ],
+                ],
+              );
+            }
+
+            final List<Widget> rows = [];
+            for (int start = 0; start < cards.length; start += columns) {
+              final slice = cards.skip(start).take(columns).toList();
+              rows.add(
+                // Cards in a row take the height of the tallest one.
+                IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (int i = 0; i < columns; i++) ...[
+                        if (i > 0) const SizedBox(width: 16),
+                        Expanded(
+                          child: i < slice.length
+                              ? slice[i]
+                              : const SizedBox.shrink(),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              );
+            }
+
+            return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  flex: isDesktop ? 1 : 0,
-                  child: ServiceBookingsBarChart(
-                    data: adminData.serviceAnalytics,
-                  ),
-                ),
-                if (isDesktop)
-                  const SizedBox(width: 20)
-                else
-                  const SizedBox(height: 20),
-                Expanded(
-                  flex: isDesktop ? 1 : 0,
-                  child: ServiceGrowthLineChart(
-                    data: adminData.serviceAnalytics,
-                  ),
-                ),
+                bookings,
+                for (final row in rows) ...[const SizedBox(height: 16), row],
               ],
             );
           },
         ),
 
-        const SizedBox(height: 36),
-
-        // 5. APPOINTMENT ANALYTICS SECTION
-        _buildSectionHeader(
-          title: 'Appointment Analytics',
-          subtitle: 'Fulfillment outcomes, peak times, and reschedule reasons',
-          icon: Icons.event_note_outlined,
-          color: AppColors.sageDark,
-        ),
-        const SizedBox(height: 16),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final bool isDesktop = constraints.maxWidth > 960;
-            return Flex(
-              direction: isDesktop ? Axis.horizontal : Axis.vertical,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  flex: isDesktop ? 1 : 0,
-                  child: AppointmentOutcomesDonut(
-                    data: adminData.appointmentAnalytics.outcomes,
-                  ),
-                ),
-                if (isDesktop)
-                  const SizedBox(width: 20)
-                else
-                  const SizedBox(height: 20),
-                Expanded(
-                  flex: isDesktop ? 1 : 0,
-                  child: PeakTimesAndRescheduledWidget(
-                    data: adminData.appointmentAnalytics,
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
-
-        const SizedBox(height: 36),
-
-        // 6. PATIENT ANALYTICS SECTION
-        _buildSectionHeader(
-          title: 'Patient Analytics',
-          subtitle: 'Acquisition ratio and database growth curve',
-          icon: Icons.people_alt_outlined,
-          color: AppColors.gold,
-        ),
-        const SizedBox(height: 16),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final bool isDesktop = constraints.maxWidth > 960;
-            return Flex(
-              direction: isDesktop ? Axis.horizontal : Axis.vertical,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  flex: isDesktop ? 1 : 0,
-                  child: NewVsReturningDonut(
-                    data: adminData.patientAnalytics.newVsReturning,
-                  ),
-                ),
-                if (isDesktop)
-                  const SizedBox(width: 20)
-                else
-                  const SizedBox(height: 20),
-                Expanded(
-                  flex: isDesktop ? 1 : 0,
-                  child: PatientGrowthLineChart(
-                    data: adminData.patientAnalytics.growthTimeline,
-                    valueLabel: 'Patients',
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
-
-        const SizedBox(height: 36),
+        const SizedBox(height: 24),
 
         // 7. DAILY LIVE OPERATIONS & STAFF SCHEDULE
         _buildSectionHeader(
@@ -540,9 +493,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
         LayoutBuilder(
           builder: (context, constraints) {
             final bool isDesktop = constraints.maxWidth > 900;
-            return Flex(
+            final Flex row = Flex(
               direction: isDesktop ? Axis.horizontal : Axis.vertical,
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: isDesktop
+                  ? CrossAxisAlignment.stretch
+                  : CrossAxisAlignment.start,
               children: [
                 // Today's Appointments List
                 Expanded(
@@ -612,47 +567,50 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   flex: isDesktop ? 1 : 0,
                   child: Column(
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: AppColors.bgCard,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: AppColors.border),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Staff Today',
-                              style: AppTypography.labelLarge(),
-                            ),
-                            const SizedBox(height: 16),
-                            if (adminData.operations.staffList.isEmpty)
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 24,
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    'No specialists registered yet.',
-                                    style: AppTypography.bodySmall(
-                                      color: AppColors.textMuted,
+                      _fill(
+                        isDesktop,
+                        Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: AppColors.bgCard,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: AppColors.border),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Staff Today',
+                                style: AppTypography.labelLarge(),
+                              ),
+                              const SizedBox(height: 16),
+                              if (adminData.operations.staffList.isEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 24,
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      'No specialists registered yet.',
+                                      style: AppTypography.bodySmall(
+                                        color: AppColors.textMuted,
+                                      ),
                                     ),
                                   ),
+                                )
+                              else
+                                ...adminData.operations.staffList.map(
+                                  (staff) => _buildStaffTile(
+                                    staff.name,
+                                    staff.role,
+                                    '${staff.appointmentsCount} appts',
+                                    staff.status,
+                                    isDoctor: staff.isDoctor,
+                                    doctorId: staff.userId,
+                                  ),
                                 ),
-                              )
-                            else
-                              ...adminData.operations.staffList.map(
-                                (staff) => _buildStaffTile(
-                                  staff.name,
-                                  staff.role,
-                                  '${staff.appointmentsCount} appts',
-                                  staff.status,
-                                  isDoctor: staff.isDoctor,
-                                  doctorId: staff.userId,
-                                ),
-                              ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     ],
@@ -660,11 +618,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ],
             );
+
+            // Bounds the row so both cards take the taller card's height.
+            return isDesktop ? IntrinsicHeight(child: row) : row;
           },
         ),
       ],
     );
   }
+
+  /// Fills the row height on desktop; plain child when the column is free.
+  Widget _fill(bool bounded, Widget child) =>
+      bounded ? Expanded(child: child) : child;
 
   Widget _buildSectionHeader({
     required String title,

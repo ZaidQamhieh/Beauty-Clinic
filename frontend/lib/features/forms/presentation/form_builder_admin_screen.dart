@@ -266,11 +266,6 @@ class _FormBuilderAdminScreenState extends State<FormBuilderAdminScreen> {
                     color: AppColors.text,
                   ).copyWith(fontSize: 20),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  'Changes are saved to the database. Hide removes a question from the patient UI while retaining its schema and all answers.',
-                  style: AppTypography.bodySmall(color: AppColors.textSub),
-                ),
               ],
             ),
           ),
@@ -1025,11 +1020,9 @@ class _QuestionDialogState extends State<_QuestionDialog> {
     );
   }
 
-  InputDecoration _inputDecoration({String? hint, String? helper}) {
+  InputDecoration _inputDecoration({String? hint}) {
     return InputDecoration(
       hintText: hint,
-      helperText: helper,
-      helperMaxLines: 2,
       filled: true,
       fillColor: AppColors.bgAlt,
       border: OutlineInputBorder(

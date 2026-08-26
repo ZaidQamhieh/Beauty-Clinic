@@ -177,14 +177,6 @@ class _LoginScreenState extends State<LoginScreen> {
                                 textAlign: TextAlign.center,
                                 style: AppTypography.displayTitle(),
                               ),
-                              const SizedBox(height: 10),
-                              Text(
-                                'Sign in to continue managing appointments, treatments, and patient care.',
-                                textAlign: TextAlign.center,
-                                style: AppTypography.bodyLarge(
-                                  color: AppColors.textSub,
-                                ),
-                              ),
                               const SizedBox(height: 28),
                               TextFormField(
                                 key: const Key('emailField'),

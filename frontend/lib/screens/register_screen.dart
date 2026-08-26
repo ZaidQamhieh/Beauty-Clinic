@@ -150,14 +150,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               textAlign: TextAlign.center,
                               style: AppTypography.displayTitle(),
                             ),
-                            const SizedBox(height: 10),
-                            Text(
-                              'Doctor, staff, and admin accounts are created by the clinic. Patient registration uses the same Yasmine experience as the rest of the app.',
-                              textAlign: TextAlign.center,
-                              style: AppTypography.bodyLarge(
-                                color: AppColors.textSub,
-                              ),
-                            ),
                             const SizedBox(height: 24),
                             Row(
                               children: [

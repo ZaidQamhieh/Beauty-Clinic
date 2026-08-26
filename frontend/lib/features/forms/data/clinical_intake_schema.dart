@@ -14,9 +14,6 @@ abstract final class ClinicalIntakeSchema {
   static const schema = FormSchema(
     id: 'patient-clinical-intake',
     title: 'Clinic Forms',
-    description:
-        'The clinic health form. Skin type is the one answer that marks it '
-        'filled — everything else may truthfully be left empty.',
     fields: [
       FormFieldSchema(
         id: 'pregnantBreastfeeding',

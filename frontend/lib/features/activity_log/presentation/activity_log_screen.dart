@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:beauty_clinic_app/auth/auth_session.dart';
 import 'package:beauty_clinic_app/core/theme/app_colors.dart';
@@ -99,11 +100,6 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('Activity Log', style: AppTypography.displayHero()),
-          const SizedBox(height: 6),
-          Text(
-            'A secure, read-only record of clinic account and appointment activity.',
-            style: AppTypography.bodyMedium(color: AppColors.textMuted),
-          ),
           const SizedBox(height: 24),
           _filters(),
           const SizedBox(height: 20),
@@ -122,7 +118,6 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
         width: 300,
         child: AppSearchField(
           controller: _search,
-          hintText: 'Search name, email, or entity',
           onChanged: (_) => _scheduleSearch(),
           onSubmitted: (_) => _load(),
           onClear: () {
@@ -270,13 +265,60 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
           _detailRow('Entity', entry.entityType ?? '—'),
           if (entry.attemptedIdentifier != null)
             _detailRow('Login identifier', entry.attemptedIdentifier!),
-          const SizedBox(height: 16),
-          Text(
-            'Records are append-only and cannot be edited from this screen.',
-            style: AppTypography.bodySmall(color: AppColors.textMuted),
-          ),
+          if (entry.changes.isNotEmpty) ...[
+            Text('CHANGED DETAILS', style: AppTypography.labelSmall()),
+            const SizedBox(height: 8),
+            Flexible(
+              fit: FlexFit.loose,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (final change in entry.changes) _changeRow(change),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
+    ),
+  );
+
+  Widget _changeRow(ActivityChange change) => Padding(
+    padding: const EdgeInsets.only(bottom: 10),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          change.label,
+          style: AppTypography.bodySmall(color: AppColors.textMuted),
+        ),
+        const SizedBox(height: 2),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: SelectableText(
+                change.before,
+                style: AppTypography.bodyMedium(color: AppColors.textSub),
+              ),
+            ),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 8),
+              child: Icon(
+                Icons.arrow_forward,
+                size: 14,
+                color: AppColors.textMuted,
+              ),
+            ),
+            Expanded(
+              child: SelectableText(
+                change.after,
+                style: AppTypography.bodyMedium(),
+              ),
+            ),
+          ],
+        ),
+      ],
     ),
   );
 
@@ -301,10 +343,14 @@ class ActivityEntry {
     this.patientName,
     this.entityType,
     this.attemptedIdentifier,
+    this.oldValues,
+    this.newValues,
   });
   final String action;
   final DateTime createdAt;
   final String? actorName, patientName, entityType, attemptedIdentifier;
+  final Object? oldValues;
+  final Object? newValues;
   static const actions = [
     'ACCOUNT_REGISTERED',
     'PERMISSION_DENIED',
@@ -317,10 +363,6 @@ class ActivityEntry {
     'SESSION_CANCELLED',
     'SESSION_COMPLETED',
     'SESSION_NO_SHOW',
-    'CLINICAL_PROFILE_VIEWED',
-    'CLINICAL_HISTORY_VIEWED',
-    'CLINICAL_LIST_VIEWED',
-    'SESSION_RECORDS_VIEWED',
     'CLINICAL_PROFILE_UPDATED',
     'SESSION_RECORD_CREATED',
     'SESSION_RECORD_AMENDED',
@@ -361,7 +403,40 @@ class ActivityEntry {
     patientName: json['patientName'] as String?,
     entityType: json['entityType'] as String?,
     attemptedIdentifier: json['attemptedIdentifier'] as String?,
+    oldValues: json['oldValues'],
+    newValues: json['newValues'],
   );
+
+  /// Fields the action touched, old value beside new.
+  List<ActivityChange> get changes {
+    if (oldValues == null && newValues == null) return const [];
+    if (oldValues is! Map && newValues is! Map) {
+      final before = _render(oldValues);
+      final after = _render(newValues);
+      if (before == after) return const [];
+      return [ActivityChange(entityType ?? 'value', before, after)];
+    }
+
+    final before = _asMap(oldValues);
+    final after = _asMap(newValues);
+    final keys = <String>{...before.keys, ...after.keys}.toList()..sort();
+    return [
+      for (final key in keys)
+        if (_render(before[key]) != _render(after[key]))
+          ActivityChange(key, _render(before[key]), _render(after[key])),
+    ];
+  }
+
+  static Map<String, dynamic> _asMap(Object? value) =>
+      value is Map ? Map<String, dynamic>.from(value) : const {};
+
+  static String _render(Object? value) {
+    if (value == null) return '—';
+    if (value is String) return value.isEmpty ? '—' : value;
+    if (value is Map || value is List) return jsonEncode(value);
+    return value.toString();
+  }
+
   static String labelFor(String action) => action
       .split('_')
       .map((word) => word[0] + word.substring(1).toLowerCase())
@@ -394,4 +469,16 @@ class ActivityEntry {
       : action.contains('COMPLETED')
       ? AppColors.sage
       : AppColors.lav;
+}
+
+class ActivityChange {
+  const ActivityChange(this.field, this.before, this.after);
+  final String field;
+  final String before;
+  final String after;
+
+  String get label => field
+      .replaceAllMapped(RegExp(r'(?<=[a-z])[A-Z]'), (m) => ' ${m[0]}')
+      .replaceAll('_', ' ')
+      .toLowerCase();
 }

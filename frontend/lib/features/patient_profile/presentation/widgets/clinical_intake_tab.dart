@@ -217,32 +217,6 @@ class _ClinicalIntakeTabState extends State<ClinicalIntakeTab> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (isReadOnly)
-          Container(
-            margin: const EdgeInsets.only(bottom: 16),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: AppColors.bgLavender,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppColors.borderLav),
-            ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.lock_outline_rounded,
-                  color: AppColors.lavDark,
-                  size: 20,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Read-Only View: Clinical intake records are completed directly by the patient and cannot be edited by administrators.',
-                    style: AppTypography.bodySmall(color: AppColors.textSub),
-                  ),
-                ),
-              ],
-            ),
-          ),
         Expanded(
           child: ListView(
             children: [

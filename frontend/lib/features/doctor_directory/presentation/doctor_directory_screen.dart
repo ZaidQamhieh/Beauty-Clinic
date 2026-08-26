@@ -168,14 +168,7 @@ class _DoctorDirectoryScreenState extends State<DoctorDirectoryScreen> {
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Doctors', style: AppTypography.displayTitle()),
-                const SizedBox(height: 4),
-                Text(
-                  'Specialties and current availability for appointment booking.',
-                  style: AppTypography.bodySmall(color: AppColors.textSub),
-                ),
-              ],
+              children: [Text('Doctors', style: AppTypography.displayTitle())],
             ),
           ),
           Container(
@@ -208,8 +201,8 @@ class _DoctorDirectoryScreenState extends State<DoctorDirectoryScreen> {
 
   Widget _buildSearchBar() {
     return AppSearchField(
-      controller: _searchController,
       hintText: 'Search by doctor name or specialty...',
+      controller: _searchController,
       onChanged: (value) => setState(() => _query = value.trim().toLowerCase()),
       onClear: () {
         _searchController.clear();
@@ -302,8 +295,8 @@ class _DoctorDirectoryScreenState extends State<DoctorDirectoryScreen> {
               ),
               const SizedBox(height: 12),
               Wrap(
-                spacing: 6,
-                runSpacing: 4,
+                spacing: 8,
+                runSpacing: 6,
                 children: [
                   for (final tag in tags.take(3))
                     _badge(tag, AppColors.bgRose, AppColors.roseDark),
@@ -385,8 +378,9 @@ class _DoctorDirectoryScreenState extends State<DoctorDirectoryScreen> {
       builder: (dialogContext) => AlertDialog(
         backgroundColor: AppColors.bgCard,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        titlePadding: const EdgeInsets.fromLTRB(24, 22, 24, 0),
-        contentPadding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+        titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+        contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+        actionsPadding: const EdgeInsets.fromLTRB(24, 22, 24, 20),
         title: Row(
           children: [
             CircleAvatar(
@@ -403,6 +397,7 @@ class _DoctorDirectoryScreenState extends State<DoctorDirectoryScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(doctor.fullName, style: AppTypography.displaySubtitle()),
+                  const SizedBox(height: 3),
                   Text(
                     doctor.specializations.isEmpty
                         ? 'No specialties recorded'
@@ -414,11 +409,12 @@ class _DoctorDirectoryScreenState extends State<DoctorDirectoryScreen> {
                 ],
               ),
             ),
+            const SizedBox(width: 12),
             _statusPill(todayHours),
           ],
         ),
         content: SizedBox(
-          width: 520,
+          width: 560,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -437,15 +433,15 @@ class _DoctorDirectoryScreenState extends State<DoctorDirectoryScreen> {
                     ),
                 ],
               ),
-              const Divider(height: 26),
+              const Divider(height: 32),
               Text(
                 'WEEKLY SCHEDULE',
                 style: AppTypography.labelSmall(color: AppColors.textMuted),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               _buildWeekStrip(doctor),
               if (exceptions.isNotEmpty) ...[
-                const Divider(height: 26),
+                const Divider(height: 32),
                 Text(
                   'UPCOMING CHANGES',
                   style: AppTypography.labelSmall(color: AppColors.textMuted),
@@ -480,7 +476,7 @@ class _DoctorDirectoryScreenState extends State<DoctorDirectoryScreen> {
       children: [
         for (final day in AvailabilityDay.values) ...[
           Expanded(child: _dayCell(day, _hoursFor(doctor, day))),
-          if (day != AvailabilityDay.sunday) const SizedBox(width: 5),
+          if (day != AvailabilityDay.sunday) const SizedBox(width: 6),
         ],
       ],
     );
@@ -494,19 +490,24 @@ class _DoctorDirectoryScreenState extends State<DoctorDirectoryScreen> {
           _dayLabel(day),
           style: AppTypography.labelSmall(color: AppColors.textMuted),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 6),
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 7),
+          padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 4),
           decoration: BoxDecoration(
             color: working ? AppColors.sagePale : AppColors.bgAlt,
             borderRadius: BorderRadius.circular(8),
           ),
-          child: Text(
-            hours ?? '—',
-            textAlign: TextAlign.center,
-            style: AppTypography.labelSmall(
-              color: working ? AppColors.sageDark : AppColors.textMuted,
+          // Hour ranges must never touch the pill edge.
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              hours ?? '—',
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              style: AppTypography.labelSmall(
+                color: working ? AppColors.sageDark : AppColors.textMuted,
+              ),
             ),
           ),
         ),

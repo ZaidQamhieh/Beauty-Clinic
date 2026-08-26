@@ -33,7 +33,11 @@ import static com.example.backend.entities.ActivityAction.*;
 @RequiredArgsConstructor
 class ActivityLogSeeder implements ApplicationRunner {
 
-    private static final List<ActivityAction> AUTH_EVENTS = List.of(LOGIN, LOGOUT, LOGIN_FAILED);
+    // Actions the admin log hides, so seeding them is wasted rows.
+    private static final List<ActivityAction> HIDDEN_EVENTS = List.of(
+            LOGIN, LOGOUT, LOGIN_FAILED,
+            CLINICAL_PROFILE_VIEWED, CLINICAL_HISTORY_VIEWED,
+            CLINICAL_LIST_VIEWED, SESSION_RECORDS_VIEWED);
 
     // The entity each action touched, for the log's Entity column.
     private static final Map<ActivityAction, String> ENTITY_FOR = buildEntityMap();
@@ -66,7 +70,7 @@ class ActivityLogSeeder implements ApplicationRunner {
         // Guarantee data for every filter option that currently has none.
         var random = new Random(20260819L);
         for (ActivityAction action : ActivityAction.values()) {
-            if (AUTH_EVENTS.contains(action)) {
+            if (HIDDEN_EVENTS.contains(action)) {
                 continue;
             }
             if (activityLogs.countByAction(action) == 0) {
@@ -96,7 +100,7 @@ class ActivityLogSeeder implements ApplicationRunner {
         var random = new Random();
         var seed = new Random(random.nextLong());
         for (ActivityAction action : ActivityAction.values()) {
-            if (!AUTH_EVENTS.contains(action)) {
+            if (!HIDDEN_EVENTS.contains(action)) {
                 appendSamples(action, 1, staff, patients, latest, seed);
             }
         }
@@ -200,7 +204,7 @@ class ActivityLogSeeder implements ApplicationRunner {
     }
 
     private static final List<ActivityAction> BUSINESS_SAMPLE = List.of(
-            CLINICAL_LIST_VIEWED, APPOINTMENT_BOOKED, SESSION_SCHEDULED,
+            APPOINTMENT_BOOKED, SESSION_SCHEDULED,
             SESSION_COMPLETED, CLINICAL_PROFILE_UPDATED, PRODUCT_CREATED
     );
 }

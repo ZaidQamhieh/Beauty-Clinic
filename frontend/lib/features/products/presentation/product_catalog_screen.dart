@@ -438,118 +438,6 @@ class _ProductFormState extends State<_ProductForm> {
 
   late final List<Object?> _initialSnapshot = _snapshot();
 
-  // Cards paint 360 wide, 2x screens.
-  static const _minImageWidth = 800;
-
-  Size? _imageSize;
-  bool _checkingImage = false;
-  bool _imageFailed = false;
-  String? _checkedUrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _imageUrl.addListener(_onImageUrlChanged);
-    _checkImage();
-  }
-
-  void _onImageUrlChanged() {
-    if (_imageUrl.text.trim() == _checkedUrl) return;
-    _checkImage();
-  }
-
-  // Reads the real pixels before anyone saves.
-  Future<void> _checkImage() async {
-    final url = _imageUrl.text.trim();
-    _checkedUrl = url;
-    if (url.isEmpty) {
-      setState(() {
-        _imageSize = null;
-        _checkingImage = false;
-        _imageFailed = false;
-      });
-      return;
-    }
-
-    setState(() {
-      _checkingImage = true;
-      _imageFailed = false;
-      _imageSize = null;
-    });
-
-    final stream = NetworkImage(url).resolve(ImageConfiguration.empty);
-    late final ImageStreamListener listener;
-    listener = ImageStreamListener(
-      (info, _) {
-        stream.removeListener(listener);
-        if (!mounted || _checkedUrl != url) return;
-        setState(() {
-          _checkingImage = false;
-          _imageSize = Size(
-            info.image.width.toDouble(),
-            info.image.height.toDouble(),
-          );
-        });
-      },
-      onError: (_, _) {
-        stream.removeListener(listener);
-        if (!mounted || _checkedUrl != url) return;
-        setState(() {
-          _checkingImage = false;
-          _imageFailed = true;
-        });
-      },
-    );
-    stream.addListener(listener);
-  }
-
-  Widget _imageNote() {
-    if (_imageUrl.text.trim().isEmpty) {
-      return const SizedBox.shrink();
-    }
-    if (_checkingImage) {
-      return _note('Checking the image…', AppColors.textMuted);
-    }
-    if (_imageFailed) {
-      return _note('That image could not be loaded.', AppColors.roseDark);
-    }
-    final size = _imageSize;
-    if (size == null) return const SizedBox.shrink();
-
-    final width = size.width.round();
-    final height = size.height.round();
-    if (width < _minImageWidth) {
-      return _note(
-        '$width × $height — too small, it will look blurry on cards. '
-        'Use one at least $_minImageWidth px wide.',
-        AppColors.roseDark,
-      );
-    }
-    return _note('$width × $height — good size.', AppColors.sageDark);
-  }
-
-  Widget _note(String text, Color color) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            color == AppColors.sageDark
-                ? Icons.check_circle_outline
-                : Icons.info_outline,
-            size: 14,
-            color: color,
-          ),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Text(text, style: AppTypography.bodySmall(color: color)),
-          ),
-        ],
-      ),
-    );
-  }
-
   List<Object?> _snapshot() => [
     _name.text,
     _imageUrl.text,
@@ -563,7 +451,6 @@ class _ProductFormState extends State<_ProductForm> {
   @override
   void dispose() {
     _name.dispose();
-    _imageUrl.removeListener(_onImageUrlChanged);
     _imageUrl.dispose();
     _stock.dispose();
     super.dispose();
@@ -630,7 +517,6 @@ class _ProductFormState extends State<_ProductForm> {
                   ),
                   maxLength: 2048,
                 ),
-                Align(alignment: Alignment.centerLeft, child: _imageNote()),
                 const SizedBox(height: 12),
                 _dropdown(
                   'Brand',

@@ -110,10 +110,6 @@ public class PatientProfileService {
     public Page<PatientRecordResponse> searchClinical(String term, Pageable pageable) {
         String needle = term == null ? "" : term;
 
-        activityLogs.recordIndependently(
-                currentUser.id().orElse(null), null,
-                ActivityAction.CLINICAL_LIST_VIEWED, "patient_profile", null);
-
         if (currentUser.hasRole(Role.ADMIN)) {
             return patients.search(needle, pageable).map(PatientRecordResponse::of);
         }
@@ -131,10 +127,6 @@ public class PatientProfileService {
     @Transactional(readOnly = true)
     public PatientRecordResponse readClinical(UUID userId) {
         PatientRecordResponse record = PatientRecordResponse.of(require(userId));
-
-        activityLogs.recordIndependently(
-                currentUser.id().orElse(null), userId,
-                ActivityAction.CLINICAL_PROFILE_VIEWED, "patient_profile", userId);
 
         return record;
     }
@@ -255,10 +247,6 @@ public class PatientProfileService {
     @Transactional(readOnly = true)
     public Page<ClinicalHistoryResponse> clinicalHistory(UUID userId, Pageable pageable) {
         require(userId);
-
-        activityLogs.recordIndependently(
-                currentUser.id().orElse(null), userId,
-                ActivityAction.CLINICAL_HISTORY_VIEWED, "patient_profile", userId);
 
         var page = activityLogs.clinicalHistory(userId, pageable);
 

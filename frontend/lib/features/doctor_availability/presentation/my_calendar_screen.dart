@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../network/api_client.dart';
 import '../../appointments/data/appointment_api.dart';
@@ -28,11 +27,6 @@ class MyCalendarScreen extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('My Calendar', style: AppTypography.displaySubtitle()),
-          const SizedBox(height: 4),
-          Text(
-            "Your availability and booked sessions, day by day.",
-            style: AppTypography.bodySmall(color: AppColors.textSub),
-          ),
           const SizedBox(height: 20),
           SizedBox(
             height: 700,
