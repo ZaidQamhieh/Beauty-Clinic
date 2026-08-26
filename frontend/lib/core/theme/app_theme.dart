@@ -5,6 +5,18 @@ import 'app_typography.dart';
 
 /// Central ThemeData for the clinic app.
 class AppTheme {
+  // One shape for every button.
+  static const double buttonRadius = 12;
+
+  static final RoundedRectangleBorder _buttonShape = RoundedRectangleBorder(
+    borderRadius: BorderRadius.circular(buttonRadius),
+  );
+
+  static const EdgeInsets _buttonPadding = EdgeInsets.symmetric(
+    horizontal: 20,
+    vertical: 14,
+  );
+
   static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,
@@ -74,15 +86,33 @@ class AppTheme {
         hintStyle: AppTypography.bodyMedium(color: AppColors.textMuted),
         labelStyle: AppTypography.labelMedium(color: AppColors.textSub),
       ),
+      chipTheme: ChipThemeData(
+        backgroundColor: AppColors.bgCard,
+        selectedColor: AppColors.rose,
+        checkmarkColor: AppColors.white,
+        side: const BorderSide(color: AppColors.border),
+        shape: _buttonShape,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        labelStyle: AppTypography.labelMedium(color: AppColors.textSub),
+        secondaryLabelStyle: AppTypography.labelMedium(color: AppColors.white),
+        showCheckmark: true,
+      ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.rose,
           foregroundColor: AppColors.white,
           elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
+          padding: _buttonPadding,
+          shape: _buttonShape,
+          textStyle: AppTypography.labelLarge(color: AppColors.white),
+        ),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: AppColors.rose,
+          foregroundColor: AppColors.white,
+          padding: _buttonPadding,
+          shape: _buttonShape,
           textStyle: AppTypography.labelLarge(color: AppColors.white),
         ),
       ),
@@ -90,10 +120,8 @@ class AppTheme {
         style: OutlinedButton.styleFrom(
           foregroundColor: AppColors.rose,
           side: const BorderSide(color: AppColors.borderRose, width: 1.2),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
+          padding: _buttonPadding,
+          shape: _buttonShape,
           textStyle: AppTypography.labelLarge(color: AppColors.rose),
         ),
       ),
@@ -101,7 +129,7 @@ class AppTheme {
         style: TextButton.styleFrom(
           foregroundColor: AppColors.rose,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          shape: _buttonShape,
           textStyle: AppTypography.labelMedium(color: AppColors.rose),
         ),
       ),

@@ -4,6 +4,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/skeleton.dart';
 import '../data/product.dart';
+import 'widgets/product_glyph.dart';
 
 typedef ProductLoader = Future<Product> Function(String id);
 
@@ -79,27 +80,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (product.imageUrl == null)
-                      const Icon(
-                        Icons.spa_outlined,
-                        color: AppColors.rose,
-                        size: 36,
-                      )
-                    else
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Image.network(
-                          product.imageUrl!,
-                          width: double.infinity,
-                          height: 200,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => const Icon(
-                            Icons.spa_outlined,
-                            color: AppColors.rose,
-                            size: 36,
-                          ),
-                        ),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: ProductGlyph(
+                        product: product,
+                        height: 200,
+                        glyphSize: 40,
                       ),
+                    ),
                     const SizedBox(height: 16),
                     Text(product.name, style: AppTypography.displayTitle()),
                     const SizedBox(height: 8),

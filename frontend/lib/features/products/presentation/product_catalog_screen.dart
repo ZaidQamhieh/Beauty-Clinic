@@ -1,3 +1,4 @@
+import '../../../core/widgets/app_search_field.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -8,6 +9,7 @@ import '../../../core/widgets/skeleton.dart';
 import '../data/product.dart';
 import '../data/product_api.dart';
 import 'product_detail_screen.dart';
+import 'widgets/facet_menu_button.dart';
 
 class ProductCatalogScreen extends StatefulWidget {
   const ProductCatalogScreen({
@@ -24,12 +26,101 @@ class ProductCatalogScreen extends StatefulWidget {
 }
 
 class _ProductCatalogScreenState extends State<ProductCatalogScreen> {
-  late Future<List<Product>> _products = widget.api.list();
+  List<Product> _items = const [];
+  bool _loading = true;
+  bool _failed = false;
 
-  void _reload() {
+  final Set<String> _types = {};
+  final Set<String> _brands = {};
+  final Set<String> _ingredients = {};
+  final Set<String> _stock = {};
+  String _query = '';
+
+  static const _stockLabels = {
+    'IN': 'In stock',
+    'LOW': 'Low stock',
+    'OUT': 'Out of stock',
+  };
+
+  // Ten or fewer left reads as low.
+  static String _stockBand(Product product) {
+    if (product.stockQuantity <= 0) return 'OUT';
+    if (product.stockQuantity <= 10) return 'LOW';
+    return 'IN';
+  }
+
+  List<Product> get _visibleItems {
+    final query = _query.toLowerCase();
+    return _items.where((product) {
+      if (_types.isNotEmpty && !_types.contains(product.productType)) {
+        return false;
+      }
+      if (_brands.isNotEmpty && !_brands.contains(product.brand)) return false;
+      if (_ingredients.isNotEmpty &&
+          !product.ingredients.any(_ingredients.contains)) {
+        return false;
+      }
+      if (_stock.isNotEmpty && !_stock.contains(_stockBand(product))) {
+        return false;
+      }
+      if (query.isEmpty) return true;
+      return product.name.toLowerCase().contains(query) ||
+          product.brandLabel.toLowerCase().contains(query) ||
+          product.typeLabel.toLowerCase().contains(query);
+    }).toList();
+  }
+
+  Map<String, int> _countsBy(String Function(Product) valueOf) {
+    final counts = <String, int>{};
+    for (final product in _items) {
+      counts.update(valueOf(product), (value) => value + 1, ifAbsent: () => 1);
+    }
+    final sorted = counts.keys.toList()..sort();
+    return {for (final key in sorted) key: counts[key]!};
+  }
+
+  Map<String, int> get _ingredientCounts {
+    final counts = <String, int>{};
+    for (final product in _items) {
+      for (final ingredient in product.ingredients) {
+        counts.update(ingredient, (value) => value + 1, ifAbsent: () => 1);
+      }
+    }
+    final sorted = counts.keys.toList()..sort();
+    return {for (final key in sorted) key: counts[key]!};
+  }
+
+  void _toggle(Set<String> facet, String value) {
     setState(() {
-      _products = widget.api.list();
+      if (!facet.remove(value)) facet.add(value);
     });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _reload();
+  }
+
+  Future<void> _reload() async {
+    setState(() {
+      _loading = true;
+      _failed = false;
+    });
+    try {
+      final products = await widget.api.list();
+      if (!mounted) return;
+      setState(() {
+        _items = products;
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _failed = true;
+      });
+    }
   }
 
   Future<void> _edit([Product? product]) async {
@@ -39,17 +130,43 @@ class _ProductCatalogScreenState extends State<ProductCatalogScreen> {
     );
     if (input == null) return;
 
+    final previous = _items;
+    // Shows the edit now; server confirms after.
+    final optimistic = Product(
+      id: product?.id ?? 'pending-${DateTime.now().microsecondsSinceEpoch}',
+      name: input.name,
+      brand: input.brand,
+      productType: input.productType,
+      imageUrl: input.imageUrl,
+      stockQuantity: input.stockQuantity,
+      ingredients: input.ingredients,
+    );
+    setState(() {
+      _items = product == null
+          ? [..._items, optimistic]
+          : [
+              for (final current in _items)
+                if (current.id == product.id) optimistic else current,
+            ];
+    });
+
     try {
-      product == null
+      final saved = product == null
           ? await widget.api.create(input)
           : await widget.api.update(product.id, input);
-      if (mounted) _reload();
+      if (!mounted) return;
+      setState(() {
+        _items = [
+          for (final current in _items)
+            if (current.id == optimistic.id) saved else current,
+        ];
+      });
     } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Unable to save product.')),
-        );
-      }
+      if (!mounted) return;
+      setState(() => _items = previous);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Unable to save product.')));
     }
   }
 
@@ -74,16 +191,92 @@ class _ProductCatalogScreenState extends State<ProductCatalogScreen> {
 
     if (confirmed != true || !mounted) return;
 
+    final previous = _items;
+    setState(() {
+      _items = [
+        for (final current in _items)
+          if (current.id != product.id) current,
+      ];
+    });
+
     try {
       await widget.api.delete(product.id);
-      if (mounted) _reload();
     } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Unable to delete product.')),
-        );
-      }
+      if (!mounted) return;
+      // Nothing was deleted; put it back.
+      setState(() => _items = previous);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to delete product.')),
+      );
     }
+  }
+
+  Widget _filterBar() {
+    final stockCounts = _countsBy(_stockBand);
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        SizedBox(
+          width: 250,
+          child: AppSearchField(
+            hintText: 'Search products',
+            onChanged: (value) => setState(() => _query = value.trim()),
+          ),
+        ),
+        FacetMenuButton(
+          label: 'Type',
+          counts: _countsBy((product) => product.productType),
+          selected: _types,
+          labelFor: Product.label,
+          onToggle: (value) => _toggle(_types, value),
+          onClear: () => setState(_types.clear),
+        ),
+        FacetMenuButton(
+          label: 'Brand',
+          counts: _countsBy((product) => product.brand),
+          selected: _brands,
+          labelFor: Product.label,
+          onToggle: (value) => _toggle(_brands, value),
+          onClear: () => setState(_brands.clear),
+        ),
+        FacetMenuButton(
+          label: 'Ingredient',
+          counts: _ingredientCounts,
+          selected: _ingredients,
+          labelFor: Product.label,
+          onToggle: (value) => _toggle(_ingredients, value),
+          onClear: () => setState(_ingredients.clear),
+        ),
+        FacetMenuButton(
+          label: 'Stock',
+          counts: stockCounts,
+          selected: _stock,
+          labelFor: (value) => _stockLabels[value] ?? value,
+          onToggle: (value) => _toggle(_stock, value),
+          onClear: () => setState(_stock.clear),
+        ),
+        if (_types.isNotEmpty ||
+            _brands.isNotEmpty ||
+            _ingredients.isNotEmpty ||
+            _stock.isNotEmpty)
+          TextButton.icon(
+            onPressed: () => setState(() {
+              _types.clear();
+              _brands.clear();
+              _ingredients.clear();
+              _stock.clear();
+            }),
+            icon: const Icon(Icons.close, size: 14),
+            label: const Text('Clear filters'),
+          ),
+        Text(
+          '${_visibleItems.length} of ${_items.length}',
+          style: AppTypography.bodySmall(),
+        ),
+      ],
+    );
   }
 
   void _open(Product product) {
@@ -127,15 +320,16 @@ class _ProductCatalogScreenState extends State<ProductCatalogScreen> {
                 ),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
+          _filterBar(),
+          const SizedBox(height: 16),
           Expanded(
-            child: FutureBuilder<List<Product>>(
-              future: _products,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState != ConnectionState.done) {
+            child: Builder(
+              builder: (context) {
+                if (_loading) {
                   return const SkeletonGrid();
                 }
-                if (snapshot.hasError) {
+                if (_failed) {
                   return Center(
                     child: OutlinedButton(
                       onPressed: _reload,
@@ -143,9 +337,17 @@ class _ProductCatalogScreenState extends State<ProductCatalogScreen> {
                     ),
                   );
                 }
-                final products = snapshot.requireData;
-                if (products.isEmpty) {
+                if (_items.isEmpty) {
                   return const Center(child: Text('No products yet.'));
+                }
+                final products = _visibleItems;
+                if (products.isEmpty) {
+                  return Center(
+                    child: Text(
+                      'No products match these filters.',
+                      style: AppTypography.bodySmall(),
+                    ),
+                  );
                 }
                 return ListView.builder(
                   itemCount: products.length,
@@ -166,6 +368,8 @@ class _ProductCatalogScreenState extends State<ProductCatalogScreen> {
                                   child: Image.network(
                                     product.imageUrl!,
                                     fit: BoxFit.cover,
+                                    filterQuality: FilterQuality.high,
+                                    isAntiAlias: true,
                                     errorBuilder: (_, _, _) => const Icon(
                                       Icons.spa_outlined,
                                       color: AppColors.rose,
@@ -234,6 +438,118 @@ class _ProductFormState extends State<_ProductForm> {
 
   late final List<Object?> _initialSnapshot = _snapshot();
 
+  // Cards paint 360 wide, 2x screens.
+  static const _minImageWidth = 800;
+
+  Size? _imageSize;
+  bool _checkingImage = false;
+  bool _imageFailed = false;
+  String? _checkedUrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _imageUrl.addListener(_onImageUrlChanged);
+    _checkImage();
+  }
+
+  void _onImageUrlChanged() {
+    if (_imageUrl.text.trim() == _checkedUrl) return;
+    _checkImage();
+  }
+
+  // Reads the real pixels before anyone saves.
+  Future<void> _checkImage() async {
+    final url = _imageUrl.text.trim();
+    _checkedUrl = url;
+    if (url.isEmpty) {
+      setState(() {
+        _imageSize = null;
+        _checkingImage = false;
+        _imageFailed = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _checkingImage = true;
+      _imageFailed = false;
+      _imageSize = null;
+    });
+
+    final stream = NetworkImage(url).resolve(ImageConfiguration.empty);
+    late final ImageStreamListener listener;
+    listener = ImageStreamListener(
+      (info, _) {
+        stream.removeListener(listener);
+        if (!mounted || _checkedUrl != url) return;
+        setState(() {
+          _checkingImage = false;
+          _imageSize = Size(
+            info.image.width.toDouble(),
+            info.image.height.toDouble(),
+          );
+        });
+      },
+      onError: (_, _) {
+        stream.removeListener(listener);
+        if (!mounted || _checkedUrl != url) return;
+        setState(() {
+          _checkingImage = false;
+          _imageFailed = true;
+        });
+      },
+    );
+    stream.addListener(listener);
+  }
+
+  Widget _imageNote() {
+    if (_imageUrl.text.trim().isEmpty) {
+      return const SizedBox.shrink();
+    }
+    if (_checkingImage) {
+      return _note('Checking the image…', AppColors.textMuted);
+    }
+    if (_imageFailed) {
+      return _note('That image could not be loaded.', AppColors.roseDark);
+    }
+    final size = _imageSize;
+    if (size == null) return const SizedBox.shrink();
+
+    final width = size.width.round();
+    final height = size.height.round();
+    if (width < _minImageWidth) {
+      return _note(
+        '$width × $height — too small, it will look blurry on cards. '
+        'Use one at least $_minImageWidth px wide.',
+        AppColors.roseDark,
+      );
+    }
+    return _note('$width × $height — good size.', AppColors.sageDark);
+  }
+
+  Widget _note(String text, Color color) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            color == AppColors.sageDark
+                ? Icons.check_circle_outline
+                : Icons.info_outline,
+            size: 14,
+            color: color,
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(text, style: AppTypography.bodySmall(color: color)),
+          ),
+        ],
+      ),
+    );
+  }
+
   List<Object?> _snapshot() => [
     _name.text,
     _imageUrl.text,
@@ -247,6 +563,7 @@ class _ProductFormState extends State<_ProductForm> {
   @override
   void dispose() {
     _name.dispose();
+    _imageUrl.removeListener(_onImageUrlChanged);
     _imageUrl.dispose();
     _stock.dispose();
     super.dispose();
@@ -313,6 +630,7 @@ class _ProductFormState extends State<_ProductForm> {
                   ),
                   maxLength: 2048,
                 ),
+                Align(alignment: Alignment.centerLeft, child: _imageNote()),
                 const SizedBox(height: 12),
                 _dropdown(
                   'Brand',

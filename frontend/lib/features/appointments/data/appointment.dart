@@ -32,6 +32,20 @@ class AppointmentSession {
 
   String get treatmentLabel => humanizeEnum(treatmentName);
 
+  AppointmentSession withStatus(String next) => AppointmentSession(
+    id: id,
+    appointmentId: appointmentId,
+    practitionerUserId: practitionerUserId,
+    practitionerName: practitionerName,
+    category: category,
+    treatmentName: treatmentName,
+    priceCharged: priceCharged,
+    durationMinutes: durationMinutes,
+    status: next,
+    startTime: startTime,
+    endTime: endTime,
+  );
+
   factory AppointmentSession.fromJson(Map<String, dynamic> json) {
     return AppointmentSession(
       id: json['id'] as String,
@@ -71,7 +85,18 @@ class Appointment {
 
   bool get isBooked => status == 'BOOKED';
 
-  /// The treatments still to happen, in start order.
+  Appointment copyWith({String? status, List<AppointmentSession>? sessions}) =>
+      Appointment(
+        id: id,
+        patientUserId: patientUserId,
+        patientName: patientName,
+        scheduledAt: scheduledAt,
+        status: status ?? this.status,
+        replacesAppointmentId: replacesAppointmentId,
+        sessions: sessions ?? this.sessions,
+      );
+
+  /// Treatments still to happen, soonest first.
   List<AppointmentSession> get plannedSessions {
     final planned = sessions.where((s) => s.isPlanned).toList()
       ..sort((a, b) => a.startTime.compareTo(b.startTime));

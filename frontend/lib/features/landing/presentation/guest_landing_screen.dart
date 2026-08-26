@@ -70,9 +70,6 @@ class _GuestHeaderBar extends StatelessWidget implements PreferredSizeWidget {
             onPressed: onLogin,
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
             ),
             child: const Text('Login'),
           ),

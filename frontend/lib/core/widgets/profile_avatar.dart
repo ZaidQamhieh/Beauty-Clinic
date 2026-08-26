@@ -28,6 +28,8 @@ class ProfileAvatar extends StatelessWidget {
                 width: radius * 2,
                 height: radius * 2,
                 fit: BoxFit.cover,
+                filterQuality: FilterQuality.high,
+                isAntiAlias: true,
                 errorBuilder: (_, _, _) => SizedBox(
                   width: radius * 2,
                   height: radius * 2,

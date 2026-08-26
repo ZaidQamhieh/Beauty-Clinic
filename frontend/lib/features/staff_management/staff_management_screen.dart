@@ -1,3 +1,4 @@
+import '../../core/widgets/app_search_field.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -420,19 +421,9 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      TextField(
+                      AppSearchField(
                         controller: _searchController,
-                        decoration: InputDecoration(
-                          hintText: _searchHint(),
-                          prefixIcon: const Icon(Icons.search, size: 18),
-                          isDense: true,
-                          filled: true,
-                          fillColor: AppColors.bgAlt,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
-                        ),
+                        hintText: _searchHint(),
                       ),
                       if (_selectedFilter == _StaffFilter.doctor) ...[
                         const SizedBox(height: 14),

@@ -2,6 +2,7 @@ class SessionRecord {
   const SessionRecord({
     required this.id,
     required this.sessionId,
+    required this.authorName,
     required this.note,
     required this.skinReaction,
     required this.followUpDate,
@@ -11,6 +12,7 @@ class SessionRecord {
 
   final String id;
   final String sessionId;
+  final String? authorName;
   final String? note;
   final String? skinReaction;
   final String? followUpDate;
@@ -21,6 +23,7 @@ class SessionRecord {
     return SessionRecord(
       id: json['id'].toString(),
       sessionId: json['sessionId'].toString(),
+      authorName: json['authorName']?.toString(),
       note: json['note']?.toString(),
       skinReaction: json['skinReaction']?.toString(),
       followUpDate: json['followUpDate']?.toString(),

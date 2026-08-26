@@ -1,3 +1,4 @@
+import '../../../core/widgets/app_search_field.dart';
 import 'package:beauty_clinic_app/auth/auth_session.dart';
 import 'package:beauty_clinic_app/core/theme/app_colors.dart';
 import 'package:beauty_clinic_app/core/theme/app_typography.dart';
@@ -106,19 +107,14 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
     children: [
       SizedBox(
         width: 300,
-        child: TextField(
+        child: AppSearchField(
           controller: _search,
+          hintText: 'Search name, email, or entity',
           onSubmitted: (_) => _load(),
-          decoration: InputDecoration(
-            prefixIcon: const Icon(Icons.search),
-            hintText: 'Search name, email, or entity',
-            filled: true,
-            fillColor: AppColors.bgCard,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: AppColors.border),
-            ),
-          ),
+          onClear: () {
+            _search.clear();
+            _load();
+          },
         ),
       ),
       AppDropdown<String?>(

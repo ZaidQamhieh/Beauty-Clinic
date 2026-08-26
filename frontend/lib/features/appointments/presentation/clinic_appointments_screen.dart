@@ -1,3 +1,4 @@
+import '../../../core/widgets/app_search_field.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -90,6 +91,25 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
     }
   }
 
+  // Refetch behind the screen, no skeleton.
+  Future<void> _refreshQuietly() async {
+    try {
+      final page = await widget.appointmentApi.allForStaff();
+      if (!mounted) return;
+      setState(() => _appointments = page.items);
+      await _loadSessionRecords(page.items);
+    } catch (_) {
+      // What is on screen already stands.
+    }
+  }
+
+  void _replaceAppointment(Appointment next) {
+    _appointments = [
+      for (final current in _appointments)
+        current.id == next.id ? next : current,
+    ];
+  }
+
   Future<void> _loadSessionRecords(List<Appointment> appointments) async {
     final recordLists = await Future.wait(
       appointments.map((appointment) async {
@@ -170,11 +190,20 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
       ),
     );
     if (confirmed != true || !mounted) return;
+
+    final previous = _appointments;
+    // Reads cancelled now; reverts if refused.
+    setState(
+      () => _replaceAppointment(appointment.copyWith(status: 'CANCELLED')),
+    );
+
     try {
       await widget.appointmentApi.cancel(appointment.id);
-      await _load();
+      if (!mounted) return;
+      await _refreshQuietly();
     } catch (_) {
       if (!mounted) return;
+      setState(() => _appointments = previous);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Could not cancel the appointment.')),
       );
@@ -194,21 +223,61 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
             _SessionRecordDialog(session: session, catalog: products),
       );
       if (input == null) return;
-      if (session.isPlanned) {
-        await widget.appointmentApi.markAttended(appointment.id, session.id);
-      }
-      await SessionRecordApi(widget.apiClient).create(
-        patientId: appointment.patientUserId,
-        sessionId: session.id,
-        note: input.note,
-        skinReaction: input.skinReaction,
-        followUpDate: input.followUpDate,
-        prescribedProductIds: input.prescribedProductIds,
-      );
-      await _load();
-      if (mounted) {
+
+      final previousAppointments = _appointments;
+      final previousRecords = _recordsBySession;
+      // Row completes now; server confirms after.
+      setState(() {
+        _replaceAppointment(
+          appointment.copyWith(
+            sessions: [
+              for (final current in appointment.sessions)
+                current.id == session.id
+                    ? current.withStatus('COMPLETED')
+                    : current,
+            ],
+          ),
+        );
+        _recordsBySession = {
+          ..._recordsBySession,
+          session.id: SessionRecord(
+            id: 'pending-${DateTime.now().microsecondsSinceEpoch}',
+            sessionId: session.id,
+            authorName: null,
+            note: input.note,
+            skinReaction: input.skinReaction,
+            followUpDate: input.followUpDate,
+            createdAt: DateTime.now(),
+            prescribedProductIds: input.prescribedProductIds,
+          ),
+        };
+      });
+
+      try {
+        if (session.isPlanned) {
+          await widget.appointmentApi.markAttended(appointment.id, session.id);
+        }
+        await SessionRecordApi(widget.apiClient).create(
+          patientId: appointment.patientUserId,
+          sessionId: session.id,
+          note: input.note,
+          skinReaction: input.skinReaction,
+          followUpDate: input.followUpDate,
+          prescribedProductIds: input.prescribedProductIds,
+        );
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Session completed and record saved.')),
+        );
+        await _refreshQuietly();
+      } catch (_) {
+        if (!mounted) return;
+        setState(() {
+          _appointments = previousAppointments;
+          _recordsBySession = previousRecords;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not complete the session.')),
         );
       }
     } catch (_) {
@@ -279,21 +348,49 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
         ),
       );
       if (input == null) return;
-      await SessionRecordApi(widget.apiClient).amend(
-        patientId: _appointments
-            .firstWhere(
-              (appointment) => appointment.sessions.any(
-                (session) => session.id == record.sessionId,
-              ),
-            )
-            .patientUserId,
-        recordId: record.id,
-        note: input.note,
-        skinReaction: input.skinReaction,
-        followUpDate: input.followUpDate,
-        prescribedProductIds: input.prescribedProductIds,
-      );
-      await _load();
+
+      final previousRecords = _recordsBySession;
+      // Shows the edit now; server confirms after.
+      setState(() {
+        _recordsBySession = {
+          ..._recordsBySession,
+          record.sessionId: SessionRecord(
+            id: record.id,
+            sessionId: record.sessionId,
+            authorName: record.authorName,
+            note: input.note,
+            skinReaction: input.skinReaction,
+            followUpDate: input.followUpDate,
+            createdAt: record.createdAt,
+            prescribedProductIds: input.prescribedProductIds,
+          ),
+        };
+      });
+
+      try {
+        await SessionRecordApi(widget.apiClient).amend(
+          patientId: _appointments
+              .firstWhere(
+                (appointment) => appointment.sessions.any(
+                  (session) => session.id == record.sessionId,
+                ),
+              )
+              .patientUserId,
+          recordId: record.id,
+          note: input.note,
+          skinReaction: input.skinReaction,
+          followUpDate: input.followUpDate,
+          prescribedProductIds: input.prescribedProductIds,
+        );
+        if (!mounted) return;
+        await _refreshQuietly();
+      } catch (_) {
+        if (!mounted) return;
+        setState(() => _recordsBySession = previousRecords);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not edit the session record.')),
+        );
+      }
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -544,38 +641,14 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
   }
 
   Widget _buildSearchField() {
-    return TextField(
+    return AppSearchField(
       controller: _searchController,
+      hintText: 'Search patient or treatment',
       onChanged: (value) => setState(() => _query = value.trim().toLowerCase()),
-      style: AppTypography.bodyMedium(),
-      decoration: InputDecoration(
-        isDense: true,
-        filled: true,
-        fillColor: AppColors.bgAlt,
-        hintText: 'Search patient or treatment',
-        hintStyle: AppTypography.bodySmall(color: AppColors.textMuted),
-        prefixIcon: const Icon(
-          Icons.search,
-          size: 18,
-          color: AppColors.textMuted,
-        ),
-        prefixIconConstraints: const BoxConstraints(minWidth: 38),
-        suffixIcon: _query.isEmpty
-            ? null
-            : IconButton(
-                icon: const Icon(Icons.close, size: 16),
-                color: AppColors.textMuted,
-                onPressed: () {
-                  _searchController.clear();
-                  setState(() => _query = '');
-                },
-              ),
-        contentPadding: const EdgeInsets.symmetric(vertical: 11),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide.none,
-        ),
-      ),
+      onClear: () {
+        _searchController.clear();
+        setState(() => _query = '');
+      },
     );
   }
 
@@ -610,7 +683,6 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
         side: BorderSide(
           color: _dateFilter == null ? AppColors.border : AppColors.borderRose,
         ),
-        shape: const StadiumBorder(),
       ),
     );
   }
@@ -954,7 +1026,6 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
             label: Text(modifiable ? 'Reschedule' : 'Book follow-up'),
             style: FilledButton.styleFrom(
               backgroundColor: AppColors.rose,
-              shape: const StadiumBorder(),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             ),
           ),

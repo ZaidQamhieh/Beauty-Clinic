@@ -36,6 +36,7 @@ import 'package:beauty_clinic_app/features/forms/presentation/form_builder_admin
 import 'package:beauty_clinic_app/features/patients/presentation/patients_directory_screen.dart';
 import 'package:beauty_clinic_app/features/patients/presentation/reception_patients_screen.dart';
 import 'package:beauty_clinic_app/features/products/data/product_api.dart';
+import 'package:beauty_clinic_app/features/products/presentation/patient_products_screen.dart';
 import 'package:beauty_clinic_app/features/products/presentation/product_catalog_screen.dart';
 import 'package:beauty_clinic_app/features/staff_management/staff_management_screen.dart';
 import 'package:beauty_clinic_app/network/api_client.dart';
@@ -431,6 +432,8 @@ class _BeautyClinicAppState extends State<BeautyClinicApp> {
           return AppointmentsScreen(
             key: const ValueKey('my_appointments'),
             refreshSignal: _chatWrote,
+            apiClient: _apiClient,
+            patientId: _session.userId,
             appointmentApi: _appointmentApi,
             treatmentApi: _treatmentApi,
             doctorApi: _doctorApi,
@@ -516,6 +519,14 @@ class _BeautyClinicAppState extends State<BeautyClinicApp> {
       case 'form_builder':
         return FormBuilderAdminScreen(api: _dynamicApi);
       case 'products':
+        if (_activeRole == 'patient') {
+          return PatientProductsScreen(
+            key: const ValueKey('my_products'),
+            productApi: _products,
+            apiClient: _apiClient,
+            patientId: _session.userId,
+          );
+        }
         return ProductCatalogScreen(
           key: const ValueKey('products'),
           api: _products,

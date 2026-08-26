@@ -227,9 +227,22 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     return _section(
       title: 'Your Health Snapshot',
       icon: Icons.favorite_outline,
-      action: TextButton(
+      action: OutlinedButton.icon(
         onPressed: widget.onOpenClinicalForm,
-        child: const Text('Open form'),
+        icon: const Icon(Icons.assignment_outlined, size: 16),
+        label: Text(
+          formComplete ? 'Review form' : 'Complete form',
+          style: AppTypography.labelMedium(color: AppColors.roseDark),
+        ),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppColors.roseDark,
+          backgroundColor: formComplete ? AppColors.bgCard : AppColors.bgRose,
+          side: const BorderSide(color: AppColors.borderRose),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
       ),
       child: Row(
         children: [
