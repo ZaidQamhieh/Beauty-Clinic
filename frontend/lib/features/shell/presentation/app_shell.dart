@@ -232,7 +232,7 @@ class _AppShellState extends State<AppShell> {
         return [
           {
             'id': 'my_profile',
-            'label': 'My Profile',
+            'label': 'My Account',
             'icon': Icons.person_outline,
           },
           {
@@ -281,7 +281,7 @@ class _AppShellState extends State<AppShell> {
           {'id': 'dashboard', 'label': 'Dashboard', 'icon': Icons.spa_outlined},
           {
             'id': 'my_profile',
-            'label': 'My Profile',
+            'label': 'My Account',
             'icon': Icons.person_outline,
           },
           {
@@ -304,7 +304,7 @@ class _AppShellState extends State<AppShell> {
         return [
           {
             'id': 'my_profile',
-            'label': 'My Profile',
+            'label': 'My Account',
             'icon': Icons.person_outline,
           },
           {
@@ -338,7 +338,7 @@ class _AppShellState extends State<AppShell> {
         return [
           {
             'id': 'my_profile',
-            'label': 'My Profile',
+            'label': 'My Account',
             'icon': Icons.person_outline,
           },
           {

@@ -52,6 +52,18 @@ class StatusPill extends StatelessWidget {
       bg: AppColors.gold.withValues(alpha: 0.20),
       text: AppColors.gold,
     ),
+    'Vacation': _StatusStyle(
+      bg: AppColors.lav.withValues(alpha: 0.16),
+      text: AppColors.lavDark,
+    ),
+    'Modified': _StatusStyle(
+      bg: AppColors.gold.withValues(alpha: 0.20),
+      text: AppColors.gold,
+    ),
+    'Extra Day': _StatusStyle(
+      bg: AppColors.rose.withValues(alpha: 0.18),
+      text: AppColors.roseDark,
+    ),
   };
 
   @override

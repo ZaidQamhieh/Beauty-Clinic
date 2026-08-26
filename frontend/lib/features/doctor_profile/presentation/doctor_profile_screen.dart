@@ -12,10 +12,12 @@ import '../../appointments/data/enum_label.dart';
 import '../../dashboard/data/doctor_dashboard_models.dart';
 import '../../dashboard/presentation/widgets/admin_analytics_charts.dart';
 import '../../doctor_availability/data/doctor_availability_api.dart';
+import '../../doctor_availability/presentation/doctor_availability_screen.dart';
 import '../../doctor_availability/presentation/widgets/availability_sessions_view.dart';
 import '../data/doctor_detail_api.dart';
 
-/// Admin doctor detail: overview, timeline, statistics.
+/// Admin doctor detail: overview, booked-session calendar (view-only records),
+/// the doctor's availability schedule, and statistics.
 class DoctorProfileScreen extends StatefulWidget {
   const DoctorProfileScreen({
     super.key,
@@ -46,7 +48,7 @@ class _DoctorProfileScreenState extends State<DoctorProfileScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
     _detailApi = DoctorDetailApi(widget.apiClient);
     _accountFuture = _detailApi.fetchAccount(widget.doctorId);
     _liveStatusFuture = _detailApi.fetchLiveStatus(widget.doctorId);
@@ -103,7 +105,8 @@ class _DoctorProfileScreenState extends State<DoctorProfileScreen>
             unselectedLabelStyle: AppTypography.labelMedium(),
             tabs: const [
               Tab(text: 'Overview'),
-              Tab(text: 'Availability & Sessions'),
+              Tab(text: "Doctor's Calendar"),
+              Tab(text: 'Availability'),
               Tab(text: 'Statistics'),
             ],
           ),
@@ -135,6 +138,14 @@ class _DoctorProfileScreenState extends State<DoctorProfileScreen>
                       widget.appointmentApi.scheduleFor(widget.doctorId, date),
                   fetchAvailability: () =>
                       widget.availabilityApi.listForDoctor(widget.doctorId),
+                  // apiClient alone (no appointmentApi): admin can view an
+                  // existing session record or learn there isn't one yet,
+                  // but not mark attended or create/edit one.
+                  apiClient: widget.apiClient,
+                ),
+                DoctorAvailabilityScreen(
+                  api: widget.availabilityApi,
+                  doctorId: widget.doctorId,
                 ),
                 _StatisticsTab(
                   doctorId: widget.doctorId,

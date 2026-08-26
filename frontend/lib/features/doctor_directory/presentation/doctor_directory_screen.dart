@@ -145,20 +145,20 @@ class _DoctorDirectoryScreenState extends State<DoctorDirectoryScreen> {
   }
 
   Widget _buildAvailabilitySummary(List<DoctorAvailability> availability) {
-    final recurring =
+    final regular =
         availability
-            .where((item) => item.kind == AvailabilityKind.recurring)
+            .where((item) => item.kind == AvailabilityKind.regular)
             .toList()
           ..sort(
             (a, b) => _dayOrder(a.dayOfWeek).compareTo(_dayOrder(b.dayOfWeek)),
           );
-    final overrides =
+    final exceptions =
         availability
-            .where((item) => item.kind == AvailabilityKind.override)
+            .where((item) => item.kind != AvailabilityKind.regular)
             .toList()
           ..sort((a, b) => a.effectiveFrom.compareTo(b.effectiveFrom));
 
-    if (recurring.isEmpty && overrides.isEmpty) {
+    if (regular.isEmpty && exceptions.isEmpty) {
       return Text(
         'Availability not published',
         style: AppTypography.bodySmall(color: AppColors.textMuted),
@@ -168,20 +168,20 @@ class _DoctorDirectoryScreenState extends State<DoctorDirectoryScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (recurring.isNotEmpty) ...[
+        if (regular.isNotEmpty) ...[
           _availabilityHeading('Weekly schedule', Icons.repeat_rounded),
           const SizedBox(height: 6),
           Wrap(
             spacing: 8,
             runSpacing: 6,
-            children: recurring.map(_recurringChip).toList(),
+            children: regular.map(_regularChip).toList(),
           ),
         ],
-        if (overrides.isNotEmpty) ...[
+        if (exceptions.isNotEmpty) ...[
           const SizedBox(height: 12),
-          _availabilityHeading('Date overrides', Icons.event_note_outlined),
+          _availabilityHeading('Exceptions', Icons.event_note_outlined),
           const SizedBox(height: 6),
-          ...overrides.map((item) => _overrideRow(item, overrides)),
+          ...exceptions.map((item) => _exceptionRow(item, exceptions)),
         ],
       ],
     );
@@ -197,8 +197,9 @@ class _DoctorDirectoryScreenState extends State<DoctorDirectoryScreen> {
     );
   }
 
-  Widget _recurringChip(DoctorAvailability item) {
-    final color = item.available ? AppColors.sageDark : AppColors.rose;
+  // REGULAR is always open; there's no closed variant of it anymore.
+  Widget _regularChip(DoctorAvailability item) {
+    const color = AppColors.sageDark;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
       decoration: BoxDecoration(
@@ -213,32 +214,37 @@ class _DoctorDirectoryScreenState extends State<DoctorDirectoryScreen> {
     );
   }
 
-  Widget _overrideRow(
+  Widget _exceptionRow(
     DoctorAvailability item,
-    List<DoctorAvailability> overrides,
+    List<DoctorAvailability> exceptions,
   ) {
     final date = item.effectiveFrom.toLocal().toString().split(' ').first;
-    final sameDate = overrides
+    final sameDate = exceptions
         .where(
           (other) =>
               other.effectiveFrom.toLocal().toString().split(' ').first == date,
         )
         .length;
     final conflict = sameDate > 1;
-    final color = item.available ? AppColors.sageDark : AppColors.rose;
+    // VACATION is the only closed exception; MODIFIED/EXTRA_DAY are open windows.
+    final isOpen = item.kind != AvailabilityKind.vacation;
+    final color = isOpen ? AppColors.sageDark : AppColors.rose;
+    final timeText = item.startTime == null || item.endTime == null
+        ? 'All day'
+        : '${_shortTime(item.startTime)}-${_shortTime(item.endTime)}';
     return Padding(
       padding: const EdgeInsets.only(bottom: 5),
       child: Row(
         children: [
           Icon(
-            item.available ? Icons.check_circle_outline : Icons.block_outlined,
+            isOpen ? Icons.check_circle_outline : Icons.block_outlined,
             size: 16,
             color: color,
           ),
           const SizedBox(width: 7),
           Expanded(
             child: Text(
-              '$date · ${_shortTime(item.startTime)}-${_shortTime(item.endTime)}',
+              '$date · $timeText',
               style: AppTypography.bodySmall(color: AppColors.textSub),
             ),
           ),
@@ -265,8 +271,8 @@ class _DoctorDirectoryScreenState extends State<DoctorDirectoryScreen> {
     return order[day] ?? 99;
   }
 
-  String _shortTime(String value) =>
-      value.length >= 5 ? value.substring(0, 5) : value;
+  String _shortTime(String? value) =>
+      value == null || value.length < 5 ? (value ?? '') : value.substring(0, 5);
 
   String _formatSpecialty(String value) {
     return value

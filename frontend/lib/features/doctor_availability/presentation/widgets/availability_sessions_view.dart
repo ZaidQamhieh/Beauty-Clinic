@@ -9,6 +9,7 @@ import '../../../../core/widgets/skeleton.dart';
 import '../../../../network/api_client.dart';
 import '../../../appointments/data/appointment.dart';
 import '../../../appointments/data/appointment_api.dart';
+import '../../../appointments/data/clinic_time.dart';
 import '../../../patient_profile/data/session_record.dart';
 import '../../../patient_profile/data/session_record_api.dart';
 import '../../../patient_profile/presentation/session_record_dialogs.dart';
@@ -34,40 +35,59 @@ const List<AvailabilityDay> _weekdaysInOrder = [
   AvailabilityDay.sunday,
 ];
 
-/// Open minutes for [date]; overrides beat recurring.
+/// Open minutes for [date]. VACATION beats MODIFIED beats REGULAR outright -
+/// whichever is present replaces the others entirely, it isn't merged with
+/// them. EXTRA_DAY is a pure fallback: it only ever fills a day whose
+/// baseline resolved to nothing, never additive on top of a working day.
 List<DayWindow> resolveAvailableWindows(
   DateTime date,
   List<DoctorAvailability> availability,
 ) {
   final onlyDate = DateTime(date.year, date.month, date.day);
-  final overrides = availability.where((rule) {
-    if (rule.kind != AvailabilityKind.override) return false;
+  bool covers(DoctorAvailability rule) {
     final from = _dateOnly(rule.effectiveFrom);
-    final to = rule.effectiveTo == null ? from : _dateOnly(rule.effectiveTo!);
+    // Null effectiveTo means open-ended (the normal case for REGULAR), not
+    // "same day as effectiveFrom" - it must cover every date from then on.
+    if (rule.effectiveTo == null) return !onlyDate.isBefore(from);
+    final to = _dateOnly(rule.effectiveTo!);
     return !onlyDate.isBefore(from) && !onlyDate.isAfter(to);
-  }).toList();
+  }
 
   final weekday = _weekdaysInOrder[date.weekday - 1];
-  final rules = overrides.isNotEmpty
-      ? overrides
-      : availability
-            .where(
-              (rule) =>
-                  rule.kind == AvailabilityKind.recurring &&
-                  rule.dayOfWeek == weekday,
-            )
-            .toList();
+  final onDate = availability.where(covers).toList();
 
-  return rules
-      .where((rule) => rule.available)
-      .map(
-        (rule) => DayWindow(
-          _parseMinutes(rule.startTime),
-          _parseMinutes(rule.endTime),
-        ),
-      )
-      .toList();
+  List<DayWindow> baseline;
+  if (onDate.any((rule) => rule.kind == AvailabilityKind.vacation)) {
+    baseline = const [];
+  } else {
+    final modified = onDate
+        .where((rule) => rule.kind == AvailabilityKind.modified)
+        .toList();
+    baseline = (modified.isNotEmpty
+            ? modified
+            : onDate.where(
+                (rule) =>
+                    rule.kind == AvailabilityKind.regular &&
+                    rule.dayOfWeek == weekday,
+              ))
+        .map(_toWindow)
+        .toList();
+  }
+
+  if (baseline.isEmpty) {
+    final extraDay = onDate
+        .where((rule) => rule.kind == AvailabilityKind.extraDay)
+        .map(_toWindow)
+        .toList();
+    if (extraDay.isNotEmpty) {
+      return extraDay;
+    }
+  }
+  return baseline;
 }
+
+DayWindow _toWindow(DoctorAvailability rule) =>
+    DayWindow(_parseMinutes(rule.startTime!), _parseMinutes(rule.endTime!));
 
 /// Clamps windows to display range, from [startHour].
 List<DayWindow> clampToDisplayRange(
@@ -144,10 +164,13 @@ class AvailabilitySessionsView extends StatefulWidget {
   final String Function(Appointment appointment, AppointmentSession session)?
   primaryLabel;
 
-  /// When both are provided, each session block gets the same "Mark
+  /// [apiClient] alone makes each session block tappable to view its
+  /// existing record, or learn it doesn't have one yet (the admin
+  /// doctor-detail view - it can look, not record). Providing
+  /// [appointmentApi] too upgrades that into the doctor's own full "Mark
   /// attended & record" / "Add session record" / "View session record"
-  /// action used in ClinicAppointmentsScreen. Omit both to leave sessions
-  /// read-only (the admin doctor-detail view and a patient's own calendar).
+  /// action, the same one used in ClinicAppointmentsScreen. Omit both to
+  /// leave sessions entirely inert (a patient's own calendar).
   final ApiClient? apiClient;
   final AppointmentApi? appointmentApi;
 
@@ -178,6 +201,10 @@ class _AvailabilitySessionsViewState extends State<AvailabilitySessionsView> {
 
   bool get _canRecordSessions =>
       widget.apiClient != null && widget.appointmentApi != null;
+
+  // apiClient alone is enough to load and view existing records; only the
+  // write actions (mark attended, add, edit) additionally need appointmentApi.
+  bool get _canViewRecords => widget.apiClient != null;
 
   @override
   void initState() {
@@ -211,7 +238,7 @@ class _AvailabilitySessionsViewState extends State<AvailabilitySessionsView> {
     scheduled.sort(
       (a, b) => a.session.startTime.compareTo(b.session.startTime),
     );
-    if (_canRecordSessions) {
+    if (_canViewRecords) {
       unawaited(_loadRecords(scheduled));
     }
     return scheduled;
@@ -242,10 +269,20 @@ class _AvailabilitySessionsViewState extends State<AvailabilitySessionsView> {
 
   Future<void> _onSessionTap(_ScheduledSession scheduled) async {
     final apiClient = widget.apiClient;
-    final appointmentApi = widget.appointmentApi;
-    if (apiClient == null || appointmentApi == null) return;
-
+    if (apiClient == null) return;
     final record = _recordsBySession[scheduled.session.id];
+
+    final appointmentApi = widget.appointmentApi;
+    if (appointmentApi == null) {
+      // Read-only viewer (the admin doctor-detail view): look, don't record.
+      if (record == null) {
+        showNoSessionRecordDialog(context);
+      } else {
+        showSessionRecordViewDialog(context: context, record: record);
+      }
+      return;
+    }
+
     if (record == null) {
       final saved = await completeSessionWithRecord(
         context: context,
@@ -342,7 +379,8 @@ class _AvailabilitySessionsViewState extends State<AvailabilitySessionsView> {
                   availability: availabilitySnapshot.data ?? const [],
                   showAvailability: widget.fetchAvailability != null,
                   recordsBySession: _recordsBySession,
-                  onSessionTap: _canRecordSessions ? _onSessionTap : null,
+                  onSessionTap: _canViewRecords ? _onSessionTap : null,
+                  readOnly: !_canRecordSessions,
                 );
               },
             );
@@ -440,6 +478,7 @@ class _DayTimelineView extends StatelessWidget {
     required this.showAvailability,
     required this.recordsBySession,
     required this.onSessionTap,
+    required this.readOnly,
   });
 
   final DateTime date;
@@ -452,10 +491,15 @@ class _DayTimelineView extends StatelessWidget {
 
   final Map<String, SessionRecord> recordsBySession;
 
-  /// Non-null enables the "Mark attended & record" action on each session
-  /// block (the doctor's My Calendar); null leaves sessions read-only (the
-  /// admin doctor-detail view and a patient's own calendar).
+  /// Non-null makes each session block tappable. Null leaves sessions
+  /// entirely inert (a patient's own calendar - no session-record concept
+  /// there at all).
   final void Function(_ScheduledSession scheduled)? onSessionTap;
+
+  /// True when tapping can only ever view a record or learn there isn't one
+  /// yet (the admin doctor-detail view) - false enables the doctor's own
+  /// "Mark attended & record"/"Add session record" actions too.
+  final bool readOnly;
 
   static const int _startHour = 7;
   static const int _endHour = 24;
@@ -649,18 +693,14 @@ class _DayTimelineView extends StatelessWidget {
 
   Widget _appointmentGroupBox(List<_ScheduledSession> group) {
     final displayStart = _startHour * 60;
-    final starts = group.map(
-      (scheduled) =>
-          (scheduled.session.startTime.hour * 60 +
-              scheduled.session.startTime.minute) -
-          displayStart,
-    );
-    final ends = group.map(
-      (scheduled) =>
-          (scheduled.session.endTime.hour * 60 +
-              scheduled.session.endTime.minute) -
-          displayStart,
-    );
+    final starts = group.map((scheduled) {
+      final start = ClinicTime.at(scheduled.session.startTime);
+      return (start.hour * 60 + start.minute) - displayStart;
+    });
+    final ends = group.map((scheduled) {
+      final end = ClinicTime.at(scheduled.session.endTime);
+      return (end.hour * 60 + end.minute) - displayStart;
+    });
     final start = starts
         .reduce((a, b) => a < b ? a : b)
         .clamp(0, _totalMinutes);
@@ -700,10 +740,10 @@ class _DayTimelineView extends StatelessWidget {
   Widget _sessionBlock(_ScheduledSession scheduled) {
     final session = scheduled.session;
     final displayStart = _startHour * 60;
-    final startMinutes =
-        (session.startTime.hour * 60 + session.startTime.minute) - displayStart;
-    final endMinutes =
-        (session.endTime.hour * 60 + session.endTime.minute) - displayStart;
+    final localStart = ClinicTime.at(session.startTime);
+    final localEnd = ClinicTime.at(session.endTime);
+    final startMinutes = (localStart.hour * 60 + localStart.minute) - displayStart;
+    final endMinutes = (localEnd.hour * 60 + localEnd.minute) - displayStart;
     final clampedStart = startMinutes.clamp(0, _totalMinutes);
     final clampedEnd = endMinutes.clamp(0, _totalMinutes);
     if (clampedEnd <= clampedStart) {
@@ -743,7 +783,7 @@ class _DayTimelineView extends StatelessWidget {
                       ? 'Patient'
                       : scheduled.primaryLabel;
                   final timeRange =
-                      '${DateFormat('h:mm a').format(session.startTime)}–${DateFormat('h:mm a').format(session.endTime)}';
+                      '${DateFormat('h:mm a').format(localStart)}–${DateFormat('h:mm a').format(localEnd)}';
 
                   // Below two comfortable lines of text, cram everything
                   // onto one line rather than dropping details.
@@ -819,6 +859,7 @@ class _DayTimelineView extends StatelessWidget {
                             session: session,
                             hasRecord: recordsBySession.containsKey(session.id),
                             onTap: () => onSessionTap!(scheduled),
+                            readOnly: readOnly,
                           ),
                         ),
                       ],
@@ -996,11 +1037,10 @@ class DayHoursBar extends StatelessWidget {
     final segments = <DayWindow>[];
     for (final session in sessions) {
       if (session.status == 'CANCELLED') continue;
-      final start =
-          (session.startTime.hour * 60 + session.startTime.minute) -
-          displayStart;
-      final end =
-          (session.endTime.hour * 60 + session.endTime.minute) - displayStart;
+      final localStart = ClinicTime.at(session.startTime);
+      final localEnd = ClinicTime.at(session.endTime);
+      final start = (localStart.hour * 60 + localStart.minute) - displayStart;
+      final end = (localEnd.hour * 60 + localEnd.minute) - displayStart;
       final clampedStart = start.clamp(0, _totalMinutes);
       final clampedEnd = end.clamp(0, _totalMinutes);
       if (clampedEnd > clampedStart) {

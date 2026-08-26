@@ -164,20 +164,46 @@ void showSessionRecordViewDialog({
   );
 }
 
+/// Shown in place of the record when a read-only viewer (the admin
+/// doctor-detail view) taps a session that has none yet - there is nothing
+/// to view, and no capability here to create one.
+void showNoSessionRecordDialog(BuildContext context) {
+  showDialog<void>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: const Text('No session record yet'),
+      content: const Text(
+        'The practitioner has not added a clinical note for this session yet.',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(),
+          child: const Text('Close'),
+        ),
+      ],
+    ),
+  );
+}
+
 /// The tri-state button: "Mark attended & record" (no record, still
 /// planned) -> "Add session record" (completed, no record yet) -> "View
-/// session record" (record already exists).
+/// session record" (record already exists). [readOnly] (the admin
+/// doctor-detail view, which can look but not record) collapses the first
+/// two states into a plain "No record yet" - there is nothing it can do
+/// about a missing record, so it should not read as an action to take.
 class SessionRecordActionButton extends StatelessWidget {
   const SessionRecordActionButton({
     super.key,
     required this.session,
     required this.hasRecord,
     required this.onTap,
+    this.readOnly = false,
   });
 
   final AppointmentSession session;
   final bool hasRecord;
   final VoidCallback onTap;
+  final bool readOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -186,6 +212,8 @@ class SessionRecordActionButton extends StatelessWidget {
       icon: Icon(
         hasRecord
             ? Icons.visibility_outlined
+            : readOnly
+            ? Icons.info_outline
             : session.status == 'COMPLETED'
             ? Icons.note_add_outlined
             : Icons.check_circle_outline,
@@ -194,6 +222,8 @@ class SessionRecordActionButton extends StatelessWidget {
       label: Text(
         hasRecord
             ? 'View session record'
+            : readOnly
+            ? 'No record yet'
             : session.status == 'COMPLETED'
             ? 'Add session record'
             : 'Mark attended & record',

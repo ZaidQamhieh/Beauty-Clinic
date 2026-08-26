@@ -5,9 +5,66 @@ class DoctorAvailabilityException implements Exception {
   const DoctorAvailabilityException(this.message);
 
   final String message;
+
+  @override
+  String toString() => message;
 }
 
-enum AvailabilityKind { recurring, override }
+/// Thrown when a save would have no effect on some dates because a
+/// higher-priority rule already covers them there. Not fatal: resubmit the
+/// same request with acknowledgeShadow: true to save anyway.
+class DoctorAvailabilityShadowedException implements Exception {
+  const DoctorAvailabilityShadowedException(
+    this.message, {
+    required this.shadowedBy,
+    required this.affectedDates,
+  });
+
+  final String message;
+
+  /// Null when what's shadowing it is "the day's own schedule" (the
+  /// EXTRA_DAY case) rather than one named higher-priority kind.
+  final AvailabilityKind? shadowedBy;
+  final List<DateTime> affectedDates;
+
+  @override
+  String toString() => message;
+}
+
+/// Thrown when a save would leave an already-booked appointment outside the
+/// newly-resolved working hours. Never resubmittable - there is no override.
+class DoctorAvailabilityConflictException implements Exception {
+  const DoctorAvailabilityConflictException(this.message, this.conflicts);
+
+  final String message;
+  final List<Map<String, dynamic>> conflicts;
+
+  @override
+  String toString() => message;
+}
+
+/// REGULAR is the weekly pattern. VACATION/MODIFIED/EXTRA_DAY are dated
+/// exceptions, resolved by priority: VACATION and MODIFIED replace the day
+/// outright (VACATION beats MODIFIED); EXTRA_DAY only ever fills a day that
+/// would otherwise resolve to no working hours at all.
+enum AvailabilityKind { regular, vacation, modified, extraDay }
+
+String _kindWire(AvailabilityKind kind) => switch (kind) {
+  AvailabilityKind.regular => 'REGULAR',
+  AvailabilityKind.vacation => 'VACATION',
+  AvailabilityKind.modified => 'MODIFIED',
+  AvailabilityKind.extraDay => 'EXTRA_DAY',
+};
+
+// .byName doesn't round-trip EXTRA_DAY (would need .extraDay.name == 'EXTRA_DAY',
+// but Dart enum names can't contain underscores in that shape), so kind names are
+// mapped explicitly both ways instead of relying on .name/.byName.
+AvailabilityKind _kindFromWire(String? value) => switch (value?.toUpperCase()) {
+  'VACATION' => AvailabilityKind.vacation,
+  'MODIFIED' => AvailabilityKind.modified,
+  'EXTRA_DAY' => AvailabilityKind.extraDay,
+  _ => AvailabilityKind.regular,
+};
 
 enum AvailabilityDay {
   monday,
@@ -44,7 +101,6 @@ class DoctorAvailability {
     required this.dayOfWeek,
     required this.startTime,
     required this.endTime,
-    required this.available,
     required this.effectiveFrom,
     required this.effectiveTo,
   });
@@ -52,22 +108,20 @@ class DoctorAvailability {
   final String id;
   final AvailabilityKind kind;
   final AvailabilityDay? dayOfWeek;
-  final String startTime;
-  final String endTime;
-  final bool available;
+
+  /// Null for VACATION, which carries no time window.
+  final String? startTime;
+  final String? endTime;
   final DateTime effectiveFrom;
   final DateTime? effectiveTo;
 
   factory DoctorAvailability.fromJson(Map<String, dynamic> json) {
     return DoctorAvailability(
       id: (json['id'] ?? '').toString(),
-      kind: AvailabilityKind.values.byName(
-        (json['kind'] ?? 'RECURRING').toString().toLowerCase(),
-      ),
+      kind: _kindFromWire(json['kind']?.toString()),
       dayOfWeek: _day(json['dayOfWeek']?.toString()),
-      startTime: (json['startTime'] ?? '').toString(),
-      endTime: (json['endTime'] ?? '').toString(),
-      available: json['available'] == true,
+      startTime: json['startTime']?.toString(),
+      endTime: json['endTime']?.toString(),
       effectiveFrom: DateTime.parse(json['effectiveFrom'].toString()),
       effectiveTo: json['effectiveTo'] == null
           ? null
@@ -148,11 +202,12 @@ class DoctorAvailabilityApi {
   Future<List<DoctorAvailabilityDayStatus>> calendar({
     required DateTime from,
     required DateTime to,
+    String? doctorId,
   }) async {
     try {
-      final doctorId = await _currentDoctorId();
+      final id = doctorId ?? await _currentDoctorId();
       final response = await _client.get<List<dynamic>>(
-        '/api/doctors/$doctorId/availability/calendar',
+        '/api/doctors/$id/availability/calendar',
         queryParameters: {'from': _date(from), 'to': _date(to)},
       );
       return (response.data ?? const [])
@@ -170,24 +225,25 @@ class DoctorAvailabilityApi {
   Future<DoctorAvailability> create({
     required AvailabilityKind kind,
     required AvailabilityDay? dayOfWeek,
-    required String startTime,
-    required String endTime,
-    required bool available,
+    required String? startTime,
+    required String? endTime,
     required DateTime effectiveFrom,
     DateTime? effectiveTo,
+    bool acknowledgeShadow = false,
+    String? doctorId,
   }) async {
-    final doctorId = await _currentDoctorId();
+    final id = doctorId ?? await _currentDoctorId();
     return _write(
-      '/api/doctors/$doctorId/availability',
+      '/api/doctors/$id/availability',
       'POST',
       _body(
         kind,
         dayOfWeek,
         startTime,
         endTime,
-        available,
         effectiveFrom,
         effectiveTo,
+        acknowledgeShadow,
       ),
     );
   }
@@ -196,33 +252,34 @@ class DoctorAvailabilityApi {
     DoctorAvailability item, {
     required AvailabilityKind kind,
     required AvailabilityDay? dayOfWeek,
-    required String startTime,
-    required String endTime,
-    required bool available,
+    required String? startTime,
+    required String? endTime,
     required DateTime effectiveFrom,
     DateTime? effectiveTo,
+    bool acknowledgeShadow = false,
+    String? doctorId,
   }) async {
-    final doctorId = await _currentDoctorId();
+    final id = doctorId ?? await _currentDoctorId();
     return _write(
-      '/api/doctors/$doctorId/availability/${item.id}',
+      '/api/doctors/$id/availability/${item.id}',
       'PUT',
       _body(
         kind,
         dayOfWeek,
         startTime,
         endTime,
-        available,
         effectiveFrom,
         effectiveTo,
+        acknowledgeShadow,
       ),
     );
   }
 
-  Future<void> remove(DoctorAvailability item) async {
+  Future<void> remove(DoctorAvailability item, {String? doctorId}) async {
     try {
-      final doctorId = await _currentDoctorId();
+      final id = doctorId ?? await _currentDoctorId();
       await _client.delete<void>(
-        '/api/doctors/$doctorId/availability/${item.id}',
+        '/api/doctors/$id/availability/${item.id}',
       );
     } on DioException catch (error) {
       throw _mapError(error);
@@ -232,19 +289,19 @@ class DoctorAvailabilityApi {
   Map<String, dynamic> _body(
     AvailabilityKind kind,
     AvailabilityDay? day,
-    String start,
-    String end,
-    bool available,
+    String? start,
+    String? end,
     DateTime from,
     DateTime? to,
+    bool acknowledgeShadow,
   ) => {
-    'kind': kind.name.toUpperCase(),
+    'kind': _kindWire(kind),
     'dayOfWeek': day?.name.toUpperCase(),
     'startTime': start,
     'endTime': end,
-    'available': available,
     'effectiveFrom': _date(from),
     'effectiveTo': to == null ? null : _date(to),
+    'acknowledgeShadow': acknowledgeShadow,
   };
 
   Future<DoctorAvailability> _write(
@@ -265,9 +322,36 @@ class DoctorAvailabilityApi {
   }
 
   Exception _mapError(DioException error) {
+    final status = error.response?.statusCode;
     final data = error.response?.data;
     if (data is Map) {
+      final code = data['code']?.toString();
       final detail = data['detail']?.toString();
+
+      if (status == 422 && code == 'AVAILABILITY_SHADOWED') {
+        final dates = data['affectedDates'];
+        return DoctorAvailabilityShadowedException(
+          detail ?? "This won't take effect on some dates.",
+          shadowedBy: data['shadowedBy'] == null
+              ? null
+              : _kindFromWire(data['shadowedBy'].toString()),
+          affectedDates: dates is List
+              ? dates.map((d) => DateTime.parse(d.toString())).toList()
+              : const [],
+        );
+      }
+      if (status == 409 && code == 'AVAILABILITY_BOOKED_CONFLICT') {
+        final conflicts = data['conflicts'];
+        return DoctorAvailabilityConflictException(
+          detail ?? 'Booked appointments would be affected.',
+          conflicts is List
+              ? conflicts
+                    .map((c) => Map<String, dynamic>.from(c as Map))
+                    .toList()
+              : const [],
+        );
+      }
+
       if (detail != null && detail.isNotEmpty) {
         return DoctorAvailabilityException(detail);
       }
@@ -283,7 +367,7 @@ class DoctorAvailabilityApi {
       }
     }
     return DoctorAvailabilityException(
-      'Request failed${error.response?.statusCode == null ? '' : ' (${error.response!.statusCode})'}.',
+      'Request failed${status == null ? '' : ' ($status)'}.',
     );
   }
 
