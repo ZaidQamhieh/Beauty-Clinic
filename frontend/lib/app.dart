@@ -412,6 +412,7 @@ class _BeautyClinicAppState extends State<BeautyClinicApp> {
             treatmentApi: _treatmentApi,
             doctorApi: _doctorApi,
             apiClient: _apiClient,
+            onViewPatient: _onViewPatient,
           );
         }
         if (_activeRole == 'doctor') {
@@ -456,6 +457,9 @@ class _BeautyClinicAppState extends State<BeautyClinicApp> {
             key: const ValueKey('doctor_directory'),
             doctorApi: _doctorApi,
             availabilityApi: _availabilityApi,
+            apiClient: _apiClient,
+            appointmentApi: _appointmentApi,
+            treatmentApi: _treatmentApi,
           );
         }
         return DashboardScreen(
