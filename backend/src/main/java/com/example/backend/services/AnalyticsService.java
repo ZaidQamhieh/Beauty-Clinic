@@ -302,22 +302,28 @@ public class AnalyticsService {
         );
 
         // 5. Registration and retention rates
-        Set<UUID> uniquePatientsInWindow = windowSessions.stream()
-                .map(AppointmentSession::getPatientUserId)
+        List<Appointment> bookedInWindow = appointments.findCreatedBetween(effectiveFrom, effectiveTo);
+        List<AppointmentSession> completedForBookingHistory = sessions.findCompletedBetween(previousPeriodFrom, effectiveTo);
+
+        Set<UUID> bookedPatientIds = bookedInWindow.stream()
+                .map(a -> a.getPatient().getUserId())
+                .collect(Collectors.toSet());
+        Set<UUID> returningPatientIds = bookedInWindow.stream()
+                .filter(booking -> completedForBookingHistory.stream().anyMatch(completed ->
+                        completed.getPatientUserId().equals(booking.getPatient().getUserId())
+                                && completed.getStartTime().isBefore(booking.getCreatedAt())))
+                .map(a -> a.getPatient().getUserId())
                 .collect(Collectors.toSet());
 
-        int activePatientsCount = uniquePatientsInWindow.size();
-        int newPatientCountInWindow = (int) allPatients.stream()
-                .filter(p -> p.getUser().getCreatedAt().isAfter(effectiveFrom) && p.getUser().getCreatedAt().isBefore(effectiveTo))
-                .count();
-        int returningPatientCountInWindow = Math.max(0, activePatientsCount - newPatientCountInWindow);
-        int ratioTotal = Math.max(1, newPatientCountInWindow + returningPatientCountInWindow);
+        int returningPatientCountInWindow = returningPatientIds.size();
+        int newPatientCountInWindow = bookedPatientIds.size() - returningPatientCountInWindow;
+        int ratioTotal = newPatientCountInWindow + returningPatientCountInWindow;
 
         PatientRatioDto ratio = new PatientRatioDto(
                 newPatientCountInWindow,
                 returningPatientCountInWindow,
-                Math.round((newPatientCountInWindow * 100.0 / ratioTotal) * 10.0) / 10.0,
-                Math.round((returningPatientCountInWindow * 100.0 / ratioTotal) * 10.0) / 10.0
+                ratioTotal > 0 ? Math.round((newPatientCountInWindow * 100.0 / ratioTotal) * 10.0) / 10.0 : 0.0,
+                ratioTotal > 0 ? Math.round((returningPatientCountInWindow * 100.0 / ratioTotal) * 10.0) / 10.0 : 0.0
         );
 
         List<PatientGrowthPointDto> patientGrowth = buildPatientGrowthTimeline(allPatients, effectiveFrom, effectiveTo);

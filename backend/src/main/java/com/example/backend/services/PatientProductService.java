@@ -59,6 +59,12 @@ public class PatientProductService {
         Product product = products.findById(request.productId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No such product"));
 
+        if (patientProducts.existsByPatientUserIdAndProductId(
+                patientUserId, request.productId())) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "This product has already been added for this patient");
+        }
+
         PatientProduct patientProduct = new PatientProduct(patient, product, request.source());
         patientProduct.setStartedOn(request.startedOn());
 

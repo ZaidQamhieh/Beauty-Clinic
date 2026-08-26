@@ -240,11 +240,7 @@ class _AppShellState extends State<AppShell> {
             'label': 'Dashboard',
             'icon': Icons.calendar_today_outlined,
           },
-          {
-            'id': 'patients',
-            'label': 'My Patients',
-            'icon': Icons.people_outline,
-          },
+          {'id': 'patients', 'label': 'Patients', 'icon': Icons.people_outline},
           {
             'id': 'appointments',
             'label': 'Appointments',
@@ -269,11 +265,6 @@ class _AppShellState extends State<AppShell> {
             'id': 'doctor_availability',
             'label': 'Availability',
             'icon': Icons.event_available_outlined,
-          },
-          {
-            'id': 'consultations',
-            'label': 'Consultations',
-            'icon': Icons.video_call_outlined,
           },
         ];
       case 'patient':
@@ -353,7 +344,7 @@ class _AppShellState extends State<AppShell> {
           },
           {
             'id': 'patients',
-            'label': 'Patients Directory',
+            'label': 'Patients',
             'icon': Icons.people_alt_outlined,
           },
           {

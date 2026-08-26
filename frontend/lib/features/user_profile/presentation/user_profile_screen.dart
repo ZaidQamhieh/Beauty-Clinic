@@ -64,6 +64,12 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   DateTime? _selectedDateOfBirth;
   String? _selectedGender;
 
+  static const _phonePrefixes = <String>['059', '056'];
+  String _phonePrefix = _phonePrefixes.first;
+
+  /// Prefix plus the seven local digits.
+  String get _composedPhone => '$_phonePrefix${_phoneController.text.trim()}';
+
   static const _genders = <String, String>{
     'MALE': 'Male',
     'FEMALE': 'Female',
@@ -76,12 +82,34 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     Role.receptionist => AppColors.gold,
   };
 
+  Color get _accentDark => switch (widget.role) {
+    Role.doctor => AppColors.lavDark,
+    Role.patient || Role.admin => AppColors.roseDark,
+    Role.receptionist => AppColors.gold,
+  };
+
+  Color get _accentPale => switch (widget.role) {
+    Role.doctor => AppColors.lavPale,
+    Role.patient || Role.admin => AppColors.rosePale,
+    Role.receptionist => AppColors.goldPale,
+  };
+
   String get _roleLabel => switch (widget.role) {
     Role.admin => 'Administrator',
     Role.doctor => 'Doctor',
     Role.patient => 'Patient',
     Role.receptionist => 'Receptionist',
   };
+
+  String get _pageTitle => switch (widget.role) {
+    Role.admin => 'Administrator profile',
+    Role.doctor => 'Doctor profile',
+    Role.patient => 'Patient profile',
+    Role.receptionist => 'Receptionist profile',
+  };
+
+  bool get _hasPhoto =>
+      widget.role == Role.patient || widget.role == Role.doctor;
 
   @override
   void initState() {
@@ -117,7 +145,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
     return _firstNameController.text != profile.firstName ||
         _lastNameController.text != profile.lastName ||
-        _phoneController.text != profile.phone ||
+        _composedPhone != profile.phone ||
         _emailController.text != profile.email ||
         _yearsOfExperienceController.text != years ||
         _selectedDateOfBirth != profile.dateOfBirth ||
@@ -137,6 +165,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     _phoneController,
     _emailController,
     _yearsOfExperienceController,
+    _imageUrlController,
   ]);
 
   Listenable get _passwordFields => Listenable.merge([
@@ -167,7 +196,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   void _applyProfile(UserProfile profile) {
     _firstNameController.text = profile.firstName;
     _lastNameController.text = profile.lastName;
-    _phoneController.text = profile.phone;
+    _applyPhone(profile.phone);
     _emailController.text = profile.email;
     _selectedDateOfBirth = profile.dateOfBirth;
     _imageUrlController.text = profile.imageUrl ?? '';
@@ -210,6 +239,14 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       );
       return;
     }
+    if (_phoneController.text.trim().length != 7) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('A phone number is 7 digits after the prefix.'),
+        ),
+      );
+      return;
+    }
     if (_selectedDateOfBirth == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Date of birth is required.')),
@@ -245,12 +282,10 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       final updated = await _profileApi.update(
         firstName: _firstNameController.text,
         lastName: _lastNameController.text,
-        phone: _phoneController.text,
+        phone: _composedPhone,
         dateOfBirth: _selectedDateOfBirth!,
         gender: _selectedGender!,
-        imageUrl: widget.role == Role.patient || widget.role == Role.doctor
-            ? _imageUrlController.text
-            : null,
+        imageUrl: _hasPhoto ? _imageUrlController.text : null,
         specializations: widget.role == Role.doctor
             ? _selectedSpecializations.toList()
             : null,
@@ -283,9 +318,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     }
     setState(() {
       _applyProfile(profile);
-      _selectedSpecializations = profile.specializations
-          .where(_doctorSpecializations.containsKey)
-          .toSet();
       _editing = false;
     });
   }
@@ -372,159 +404,305 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     final lastName = _lastNameController.text.trim();
     final name = '$firstName $lastName'.trim();
     final initials = _initialsFor(firstName, lastName);
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 760),
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = constraints.maxWidth >= 1180
+            ? 3
+            : constraints.maxWidth >= 780
+            ? 2
+            : 1;
+        return SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (widget.onBack != null)
-                TextButton.icon(
-                  onPressed: widget.onBack,
-                  icon: const Icon(Icons.arrow_back, size: 16),
-                  label: const Text('Dashboard'),
-                ),
-              const SizedBox(height: 12),
+              _buildPageHeader(),
+              const SizedBox(height: 16),
               _buildHero(name, initials),
-              if (_passwordSaved) ...[
-                const SizedBox(height: 12),
-                Text(
-                  'Password updated successfully.',
-                  style: AppTypography.bodySmall(color: AppColors.gold),
-                ),
-              ],
-              const SizedBox(height: 20),
-              _buildSection(
-                title: 'Personal information',
-                subtitle: 'Only you can edit these details.',
-                child: _editing ? _buildEditor() : _buildReadOnly(),
-              ),
-              if (widget.role == Role.doctor) ...[
-                const SizedBox(height: 16),
-                _buildSection(
-                  title: 'Professional details',
-                  subtitle: 'Your clinical specializations and experience.',
-                  child: _editing
-                      ? _buildDoctorEditor()
-                      : _buildDoctorReadOnly(),
-                ),
-              ],
               const SizedBox(height: 16),
-              _buildSection(
-                title: 'Account access',
-                subtitle: 'Your role and sign-in email are managed securely.',
-                child: Column(
-                  children: [
-                    _infoRow('Role', _roleLabel),
-                    _infoRow('Email', _emailController.text),
-                    _infoRow(
-                      'Status',
-                      _serverProfile?.status ?? 'Unknown',
-                      valueColor: AppColors.sage,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              _buildPasswordSection(),
-              if (_passwordSaved) ...[
-                const SizedBox(height: 12),
-                Text(
-                  'Password updated successfully.',
-                  style: AppTypography.bodySmall(color: AppColors.gold),
-                ),
-              ],
-              if (_saved) ...[
-                const SizedBox(height: 12),
-                Text(
-                  'Profile changes saved successfully.',
-                  style: AppTypography.bodySmall(color: AppColors.sage),
-                ),
-              ],
+              _buildDetailsCard(columns),
             ],
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildHero(String name, String initials) {
+  /// Sections under one card, ruled headers.
+  Widget _buildDetailsCard(int columns) {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.fromLTRB(22, 20, 22, 22),
       decoration: BoxDecoration(
         color: AppColors.bgCard,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.border),
-        gradient: LinearGradient(
-          colors: [_accent.withValues(alpha: .12), AppColors.bgCard],
-        ),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (widget.role == Role.patient || widget.role == Role.doctor)
-            ProfileAvatar(
-              radius: 38,
-              color: _accent,
-              imageUrl: _imageUrlController.text,
-            )
-          else
-            CircleAvatar(
-              radius: 38,
-              backgroundColor: _accent.withValues(alpha: .18),
-              child: Text(
-                initials,
-                style: AppTypography.displayTitle(color: _accent),
-              ),
-            ),
-          const SizedBox(width: 18),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(name, style: AppTypography.displayTitle()),
-                const SizedBox(height: 4),
-                Text(
-                  widget.role == Role.doctor ? _doctorDetail : _roleLabel,
-                  style: AppTypography.bodySmall(color: AppColors.textSub),
-                ),
-                const SizedBox(height: 10),
-                _pill(_roleLabel, _accent),
-              ],
-            ),
+          _ruleHeader(
+            _editing ? 'EDITABLE DETAILS' : 'MY DETAILS',
+            hint: _editing ? 'Nothing saves until you press Save' : null,
           ),
-          if (_editing) ...[
-            TextButton(onPressed: _cancel, child: const Text('Cancel')),
-            ListenableBuilder(
-              listenable: _profileFields,
-              builder: (context, _) => FilledButton(
-                onPressed: _saving || !_profileDirty ? null : _save,
-                child: _saving
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('Save'),
+          const SizedBox(height: 14),
+          _grid(_detailCells(), columns),
+          if (widget.role == Role.doctor) ...[
+            const SizedBox(height: 24),
+            _ruleHeader(
+              'SPECIALIZATIONS',
+              hint: '${_selectedSpecializations.length} active',
+            ),
+            const SizedBox(height: 14),
+            if (_editing)
+              _buildSpecializationPicker()
+            else
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _doctorSpecializations.entries
+                    .map(
+                      (entry) => _specializationChip(
+                        entry.value,
+                        _selectedSpecializations.contains(entry.key),
+                      ),
+                    )
+                    .toList(),
               ),
-            ),
-          ] else
-            FilledButton.icon(
-              onPressed: () => setState(() => _editing = true),
-              icon: const Icon(Icons.edit_outlined, size: 17),
-              label: const Text('Edit profile'),
-            ),
+          ],
+          const SizedBox(height: 24),
+          _ruleHeader('SIGN-IN', hint: 'Email is set by the clinic'),
+          const SizedBox(height: 14),
+          _buildSignInSection(columns),
         ],
       ),
     );
   }
 
-  Widget _buildSection({
-    required String title,
-    required String subtitle,
-    required Widget child,
-  }) {
+  /// Prefix dropdown, then seven digits.
+  Widget _phoneRow() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 104,
+          child: AppDropdownField<String>(
+            initialValue: _phonePrefix,
+            decoration: const InputDecoration(
+              labelText: 'Prefix',
+              border: OutlineInputBorder(),
+            ),
+            items: _phonePrefixes
+                .map(
+                  (prefix) => DropdownMenuItem<String>(
+                    value: prefix,
+                    child: Text(prefix),
+                  ),
+                )
+                .toList(),
+            onChanged: (value) {
+              if (value != null) setState(() => _phonePrefix = value);
+            },
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: TextField(
+            controller: _phoneController,
+            keyboardType: TextInputType.number,
+            maxLength: 7,
+            decoration: InputDecoration(
+              labelText: 'Phone number *',
+              counterText: '',
+              border: const OutlineInputBorder(),
+              focusedBorder: OutlineInputBorder(
+                borderSide: BorderSide(color: _accent),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Splits a stored number by prefix.
+  void _applyPhone(String phone) {
+    final digits = phone.replaceAll(RegExp(r'\D'), '');
+    for (final prefix in _phonePrefixes) {
+      if (digits.startsWith(prefix)) {
+        _phonePrefix = prefix;
+        _phoneController.text = digits.substring(prefix.length);
+        return;
+      }
+    }
+    _phoneController.text = digits.length > 7
+        ? digits.substring(digits.length - 7)
+        : digits;
+  }
+
+  Widget _ruleHeader(String label, {String? hint}) {
+    return Row(
+      children: [
+        Text(label, style: AppTypography.labelSmall()),
+        const SizedBox(width: 12),
+        Expanded(child: Container(height: 1, color: AppColors.hairline)),
+        if (hint != null) ...[
+          const SizedBox(width: 12),
+          Text(
+            hint,
+            style: AppTypography.bodySmall(color: AppColors.textMuted),
+          ),
+        ],
+      ],
+    );
+  }
+
+  /// Fields the hero strip omits.
+  List<Widget> _detailCells() {
+    return [
+      if (_editing) ...[
+        _field('First name *', _firstNameController),
+        _field('Last name *', _lastNameController),
+        _phoneRow(),
+        _dateOfBirthField(),
+        _genderField(),
+        if (widget.role == Role.doctor)
+          _field(
+            'Years of experience *',
+            _yearsOfExperienceController,
+            keyboardType: TextInputType.number,
+          ),
+        if (_hasPhoto)
+          _field(
+            'Profile picture URL',
+            _imageUrlController,
+            keyboardType: TextInputType.url,
+          ),
+      ] else ...[
+        _readCell('First name', _firstNameController.text),
+        _readCell('Last name', _lastNameController.text),
+        _readCell('Phone number', _composedPhone),
+        if (_hasPhoto)
+          _readCell(
+            'Profile picture',
+            _imageUrlController.text.trim().isEmpty ? 'Not set' : 'Set',
+          ),
+      ],
+    ];
+  }
+
+  Widget _buildSignInSection(int columns) {
+    if (_passwordEditing) {
+      return _buildPasswordEditor();
+    }
+    return _grid([
+      _readCell('Email', _emailController.text, locked: true),
+      _readCell(
+        'Password',
+        _passwordSaved ? 'Updated just now' : 'At least 8 characters',
+      ),
+      Align(
+        alignment: Alignment.centerLeft,
+        child: OutlinedButton.icon(
+          onPressed: () => setState(() {
+            _passwordEditing = true;
+            _passwordSaved = false;
+          }),
+          icon: const Icon(Icons.lock_reset_outlined, size: 17),
+          label: const Text('Change password'),
+        ),
+      ),
+    ], columns);
+  }
+
+  /// Even columns, wrapping on narrow widths.
+  Widget _grid(List<Widget> cells, int columns) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const gap = 24.0;
+        final width = (constraints.maxWidth - gap * (columns - 1)) / columns;
+        return Wrap(
+          spacing: gap,
+          runSpacing: 16,
+          children: [
+            for (final cell in cells) SizedBox(width: width, child: cell),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _readCell(String label, String value, {bool locked = false}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(label, style: AppTypography.bodySmall(color: AppColors.textMuted)),
+        const SizedBox(height: 2),
+        Row(
+          children: [
+            Flexible(
+              child: Text(
+                value.isEmpty ? 'Not provided' : value,
+                overflow: TextOverflow.ellipsis,
+                style: AppTypography.labelMedium(
+                  color: locked ? AppColors.textSub : AppColors.text,
+                ),
+              ),
+            ),
+            if (locked) ...[
+              const SizedBox(width: 6),
+              const Icon(
+                Icons.lock_outline,
+                size: 13,
+                color: AppColors.textMuted,
+              ),
+            ],
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPageHeader() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(_pageTitle, style: AppTypography.displayTitle()),
+              const SizedBox(height: 3),
+              Text(
+                'Everything on your account, on one screen.',
+                style: AppTypography.bodySmall(color: AppColors.textMuted),
+              ),
+            ],
+          ),
+        ),
+        _buildSaveState(),
+      ],
+    );
+  }
+
+  Widget _buildSaveState() {
+    return ListenableBuilder(
+      listenable: _profileFields,
+      builder: (context, _) {
+        final dirty = _profileDirty;
+        if (dirty) {
+          return _pill('Unsaved changes', AppColors.gold);
+        }
+        if (_saved) {
+          return _pill('All changes saved', AppColors.sageDark);
+        }
+        return const SizedBox.shrink();
+      },
+    );
+  }
+
+  Widget _buildHero(String name, String initials) {
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
@@ -533,171 +711,289 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         border: Border.all(color: AppColors.border),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: AppTypography.labelLarge()),
-          const SizedBox(height: 3),
-          Text(
-            subtitle,
-            style: AppTypography.bodySmall(color: AppColors.textMuted),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final avatar = _buildHeroAvatar(initials);
+              if (constraints.maxWidth < 620) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        avatar,
+                        const SizedBox(width: 20),
+                        Expanded(child: _buildIdentity(name)),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    _buildHeroActions(),
+                  ],
+                );
+              }
+              return Row(
+                children: [
+                  avatar,
+                  const SizedBox(width: 20),
+                  Expanded(child: _buildIdentity(name)),
+                  const SizedBox(width: 20),
+                  _buildHeroActions(),
+                ],
+              );
+            },
           ),
-          const SizedBox(height: 14),
-          child,
+          const SizedBox(height: 18),
+          const Divider(height: 1, color: AppColors.hairline),
+          const SizedBox(height: 16),
+          _buildMetaStrip(),
         ],
       ),
     );
   }
 
-  Widget _buildReadOnly() => Column(
-    children: [
-      _infoRow('First name', _firstNameController.text),
-      _infoRow('Last name', _lastNameController.text),
-      _infoRow('Phone number', _phoneController.text),
-      _infoRow('Date of birth', _formatDate(_selectedDateOfBirth)),
-      _infoRow('Gender', _genders[_selectedGender] ?? 'Not provided'),
-    ],
-  );
+  Widget _buildHeroAvatar(String initials) {
+    if (_hasPhoto) {
+      return ProfileAvatar(
+        radius: 44,
+        color: _accent,
+        imageUrl: _imageUrlController.text,
+      );
+    }
+    return CircleAvatar(
+      radius: 44,
+      backgroundColor: _accent.withValues(alpha: .18),
+      child: Text(
+        initials,
+        style: AppTypography.displayTitle(color: _accentDark),
+      ),
+    );
+  }
 
-  Widget _buildEditor() => Column(
-    children: [
-      Row(
-        children: [
-          Expanded(child: _field('First name *', _firstNameController)),
-          const SizedBox(width: 12),
-          Expanded(child: _field('Last name *', _lastNameController)),
-        ],
-      ),
-      const SizedBox(height: 12),
-      _field(
-        'Phone number *',
-        _phoneController,
-        keyboardType: TextInputType.phone,
-      ),
-      const SizedBox(height: 12),
-      _dateOfBirthField(),
-      const SizedBox(height: 12),
-      _genderField(),
-      if (widget.role == Role.patient || widget.role == Role.doctor) ...[
-        const SizedBox(height: 12),
-        _field(
-          'Profile picture URL',
-          _imageUrlController,
-          keyboardType: TextInputType.url,
+  Widget _buildIdentity(String name) {
+    final status = _serverProfile?.status ?? 'ACTIVE';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(name, style: AppTypography.displaySubtitle()),
+        const SizedBox(height: 4),
+        Text(
+          '$_roleLabel · ${_emailController.text}',
+          style: AppTypography.bodySmall(color: AppColors.textMuted),
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            _pill(_statusLabel(status), AppColors.sageDark),
+            if (widget.role == Role.doctor && !_editing)
+              _pill(_doctorSummary, _accentDark),
+          ],
         ),
       ],
-    ],
-  );
+    );
+  }
 
-  Widget _buildDoctorReadOnly() => Column(
-    children: [
-      _infoRow('Specializations', _doctorSpecializationLabels),
-      _infoRow(
-        'Years of experience *',
-        '${_yearsOfExperienceController.text} years',
+  Widget _buildHeroActions() {
+    if (!_editing) {
+      return FilledButton.icon(
+        onPressed: () => setState(() {
+          _editing = true;
+          _saved = false;
+        }),
+        icon: const Icon(Icons.edit_outlined, size: 17),
+        label: const Text('Edit profile'),
+      );
+    }
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        TextButton(onPressed: _cancel, child: const Text('Cancel')),
+        const SizedBox(width: 8),
+        ListenableBuilder(
+          listenable: _profileFields,
+          builder: (context, _) => FilledButton(
+            onPressed: _saving || !_profileDirty ? null : _save,
+            child: _saving
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('Save changes'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMetaStrip() {
+    final tiles = <Widget>[
+      _metaTile(
+        Icons.calendar_today_outlined,
+        'Date of birth',
+        _formatDate(_selectedDateOfBirth),
       ),
-    ],
-  );
-
-  Widget _buildDoctorEditor() => Column(
-    children: [
-      _buildSpecializationPicker(),
-      const SizedBox(height: 12),
-      _field(
-        'Years of experience',
-        _yearsOfExperienceController,
-        keyboardType: TextInputType.number,
+      _metaTile(
+        Icons.person_outline,
+        'Gender',
+        _genders[_selectedGender] ?? 'Not provided',
       ),
-    ],
+      if (widget.role == Role.doctor)
+        _metaTile(
+          Icons.workspace_premium_outlined,
+          'Experience',
+          _yearsOfExperienceController.text.isEmpty
+              ? 'Not provided'
+              : '${_yearsOfExperienceController.text} years',
+        )
+      else
+        _metaTile(Icons.badge_outlined, 'Role', _roleLabel),
+      _metaTile(
+        Icons.verified_user_outlined,
+        'Account',
+        _statusLabel(_serverProfile?.status ?? 'ACTIVE'),
+      ),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final wide = constraints.maxWidth >= 720;
+        if (!wide) {
+          return Column(
+            children: [
+              for (final tile in tiles)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: tile,
+                ),
+            ],
+          );
+        }
+        return Row(
+          children: [
+            for (var i = 0; i < tiles.length; i++) ...[
+              if (i > 0)
+                Container(width: 1, height: 34, color: AppColors.hairline),
+              Expanded(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: i == 0 ? 0 : 16),
+                  child: tiles[i],
+                ),
+              ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _metaTile(IconData icon, String label, String value) {
+    return Row(
+      children: [
+        Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: _accentPale,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, size: 17, color: _accentDark),
+        ),
+        const SizedBox(width: 11),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: AppTypography.bodySmall(color: AppColors.textMuted),
+              ),
+              Text(
+                value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppTypography.labelMedium(),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _specializationChip(String label, bool selected) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+    decoration: BoxDecoration(
+      color: selected ? _accentPale : AppColors.bgCard,
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: selected ? _accent : AppColors.border),
+    ),
+    child: Text(
+      label,
+      style: AppTypography.labelSmall(
+        color: selected ? _accentDark : AppColors.textMuted,
+      ).copyWith(fontWeight: selected ? FontWeight.w600 : FontWeight.w500),
+    ),
   );
 
-  Widget _buildPasswordSection() {
-    return _buildSection(
-      title: 'Password',
-      subtitle: 'Update your password securely from your own profile.',
-      child: _passwordEditing
-          ? Column(
-              children: [
-                _passwordField(
-                  'Current password',
-                  _currentPasswordController,
-                  _showCurrentPassword,
-                  () => setState(
-                    () => _showCurrentPassword = !_showCurrentPassword,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _passwordField(
-                  'New password',
-                  _newPasswordController,
-                  _showNewPassword,
-                  () => setState(() => _showNewPassword = !_showNewPassword),
-                ),
-                ListenableBuilder(
-                  listenable: _newPasswordController,
-                  builder: (context, _) => PasswordStrengthMeter(
-                    password: _newPasswordController.text,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _passwordField(
-                  'Confirm new password',
-                  _confirmPasswordController,
-                  _showConfirmPassword,
-                  () => setState(
-                    () => _showConfirmPassword = !_showConfirmPassword,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: _cancelPasswordChange,
-                      child: const Text('Cancel'),
-                    ),
-                    const SizedBox(width: 8),
-                    ListenableBuilder(
-                      listenable: _passwordFields,
-                      builder: (context, _) => FilledButton.icon(
-                        onPressed: _changingPassword || !_passwordDirty
-                            ? null
-                            : _changePassword,
-                        icon: const Icon(Icons.lock_reset_outlined, size: 17),
-                        label: _changingPassword
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Text('Update password'),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            )
-          : Row(
-              children: [
-                const Icon(Icons.lock_outline, color: AppColors.textMuted),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'Use a unique password with at least 8 characters.',
-                    style: AppTypography.bodySmall(color: AppColors.textMuted),
-                  ),
-                ),
-                OutlinedButton.icon(
-                  onPressed: () => setState(() {
-                    _passwordEditing = true;
-                    _passwordSaved = false;
-                  }),
-                  icon: const Icon(Icons.edit_outlined, size: 17),
-                  label: const Text('Change password'),
-                ),
-              ],
+  Widget _buildPasswordEditor() {
+    return Column(
+      children: [
+        _passwordField(
+          'Current password',
+          _currentPasswordController,
+          _showCurrentPassword,
+          () => setState(() => _showCurrentPassword = !_showCurrentPassword),
+        ),
+        const SizedBox(height: 12),
+        _passwordField(
+          'New password',
+          _newPasswordController,
+          _showNewPassword,
+          () => setState(() => _showNewPassword = !_showNewPassword),
+        ),
+        ListenableBuilder(
+          listenable: _newPasswordController,
+          builder: (context, _) =>
+              PasswordStrengthMeter(password: _newPasswordController.text),
+        ),
+        const SizedBox(height: 12),
+        _passwordField(
+          'Confirm new password',
+          _confirmPasswordController,
+          _showConfirmPassword,
+          () => setState(() => _showConfirmPassword = !_showConfirmPassword),
+        ),
+        const SizedBox(height: 14),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            TextButton(
+              onPressed: _cancelPasswordChange,
+              child: const Text('Cancel'),
             ),
+            const SizedBox(width: 8),
+            ListenableBuilder(
+              listenable: _passwordFields,
+              builder: (context, _) => FilledButton(
+                onPressed: _changingPassword || !_passwordDirty
+                    ? null
+                    : _changePassword,
+                child: _changingPassword
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Update password'),
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -731,8 +1027,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       Text(
-        'Specializations (select at least one) *',
-        style: AppTypography.labelMedium(),
+        'Select at least one *',
+        style: AppTypography.bodySmall(color: AppColors.textMuted),
       ),
       const SizedBox(height: 8),
       Wrap(
@@ -750,10 +1046,10 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 _selectedSpecializations.remove(entry.key);
               }
             }),
-            selectedColor: AppColors.lav.withValues(alpha: .2),
-            checkmarkColor: AppColors.lavDark,
+            selectedColor: _accent.withValues(alpha: .2),
+            checkmarkColor: _accentDark,
             labelStyle: TextStyle(
-              color: selected ? AppColors.lavDark : AppColors.textSub,
+              color: selected ? _accentDark : AppColors.textSub,
             ),
           );
         }).toList(),
@@ -761,13 +1057,19 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     ],
   );
 
-  String get _doctorSpecializationLabels => _selectedSpecializations
-      .map((value) => _doctorSpecializations[value])
-      .whereType<String>()
-      .join(' · ');
+  String get _doctorSummary {
+    final labels = _selectedSpecializations
+        .map((value) => _doctorSpecializations[value])
+        .whereType<String>()
+        .join(' · ');
+    return labels.isEmpty ? 'No specializations' : labels;
+  }
 
-  String get _doctorDetail =>
-      '$_doctorSpecializationLabels · ${_yearsOfExperienceController.text} yrs experience';
+  String _statusLabel(String status) {
+    final lower = status.toLowerCase().replaceAll('_', ' ');
+    if (lower.isEmpty) return 'Unknown';
+    return lower[0].toUpperCase() + lower.substring(1);
+  }
 
   String _formatDate(DateTime? date) {
     if (date == null) {
@@ -826,10 +1128,12 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
   Future<void> _pickDateOfBirth() async {
     final now = DateTime.now();
+    final stored =
+        _selectedDateOfBirth ?? DateTime(now.year - 25, now.month, now.day);
     final selected = await showDatePicker(
       context: context,
-      initialDate:
-          _selectedDateOfBirth ?? DateTime(now.year - 25, now.month, now.day),
+      // A future date would break it.
+      initialDate: stored.isAfter(now) ? now : stored,
       firstDate: DateTime(1900),
       lastDate: now,
     );
@@ -852,31 +1156,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     decoration: InputDecoration(
       labelText: label,
       border: const OutlineInputBorder(),
-      focusedBorder: const OutlineInputBorder(
-        borderSide: BorderSide(color: AppColors.rose),
-      ),
-    ),
-  );
-
-  Widget _infoRow(String label, String value, {Color? valueColor}) => Container(
-    padding: const EdgeInsets.symmetric(vertical: 12),
-    decoration: const BoxDecoration(
-      border: Border(bottom: BorderSide(color: AppColors.hairline)),
-    ),
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(label, style: AppTypography.bodySmall(color: AppColors.textMuted)),
-        Flexible(
-          child: Text(
-            value,
-            textAlign: TextAlign.right,
-            style: AppTypography.labelMedium(
-              color: valueColor ?? AppColors.text,
-            ),
-          ),
-        ),
-      ],
+      focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: _accent)),
     ),
   );
 

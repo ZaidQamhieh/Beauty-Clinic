@@ -6,9 +6,6 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/skeleton.dart';
 import '../../../network/api_client.dart';
-import '../../chat/presentation/ask_yasmine_pill.dart';
-import '../../forms/data/clinical_intake_api.dart';
-import '../../forms/data/clinical_intake_schema.dart';
 import '../data/appointment.dart';
 import '../data/appointment_api.dart';
 import '../data/booking_exceptions.dart';
@@ -29,7 +26,6 @@ class AppointmentsScreen extends StatefulWidget {
     required this.treatmentApi,
     required this.doctorApi,
     required this.bookedSignal,
-    this.clinicalApi,
     this.onNavigateToForms,
     this.focusedAppointmentId,
     this.refreshSignal,
@@ -38,7 +34,6 @@ class AppointmentsScreen extends StatefulWidget {
   final AppointmentApi appointmentApi;
   final TreatmentApi treatmentApi;
   final DoctorApi doctorApi;
-  final ClinicalIntakeApi? clinicalApi;
   final VoidCallback? onNavigateToForms;
   final String? focusedAppointmentId;
 
@@ -82,9 +77,6 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
   /// Booked while the first load ran.
   Appointment? _pendingBooked;
 
-  /// Null while unknown; drives the corner nudge.
-  bool? _clinicalFormComplete;
-
   /// How late a patient may cancel.
   Duration? _cancellationCutoff;
 
@@ -94,7 +86,6 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     widget.bookedSignal.addListener(_onExternalBooking);
     widget.refreshSignal?.addListener(_reloadAfterMutation);
     _useClinicRules();
-    _checkClinicalForm();
     _load();
   }
 
@@ -104,20 +95,6 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     if (oldWidget.refreshSignal != widget.refreshSignal) {
       oldWidget.refreshSignal?.removeListener(_reloadAfterMutation);
       widget.refreshSignal?.addListener(_reloadAfterMutation);
-    }
-  }
-
-  // Best-effort; failure just hides the nudge.
-  Future<void> _checkClinicalForm() async {
-    if (widget.clinicalApi == null) return;
-    try {
-      final data = await widget.clinicalApi!.fetchOwn();
-      if (!mounted) return;
-      setState(() {
-        _clinicalFormComplete = ClinicalIntakeSchema.isComplete(data);
-      });
-    } catch (_) {
-      // Leave it null; the nudge stays hidden.
     }
   }
 
@@ -458,48 +435,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
             ],
           ),
         ),
-        if (_clinicalFormComplete != null) _clinicalFormNudge(),
       ],
-    );
-  }
-
-  // Quiet corner access; never blocks booking.
-  Widget _clinicalFormNudge() {
-    final complete = _clinicalFormComplete == true;
-    final accent = complete ? AppColors.sageDark : AppColors.roseDark;
-    return Positioned(
-      right: 20,
-      // Sits above the Ask Yasmine pill.
-      bottom: 20 + AskYasminePill.height + 12,
-      child: Material(
-        color: AppColors.bgCard,
-        borderRadius: BorderRadius.circular(20),
-        elevation: 3,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(20),
-          onTap: () => widget.onNavigateToForms?.call(),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  complete
-                      ? Icons.assignment_turned_in_outlined
-                      : Icons.assignment_late_outlined,
-                  size: 16,
-                  color: accent,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  complete ? 'Review clinical form' : 'Complete clinical form',
-                  style: AppTypography.labelMedium(color: accent),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 

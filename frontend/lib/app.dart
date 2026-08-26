@@ -435,6 +435,7 @@ class _BeautyClinicAppState extends State<BeautyClinicApp> {
             treatmentApi: _treatmentApi,
             doctorApi: _doctorApi,
             apiClient: _apiClient,
+            onViewPatient: _onViewPatient,
           );
         }
         if (_activeRole == 'doctor') {
@@ -457,7 +458,6 @@ class _BeautyClinicAppState extends State<BeautyClinicApp> {
             treatmentApi: _treatmentApi,
             doctorApi: _doctorApi,
             bookedSignal: _bookedSignal,
-            clinicalApi: _clinicalApi,
             focusedAppointmentId: state.uri.queryParameters['focus'],
             onNavigateToForms: () => _router.go(
               AppRoutes.ownProfilePath(
@@ -480,6 +480,9 @@ class _BeautyClinicAppState extends State<BeautyClinicApp> {
             key: const ValueKey('doctor_directory'),
             doctorApi: _doctorApi,
             availabilityApi: _availabilityApi,
+            apiClient: _apiClient,
+            appointmentApi: _appointmentApi,
+            treatmentApi: _treatmentApi,
           );
         }
         return DashboardScreen(
@@ -520,7 +523,7 @@ class _BeautyClinicAppState extends State<BeautyClinicApp> {
           key: const ValueKey('patients_directory'),
           clinicalApi: _clinicalApi,
           onSelectPatient: _onViewPatient,
-          title: _activeRole == 'doctor' ? 'My Patients' : null,
+          title: _activeRole == 'doctor' ? 'Patients' : null,
           subtitle: _activeRole == 'doctor'
               ? 'Review patient intake status, treatment context, and clinical records.'
               : null,
@@ -617,6 +620,7 @@ class _BeautyClinicAppState extends State<BeautyClinicApp> {
                   ),
                 )
               : null,
+          onOpenVisits: () => _router.go(AppRoutes.pathFor('appointments')),
           onBack: () => _router.go(AppRoutes.pathFor('dashboard')),
         );
       case 'my_profile':

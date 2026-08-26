@@ -137,6 +137,16 @@ public interface AppointmentSessionRepository extends JpaRepository<AppointmentS
             """)
     List<AppointmentSession> findBetweenWithDetails(@Param("from") Instant from, @Param("to") Instant to);
 
+    @Query("""
+            select s from AppointmentSession s
+            where s.status = com.example.backend.entities.AppointmentSession.SessionStatus.COMPLETED
+              and s.startTime >= :from and s.startTime < :to
+            """)
+    List<AppointmentSession> findCompletedBetween(
+            @Param("from") Instant from,
+            @Param("to") Instant to
+    );
+
     @EntityGraph(attributePaths = {"appointment", "appointment.patient", "appointment.patient.user", "practitioner", "practitioner.user"})
     @Query("""
             select s from AppointmentSession s

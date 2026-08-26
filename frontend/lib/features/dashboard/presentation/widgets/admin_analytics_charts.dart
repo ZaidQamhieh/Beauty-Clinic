@@ -1013,7 +1013,7 @@ class NewVsReturningDonut extends StatelessWidget {
                       ).copyWith(fontSize: 20, fontWeight: FontWeight.w800),
                     ),
                     Text(
-                      'Total Visits',
+                      'Total Patients',
                       style: AppTypography.bodySmall(
                         color: AppColors.textMuted,
                       ).copyWith(fontSize: 10),
@@ -1110,6 +1110,7 @@ class PatientGrowthLineChart extends StatelessWidget {
   final String subtitle;
   final String? badgeText;
   final Color? badgeColor;
+  final String valueLabel;
 
   const PatientGrowthLineChart({
     super.key,
@@ -1119,6 +1120,7 @@ class PatientGrowthLineChart extends StatelessWidget {
         'Cumulative patient database expansion over selected window',
     this.badgeText = '+12% Database Growth',
     this.badgeColor = AppColors.sage,
+    this.valueLabel = 'Patients',
   });
 
   @override
@@ -1194,6 +1196,49 @@ class PatientGrowthLineChart extends StatelessWidget {
                   ),
                 ),
                 borderData: FlBorderData(show: false),
+                lineTouchData: LineTouchData(
+                  touchTooltipData: LineTouchTooltipData(
+                    getTooltipColor: (_) => AppColors.text,
+                    tooltipRoundedRadius: 12,
+                    tooltipPadding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 12,
+                    ),
+                    tooltipMargin: 12,
+                    fitInsideHorizontally: true,
+                    fitInsideVertically: true,
+                    getTooltipItems: (touchedSpots) => touchedSpots
+                        .map(
+                          (spot) => LineTooltipItem(
+                            '${spot.y.toInt()} $valueLabel',
+                            AppTypography.labelLarge(
+                              color: AppColors.bgCard,
+                            ).copyWith(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                  getTouchedSpotIndicator: (barData, spotIndexes) => spotIndexes
+                      .map(
+                        (_) => TouchedSpotIndicatorData(
+                          FlLine(color: AppColors.roseDark, strokeWidth: 3),
+                          FlDotData(
+                            show: true,
+                            getDotPainter: (spot, percent, bar, index) =>
+                                FlDotCirclePainter(
+                                  radius: 7,
+                                  color: AppColors.roseDark,
+                                  strokeWidth: 3,
+                                  strokeColor: AppColors.bgCard,
+                                ),
+                          ),
+                        ),
+                      )
+                      .toList(),
+                ),
                 lineBarsData: [
                   LineChartBarData(
                     spots: data

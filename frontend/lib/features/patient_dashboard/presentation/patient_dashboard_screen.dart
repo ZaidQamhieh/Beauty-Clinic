@@ -166,8 +166,6 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
             _buildSnapshot(skinType, formComplete),
             const SizedBox(height: 16),
             _buildUpcomingTreatments(),
-            const SizedBox(height: 16),
-            _buildQuickActions(),
           ],
         ),
       ),
@@ -205,6 +203,21 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
               ],
             ),
           ),
+          const SizedBox(width: 16),
+          OutlinedButton.icon(
+            onPressed: widget.onOpenProfile,
+            icon: const Icon(Icons.health_and_safety_outlined, size: 17),
+            label: const Text('Open medical profile'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.roseDark,
+              backgroundColor: AppColors.bgCard,
+              side: const BorderSide(color: AppColors.borderRose),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -214,6 +227,10 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     return _section(
       title: 'Your Health Snapshot',
       icon: Icons.favorite_outline,
+      action: TextButton(
+        onPressed: widget.onOpenClinicalForm,
+        child: const Text('Open form'),
+      ),
       child: Row(
         children: [
           Expanded(
@@ -259,6 +276,15 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     return _section(
       title: 'Upcoming Treatments',
       icon: Icons.auto_awesome_outlined,
+      action: FilledButton.icon(
+        onPressed: widget.onBookTreatment,
+        icon: const Icon(Icons.add, size: 17),
+        label: const Text('Book'),
+        style: FilledButton.styleFrom(
+          backgroundColor: AppColors.rose,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        ),
+      ),
       child: _upcoming.isEmpty
           ? _emptyText('Your upcoming treatments will appear here.')
           : Column(
@@ -299,33 +325,11 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     );
   }
 
-  Widget _buildQuickActions() {
-    return Row(
-      children: [
-        Expanded(
-          child: OutlinedButton.icon(
-            onPressed: widget.onOpenProfile,
-            icon: const Icon(Icons.person_outline),
-            label: const Text('My Medical Profile'),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: FilledButton.icon(
-            onPressed: widget.onBookTreatment,
-            icon: const Icon(Icons.add),
-            label: const Text('Book Treatment'),
-            style: FilledButton.styleFrom(backgroundColor: AppColors.rose),
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _section({
     required String title,
     required IconData icon,
     required Widget child,
+    Widget? action,
   }) {
     return Container(
       width: double.infinity,
@@ -342,7 +346,8 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
             children: [
               Icon(icon, color: AppColors.rose, size: 20),
               const SizedBox(width: 10),
-              Text(title, style: AppTypography.labelLarge()),
+              Expanded(child: Text(title, style: AppTypography.labelLarge())),
+              ?action,
             ],
           ),
           const SizedBox(height: 13),

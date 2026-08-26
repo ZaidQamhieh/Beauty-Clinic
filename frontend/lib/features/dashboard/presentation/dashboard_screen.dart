@@ -257,6 +257,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ],
             ),
           ),
+          if (widget.activeRole == 'receptionist') ...[
+            const SizedBox(width: 16),
+            OutlinedButton.icon(
+              onPressed: widget.onBookAppointment,
+              icon: const Icon(Icons.add, size: 17),
+              label: const Text('Book appointment'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.roseDark,
+                backgroundColor: AppColors.bgCard,
+                side: const BorderSide(color: AppColors.borderRose),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -499,6 +519,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   flex: isDesktop ? 1 : 0,
                   child: PatientGrowthLineChart(
                     data: adminData.patientAnalytics.growthTimeline,
+                    valueLabel: 'Patients',
                   ),
                 ),
               ],
@@ -912,6 +933,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   child: PatientGrowthLineChart(
                     data: _doctorDashboardData!.appointmentsOverTime,
                     title: 'Completed Sessions Over Time',
+                    valueLabel: 'Completed Sessions',
                     subtitle:
                         'Number of completed patient consultations per day in the selected period',
                     badgeText: 'Completed only',
@@ -962,141 +984,326 @@ class _DashboardScreenState extends State<DashboardScreen> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 240,
-                    child: _StatCard(
-                      label: "Today's appointments",
-                      value: '${todayAllAppointments.length}',
-                      sub: '',
-                      icon: Icons.today_outlined,
-                      color: AppColors.rose,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  SizedBox(
-                    width: 240,
-                    child: _StatCard(
-                      label: 'Upcoming this week',
-                      value: '$upcoming',
-                      sub: 'Booked visits',
-                      icon: Icons.date_range_outlined,
-                      color: AppColors.lavDark,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  SizedBox(
-                    width: 240,
-                    child: _StatCard(
-                      label: 'Cancellations today',
-                      value: '$cancelledToday',
-                      sub: '',
-                      icon: Icons.event_busy_outlined,
-                      color: AppColors.gold,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  SizedBox(
-                    width: 240,
-                    child: FutureBuilder<int>(
-                      future: _receptionDoctorCount,
-                      builder: (_, doctorSnapshot) => _StatCard(
-                        label: 'Doctors',
-                        value: '${doctorSnapshot.data ?? 0}',
-                        sub: 'Check availability',
-                        icon: Icons.medical_information_outlined,
-                        color: AppColors.sageDark,
-                        onTap: widget.onViewDoctors,
+            _receptionSection(
+              title: 'Today at a glance',
+              icon: Icons.query_stats_outlined,
+              child: IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      child: _receptionTile(
+                        "Today's appointments",
+                        '${todayAllAppointments.length}',
+                        Icons.today_outlined,
+                        AppColors.rose,
+                        AppColors.rosePale,
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                FilledButton.icon(
-                  onPressed: widget.onBookAppointment,
-                  icon: const Icon(Icons.add),
-                  label: const Text('Book appointment'),
-                ),
-                OutlinedButton.icon(
-                  onPressed: widget.onCheckInPatient,
-                  icon: const Icon(Icons.how_to_reg_outlined),
-                  label: const Text('Check in patient'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            Text("Today's schedule", style: AppTypography.displaySubtitle()),
-            const SizedBox(height: 12),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  for (final status in const ['ALL', 'BOOKED', 'CANCELLED'])
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: ChoiceChip(
-                        label: Text(
-                          status == 'ALL'
-                              ? 'All statuses'
-                              : status == 'BOOKED'
-                              ? 'Confirmed'
-                              : 'Cancelled',
-                        ),
-                        selected: _receptionStatusFilter == status,
-                        onSelected: (_) =>
-                            setState(() => _receptionStatusFilter = status),
-                        selectedColor: AppColors.rose,
-                        checkmarkColor: Colors.white,
-                        labelStyle: AppTypography.labelMedium(
-                          color: _receptionStatusFilter == status
-                              ? Colors.white
-                              : AppColors.textSub,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _receptionTile(
+                        'Upcoming this week',
+                        '$upcoming',
+                        Icons.date_range_outlined,
+                        AppColors.lavDark,
+                        AppColors.lavPale,
+                        sub: 'Booked visits',
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _receptionTile(
+                        'Cancellations today',
+                        '$cancelledToday',
+                        Icons.event_busy_outlined,
+                        AppColors.gold,
+                        AppColors.goldPale,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FutureBuilder<int>(
+                        future: _receptionDoctorCount,
+                        builder: (_, doctorSnapshot) => _receptionClickable(
+                          onTap: widget.onViewDoctors,
+                          child: _receptionTile(
+                            'Doctors',
+                            '${doctorSnapshot.data ?? 0}',
+                            Icons.medical_information_outlined,
+                            AppColors.sageDark,
+                            AppColors.sagePale,
+                            sub: 'Check availability',
+                          ),
                         ),
                       ),
                     ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            _receptionSection(
+              title: "Today's schedule",
+              icon: Icons.spa_outlined,
+              action: FilledButton.icon(
+                onPressed: widget.onCheckInPatient,
+                icon: const Icon(Icons.how_to_reg_outlined, size: 17),
+                label: const Text('Check in patient'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.rose,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        for (final status in const [
+                          'ALL',
+                          'BOOKED',
+                          'CANCELLED',
+                        ])
+                          Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: ChoiceChip(
+                              label: Text(
+                                status == 'ALL'
+                                    ? 'All statuses'
+                                    : status == 'BOOKED'
+                                    ? 'Confirmed'
+                                    : 'Cancelled',
+                              ),
+                              selected: _receptionStatusFilter == status,
+                              onSelected: (_) => setState(
+                                () => _receptionStatusFilter = status,
+                              ),
+                              selectedColor: AppColors.rose,
+                              checkmarkColor: Colors.white,
+                              labelStyle: AppTypography.labelMedium(
+                                color: _receptionStatusFilter == status
+                                    ? Colors.white
+                                    : AppColors.textSub,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  if (snapshot.connectionState != ConnectionState.done)
+                    const SizedBox(
+                      height: 300,
+                      child: SkeletonList(itemCount: 4),
+                    )
+                  else if (todayAppointments.isEmpty)
+                    Text(
+                      'No appointments scheduled today.',
+                      style: AppTypography.bodySmall(
+                        color: AppColors.textMuted,
+                      ),
+                    )
+                  else
+                    ...todayAppointments.map(
+                      (appointment) => _receptionScheduleRow(
+                        time: DateFormat(
+                          'HH:mm',
+                        ).format(appointment.scheduledAt.toLocal()),
+                        patient: appointment.patientName,
+                        treatment: appointment.sessions.isEmpty
+                            ? 'Appointment'
+                            : appointment.sessions
+                                  .map((session) => session.treatmentLabel)
+                                  .join(', '),
+                        doctor: appointment.sessions.isEmpty
+                            ? null
+                            : appointment.sessions.first.practitionerName,
+                        status: appointment.status == 'BOOKED'
+                            ? 'Confirmed'
+                            : 'Cancelled',
+                      ),
+                    ),
                 ],
               ),
             ),
-            const SizedBox(height: 12),
-            if (snapshot.connectionState != ConnectionState.done)
-              const SizedBox(height: 320, child: SkeletonList(itemCount: 4))
-            else if (todayAppointments.isEmpty)
-              Text(
-                'No appointments scheduled today.',
-                style: AppTypography.bodyMedium(color: AppColors.textMuted),
-              )
-            else
-              ...todayAppointments.map(
-                (appointment) => _buildAppointmentRow(
-                  time: DateFormat(
-                    'HH:mm',
-                  ).format(appointment.scheduledAt.toLocal()),
-                  patient: appointment.patientName,
-                  treatment: appointment.sessions.isEmpty
-                      ? 'Appointment'
-                      : appointment.sessions
-                            .map((session) => session.treatmentLabel)
-                            .join(', '),
-                  doctor: appointment.sessions.isEmpty
-                      ? null
-                      : appointment.sessions.first.practitionerName,
-                  status: appointment.status == 'BOOKED'
-                      ? 'Confirmed'
-                      : 'Cancelled',
-                ),
-              ),
           ],
         );
       },
+    );
+  }
+
+  // Card shell matching the patient dashboard.
+  Widget _receptionSection({
+    required String title,
+    required IconData icon,
+    required Widget child,
+    Widget? action,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppColors.bgCard,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: AppColors.rose, size: 20),
+              const SizedBox(width: 10),
+              Expanded(child: Text(title, style: AppTypography.labelLarge())),
+              ?action,
+            ],
+          ),
+          const SizedBox(height: 13),
+          child,
+        ],
+      ),
+    );
+  }
+
+  Widget _receptionTile(
+    String label,
+    String value,
+    IconData icon,
+    Color color,
+    Color chipColor, {
+    String? sub,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.bgAlt,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: chipColor,
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Icon(icon, color: color, size: 18),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            label,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: AppTypography.bodySmall(color: AppColors.textMuted),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            value,
+            style: AppTypography.displayStat().copyWith(fontSize: 26),
+          ),
+          if (sub != null) ...[
+            const SizedBox(height: 2),
+            Text(sub, style: AppTypography.bodySmall(color: color)),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _receptionScheduleRow({
+    required String time,
+    required String patient,
+    required String treatment,
+    String? doctor,
+    required String status,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+        decoration: BoxDecoration(
+          color: AppColors.bgAlt,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 52,
+              child: Text(
+                time,
+                style: AppTypography.numeric(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            Container(
+              width: 34,
+              height: 34,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: AppColors.bgCard,
+                borderRadius: BorderRadius.circular(9),
+              ),
+              child: const Icon(
+                Icons.spa_outlined,
+                color: AppColors.rose,
+                size: 17,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '$patient — $treatment',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.labelMedium(),
+                  ),
+                  if (doctor != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      doctor,
+                      style: AppTypography.bodySmall(
+                        color: AppColors.textMuted,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            StatusPill(status: status),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _receptionClickable({
+    required VoidCallback? onTap,
+    required Widget child,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: child,
+      ),
     );
   }
 
@@ -1286,7 +1493,6 @@ class _StatCard extends StatelessWidget {
   final Color color;
   final String? trend;
   final bool valueBesideLabel;
-  final VoidCallback? onTap;
 
   const _StatCard({
     required this.label,
@@ -1296,14 +1502,11 @@ class _StatCard extends StatelessWidget {
     required this.color,
     this.trend,
     this.valueBesideLabel = false,
-    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
+    return RepaintBoundary(
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
         decoration: BoxDecoration(

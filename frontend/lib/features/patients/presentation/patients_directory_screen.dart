@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
@@ -26,6 +28,8 @@ class PatientsDirectoryScreen extends StatefulWidget {
 
 class _PatientsDirectoryScreenState extends State<PatientsDirectoryScreen> {
   final TextEditingController _searchController = TextEditingController();
+  Timer? _searchDebounce;
+  int _loadGeneration = 0;
   List<Map<String, dynamic>> _patients = [];
   bool _isLoading = true;
   String? _error;
@@ -40,10 +44,12 @@ class _PatientsDirectoryScreenState extends State<PatientsDirectoryScreen> {
   @override
   void dispose() {
     _searchController.dispose();
+    _searchDebounce?.cancel();
     super.dispose();
   }
 
   Future<void> _loadPatients([String query = '']) async {
+    final generation = ++_loadGeneration;
     setState(() {
       _isLoading = true;
       _error = null;
@@ -51,18 +57,26 @@ class _PatientsDirectoryScreenState extends State<PatientsDirectoryScreen> {
 
     try {
       final data = await widget.clinicalApi.searchClinical(query);
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
       setState(() {
         _patients = data;
         _isLoading = false;
       });
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
       setState(() {
         _error = 'Failed to load patients: $e';
         _isLoading = false;
       });
     }
+  }
+
+  void _scheduleSearch() {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(
+      const Duration(milliseconds: 300),
+      () => _loadPatients(_searchController.text.trim()),
+    );
   }
 
   List<Map<String, dynamic>> get _filteredPatients {
@@ -135,7 +149,7 @@ class _PatientsDirectoryScreenState extends State<PatientsDirectoryScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  widget.title ?? 'Patients Directory',
+                  widget.title ?? 'Patients',
                   style: AppTypography.displayTitle(),
                 ),
                 const SizedBox(height: 4),
@@ -185,9 +199,9 @@ class _PatientsDirectoryScreenState extends State<PatientsDirectoryScreen> {
             Expanded(
               child: TextField(
                 controller: _searchController,
-                onSubmitted: (query) => _loadPatients(query.trim()),
-                onChanged: (val) {
-                  if (val.isEmpty) _loadPatients('');
+                onChanged: (_) {
+                  setState(() {});
+                  _scheduleSearch();
                 },
                 decoration: InputDecoration(
                   hintText: 'Search by patient name, email, or phone number...',
@@ -310,7 +324,7 @@ class _PatientsDirectoryScreenState extends State<PatientsDirectoryScreen> {
             crossAxisCount: crossAxisCount,
             crossAxisSpacing: 16,
             mainAxisSpacing: 16,
-            mainAxisExtent: 250,
+            mainAxisExtent: 180,
           ),
           itemCount: patients.length,
           itemBuilder: (context, index) {
@@ -350,7 +364,7 @@ class _PatientsDirectoryScreenState extends State<PatientsDirectoryScreen> {
         onTap: () => widget.onSelectPatient(patientId),
         hoverColor: AppColors.bgRose.withValues(alpha: 0.3),
         child: Padding(
-          padding: const EdgeInsets.all(18),
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 8),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -379,7 +393,6 @@ class _PatientsDirectoryScreenState extends State<PatientsDirectoryScreen> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(height: 2),
                         Text(
                           email,
                           style: AppTypography.bodySmall(
@@ -393,7 +406,7 @@ class _PatientsDirectoryScreenState extends State<PatientsDirectoryScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
 
               // Phone & Contact
               Row(
@@ -476,24 +489,13 @@ class _PatientsDirectoryScreenState extends State<PatientsDirectoryScreen> {
                 ],
               ),
 
-              const Spacer(),
               const Divider(height: 1),
               const SizedBox(height: 10),
 
               // Action button row
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  Flexible(
-                    child: Text(
-                      'ID: ${patientId.length > 8 ? patientId.substring(0, 8) : patientId}...',
-                      style: AppTypography.labelSmall(
-                        color: AppColors.textMuted,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
