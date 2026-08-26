@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -16,8 +15,7 @@ import '../data/doctor_summary.dart';
 import '../data/treatment_api.dart';
 import '../../patient_profile/data/session_record_api.dart';
 import '../../patient_profile/data/session_record.dart';
-import '../../products/data/product.dart';
-import '../../products/data/product_api.dart';
+import '../../patient_profile/presentation/session_record_dialogs.dart';
 import '../../patients/presentation/patient_picker.dart';
 import 'booking_flow_sheet.dart';
 
@@ -228,189 +226,50 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
     Appointment appointment,
     AppointmentSession session,
   ) async {
-    try {
-      final products = await ProductApi(widget.apiClient).list();
-      if (!mounted) return;
-      final input = await showDialog<_SessionRecordInput>(
-        context: context,
-        builder: (_) =>
-            _SessionRecordDialog(session: session, catalog: products),
-      );
-      if (input == null) return;
-
-      final previousAppointments = _appointments;
-      final previousRecords = _recordsBySession;
-      // Row completes now; server confirms after.
-      setState(() {
-        _replaceAppointment(
-          appointment.copyWith(
-            sessions: [
-              for (final current in appointment.sessions)
-                current.id == session.id
-                    ? current.withStatus('COMPLETED')
-                    : current,
-            ],
-          ),
-        );
-        _recordsBySession = {
-          ..._recordsBySession,
-          session.id: SessionRecord(
-            id: 'pending-${DateTime.now().microsecondsSinceEpoch}',
-            sessionId: session.id,
-            authorName: null,
-            note: input.note,
-            skinReaction: input.skinReaction,
-            followUpDate: input.followUpDate,
-            createdAt: DateTime.now(),
-            prescribedProductIds: input.prescribedProductIds,
-          ),
-        };
-      });
-
-      try {
-        if (session.isPlanned) {
-          await widget.appointmentApi.markAttended(appointment.id, session.id);
-        }
-        await SessionRecordApi(widget.apiClient).create(
-          patientId: appointment.patientUserId,
-          sessionId: session.id,
-          note: input.note,
-          skinReaction: input.skinReaction,
-          followUpDate: input.followUpDate,
-          prescribedProductIds: input.prescribedProductIds,
-        );
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Session completed and record saved.')),
-        );
-        await _refreshQuietly();
-      } catch (_) {
-        if (!mounted) return;
-        setState(() {
-          _appointments = previousAppointments;
-          _recordsBySession = previousRecords;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not complete the session.')),
-        );
-      }
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not complete the session.')),
-      );
+    final saved = await completeSessionWithRecord(
+      context: context,
+      apiClient: widget.apiClient,
+      appointmentApi: widget.appointmentApi,
+      appointmentId: appointment.id,
+      patientUserId: appointment.patientUserId,
+      session: session,
+    );
+    if (saved) {
+      // No skeleton for a routine refresh - what's on screen already stands
+      // until the confirmed data replaces it.
+      await _refreshQuietly();
     }
   }
 
   void _viewSessionRecord(SessionRecord record) {
-    showDialog<void>(
+    showSessionRecordViewDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        title: Text(
-          'Session record · ${record.createdAt.toLocal().toIso8601String().split('T').first}',
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                (record.note == null || record.note!.trim().isEmpty)
-                    ? 'No clinical note added.'
-                    : record.note!,
-              ),
-              const SizedBox(height: 12),
-              Text('Skin reaction: ${record.skinReaction ?? 'Not recorded'}'),
-              if (record.followUpDate != null)
-                Text('Follow-up: ${record.followUpDate}'),
-              Text(
-                'Prescribed products: ${record.prescribedProductIds.length}',
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          if (widget.canAuthorSessionRecords)
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                _editSessionRecord(record);
-              },
-              child: const Text('Edit'),
-            ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
+      record: record,
+      canEdit: widget.canAuthorSessionRecords,
+      onEdit: () => _editSessionRecord(record),
     );
   }
 
   Future<void> _editSessionRecord(SessionRecord record) async {
-    try {
-      final products = await ProductApi(widget.apiClient).list();
-      if (!mounted) return;
-      final input = await showDialog<_SessionRecordInput>(
-        context: context,
-        builder: (_) => _SessionRecordDialog(
-          session: _appointments
-              .expand((appointment) => appointment.sessions)
-              .firstWhere((session) => session.id == record.sessionId),
-          catalog: products,
-          initial: record,
-        ),
-      );
-      if (input == null) return;
-
-      final previousRecords = _recordsBySession;
-      // Shows the edit now; server confirms after.
-      setState(() {
-        _recordsBySession = {
-          ..._recordsBySession,
-          record.sessionId: SessionRecord(
-            id: record.id,
-            sessionId: record.sessionId,
-            authorName: record.authorName,
-            note: input.note,
-            skinReaction: input.skinReaction,
-            followUpDate: input.followUpDate,
-            createdAt: record.createdAt,
-            prescribedProductIds: input.prescribedProductIds,
+    final session = _appointments
+        .expand((appointment) => appointment.sessions)
+        .firstWhere((session) => session.id == record.sessionId);
+    final patientUserId = _appointments
+        .firstWhere(
+          (appointment) => appointment.sessions.any(
+            (session) => session.id == record.sessionId,
           ),
-        };
-      });
-
-      try {
-        await SessionRecordApi(widget.apiClient).amend(
-          patientId: _appointments
-              .firstWhere(
-                (appointment) => appointment.sessions.any(
-                  (session) => session.id == record.sessionId,
-                ),
-              )
-              .patientUserId,
-          recordId: record.id,
-          note: input.note,
-          skinReaction: input.skinReaction,
-          followUpDate: input.followUpDate,
-          prescribedProductIds: input.prescribedProductIds,
-        );
-        if (!mounted) return;
-        await _refreshQuietly();
-      } catch (_) {
-        if (!mounted) return;
-        setState(() => _recordsBySession = previousRecords);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not edit the session record.')),
-        );
-      }
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not edit the session record.')),
-        );
-      }
+        )
+        .patientUserId;
+    final saved = await editSessionRecord(
+      context: context,
+      apiClient: widget.apiClient,
+      record: record,
+      session: session,
+      patientUserId: patientUserId,
+    );
+    if (saved) {
+      await _refreshQuietly();
     }
   }
 
@@ -1293,180 +1152,5 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
         .split(RegExp(r'\s+'))
         .where((part) => part.isNotEmpty);
     return parts.take(2).map((part) => part[0]).join().toUpperCase();
-  }
-}
-
-class _SessionRecordInput {
-  const _SessionRecordInput({
-    required this.note,
-    required this.skinReaction,
-    required this.followUpDate,
-    required this.prescribedProductIds,
-  });
-
-  final String? note;
-  final String? skinReaction;
-  final String? followUpDate;
-  final List<String> prescribedProductIds;
-}
-
-class _SessionRecordDialog extends StatefulWidget {
-  const _SessionRecordDialog({
-    required this.session,
-    required this.catalog,
-    this.initial,
-  });
-
-  final AppointmentSession session;
-  final List<Product> catalog;
-  final SessionRecord? initial;
-
-  @override
-  State<_SessionRecordDialog> createState() => _SessionRecordDialogState();
-}
-
-class _SessionRecordDialogState extends State<_SessionRecordDialog> {
-  late final TextEditingController _note;
-  late final Set<String> _products;
-  late String _reaction;
-  DateTime? _followUp;
-
-  @override
-  void initState() {
-    super.initState();
-    final initial = widget.initial;
-    _note = TextEditingController(text: initial?.note ?? '');
-    _products = {...?initial?.prescribedProductIds};
-    _reaction = initial?.skinReaction ?? 'NONE';
-    _followUp = initial?.followUpDate == null
-        ? null
-        : DateTime.tryParse(initial!.followUpDate!);
-    _initialSnapshot = _snapshot();
-  }
-
-  late List<Object?> _initialSnapshot;
-
-  List<Object?> _snapshot() => [
-    _note.text,
-    _reaction,
-    _followUp,
-    ..._products.toList()..sort(),
-  ];
-
-  bool get _isDirty => !listEquals(_snapshot(), _initialSnapshot);
-
-  @override
-  void dispose() {
-    _note.dispose();
-    super.dispose();
-  }
-
-  Future<void> _chooseDate() async {
-    final now = DateTime.now();
-    // A past follow-up would break the picker.
-    final start = _followUp == null || _followUp!.isBefore(now)
-        ? now
-        : _followUp!;
-    final date = await showDatePicker(
-      context: context,
-      initialDate: start,
-      firstDate: now,
-      lastDate: now.add(const Duration(days: 3650)),
-    );
-    if (date != null) setState(() => _followUp = date);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text('Session record · ${widget.session.treatmentLabel}'),
-      content: SizedBox(
-        width: 520,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TextField(
-                controller: _note,
-                maxLines: 5,
-                maxLength: 4000,
-                decoration: const InputDecoration(
-                  labelText: 'Clinical note',
-                  alignLabelWithHint: true,
-                ),
-              ),
-              DropdownButtonFormField<String>(
-                initialValue: _reaction,
-                decoration: const InputDecoration(labelText: 'Skin reaction'),
-                items: const [
-                  DropdownMenuItem(value: 'NONE', child: Text('None')),
-                  DropdownMenuItem(value: 'MILD', child: Text('Mild')),
-                  DropdownMenuItem(value: 'MODERATE', child: Text('Moderate')),
-                  DropdownMenuItem(value: 'SEVERE', child: Text('Severe')),
-                ],
-                onChanged: (value) {
-                  if (value != null) setState(() => _reaction = value);
-                },
-              ),
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                onPressed: _chooseDate,
-                icon: const Icon(Icons.event_outlined, size: 16),
-                label: Text(
-                  _followUp == null
-                      ? 'Add follow-up date'
-                      : 'Follow-up: ${_followUp!.toIso8601String().split('T').first}',
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text('Prescribe products', style: AppTypography.labelLarge()),
-              ...widget.catalog.map(
-                (product) => CheckboxListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  value: _products.contains(product.id),
-                  title: Text('${product.brandLabel} ${product.typeLabel}'),
-                  onChanged: (selected) => setState(() {
-                    if (selected == true) {
-                      _products.add(product.id);
-                    } else {
-                      _products.remove(product.id);
-                    }
-                  }),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        ListenableBuilder(
-          listenable: _note,
-          builder: (context, _) => FilledButton(
-            onPressed: !_isDirty
-                ? null
-                : () => Navigator.of(context).pop(
-                    _SessionRecordInput(
-                      note: _note.text.trim().isEmpty
-                          ? null
-                          : _note.text.trim(),
-                      skinReaction: _reaction,
-                      followUpDate: _followUp
-                          ?.toIso8601String()
-                          .split('T')
-                          .first,
-                      prescribedProductIds: _products.toList(),
-                    ),
-                  ),
-            child: const Text('Save session record'),
-          ),
-        ),
-      ],
-    );
   }
 }

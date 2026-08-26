@@ -27,6 +27,7 @@ import 'package:beauty_clinic_app/features/appointments/data/treatment_api.dart'
 import 'package:beauty_clinic_app/features/appointments/presentation/appointments_screen.dart';
 import 'package:beauty_clinic_app/features/appointments/presentation/clinic_appointments_screen.dart';
 import 'package:beauty_clinic_app/features/appointments/presentation/booking_flow_sheet.dart';
+import 'package:beauty_clinic_app/features/appointments/presentation/patient_calendar_screen.dart';
 import 'package:beauty_clinic_app/features/chat/data/chat_api.dart';
 import 'package:beauty_clinic_app/features/chat/presentation/chat_launcher.dart';
 import 'package:beauty_clinic_app/features/forms/data/clinical_intake_api.dart';
@@ -76,6 +77,9 @@ class _BeautyClinicAppState extends State<BeautyClinicApp> {
   String? _userImageUrl;
   String? _selectedDoctorId;
 
+  // Guards against re-fetching on every subsequent session-changed event.
+  bool _clinicTimeRequested = false;
+
   // Where a refresh started, before auth loaded.
   String? _pendingLocation;
 
@@ -110,8 +114,27 @@ class _BeautyClinicAppState extends State<BeautyClinicApp> {
 
   void _handleSessionChanged() {
     if (!mounted) return;
-    if (_session.isAuthenticated && _userName == null) {
-      _loadUserName();
+    if (_session.isAuthenticated) {
+      if (_userName == null) {
+        _loadUserName();
+      }
+      if (!_clinicTimeRequested) {
+        _clinicTimeRequested = true;
+        _loadClinicTime();
+      }
+    }
+  }
+
+  // Doctor/admin screens (calendar, availability) never visit Appointments,
+  // which is the only other place this gets set - without this, their
+  // session-time displays would fall back to the device's own zone instead
+  // of the clinic's.
+  Future<void> _loadClinicTime() async {
+    try {
+      final rules = await _treatmentApi.rules();
+      ClinicTime.use(rules.timezone);
+    } catch (_) {
+      // The device zone stands in.
     }
   }
 
@@ -573,13 +596,19 @@ class _BeautyClinicAppState extends State<BeautyClinicApp> {
         return DoctorAvailabilityScreen(
           key: const ValueKey('doctor_availability'),
           api: _availabilityApi,
-          appointmentApi: _appointmentApi,
         );
       case 'my_calendar':
+        if (_activeRole == 'patient') {
+          return PatientCalendarScreen(
+            key: const ValueKey('my_calendar_patient'),
+            appointmentApi: _appointmentApi,
+          );
+        }
         return MyCalendarScreen(
           key: const ValueKey('my_calendar'),
           appointmentApi: _appointmentApi,
           availabilityApi: _availabilityApi,
+          apiClient: _apiClient,
         );
       case 'patient_profile':
         final tab = int.tryParse(state.uri.queryParameters['tab'] ?? '') ?? 0;

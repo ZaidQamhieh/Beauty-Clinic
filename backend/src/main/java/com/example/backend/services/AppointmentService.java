@@ -322,6 +322,11 @@ public class AppointmentService {
     }
 
     @Transactional(readOnly = true)
+    public List<AppointmentResponse> readOwnDayAsPatient(LocalDate date) {
+        return scheduleForPatient(currentUser.requireId(), date);
+    }
+
+    @Transactional(readOnly = true)
     public List<AppointmentResponse> readSchedule(UUID doctorId, LocalDate date) {
         if (doctorId != null) {
             return scheduleFor(doctorId, date);
@@ -665,6 +670,30 @@ public class AppointmentService {
     private List<AppointmentSession> sessionsFor(UUID doctorUserId, LocalDate date) {
         return sessions.findForPractitionerBetween(
                 doctorUserId, startOfDay(date), startOfDay(date.plusDays(1)));
+    }
+
+    // Mirrors scheduleFor/sessionsFor, patient-scoped instead of practitioner-scoped.
+    private List<AppointmentResponse> scheduleForPatient(UUID patientUserId, LocalDate date) {
+        Map<UUID, List<AppointmentSessionResponse>> byVisit = new LinkedHashMap<>();
+        Map<UUID, Appointment> visits = new LinkedHashMap<>();
+
+        sessionsForPatient(patientUserId, dayOrToday(date)).stream()
+                .filter(s -> s.getStatus() != SessionStatus.CANCELLED)
+                .forEach(s -> {
+                    visits.putIfAbsent(s.getAppointment().getId(), s.getAppointment());
+                    byVisit.computeIfAbsent(s.getAppointment().getId(), id -> new ArrayList<>())
+                            .add(AppointmentSessionResponse.of(s));
+                });
+
+        return visits.values().stream()
+                .map(a -> AppointmentResponse.of(a, byVisit.getOrDefault(a.getId(), List.of())))
+                .sorted(Comparator.comparing(AppointmentResponse::scheduledAt))
+                .toList();
+    }
+
+    private List<AppointmentSession> sessionsForPatient(UUID patientUserId, LocalDate date) {
+        return sessions.findForPatientBetween(
+                patientUserId, startOfDay(date), startOfDay(date.plusDays(1)));
     }
 
     private void assertBooked(Appointment appointment) {

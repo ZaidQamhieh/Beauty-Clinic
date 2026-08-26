@@ -176,6 +176,24 @@ class AppointmentApi {
     }
   }
 
+  /// The signed-in patient's own booked visits for a single day.
+  Future<List<Appointment>> myDayFor(DateTime date) async {
+    try {
+      final response = await _client.get<List<dynamic>>(
+        '/api/appointments/me/day',
+        queryParameters: {'date': _isoDate(date)},
+      );
+      return (response.data ?? const [])
+          .map(
+            (json) =>
+                Appointment.fromJson(Map<String, dynamic>.from(json as Map)),
+          )
+          .toList();
+    } on DioException catch (error) {
+      throw _mapError(error);
+    }
+  }
+
   /// Cancels the whole visit.
   Future<Appointment> cancel(String appointmentId) async {
     try {

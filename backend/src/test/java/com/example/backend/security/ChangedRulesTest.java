@@ -333,36 +333,43 @@ class ChangedRulesTest {
     private DoctorAvailabilityService availabilityServiceFor(boolean staff) {
         DoctorAvailabilityRepository availabilities = mock(DoctorAvailabilityRepository.class);
         when(availabilities.findByDoctorUserId(any())).thenReturn(List.of(
-                availability(AvailabilityKind.RECURRING, true),
-                availability(AvailabilityKind.OVERRIDE, true),
-                availability(AvailabilityKind.OVERRIDE, false)));
+                regularAvailability(), modifiedAvailability(), vacationAvailability()));
 
         CurrentUser caller = mock(CurrentUser.class);
         when(caller.isClinicStaff()).thenReturn(staff);
 
         return new DoctorAvailabilityService(availabilities, mock(DoctorProfileRepository.class), caller,
-                mock(ActivityLogService.class));
+                mock(ActivityLogService.class), mock(AppointmentSessionRepository.class), clinicProperties());
     }
 
-    private DoctorAvailability availability(AvailabilityKind kind, boolean available) {
+    private DoctorAvailability regularAvailability() {
+        return new DoctorAvailability(
+                mock(DoctorProfile.class), AvailabilityKind.REGULAR, java.time.DayOfWeek.MONDAY,
+                LocalTime.of(9, 0), LocalTime.of(17, 0), LocalDate.now());
+    }
+
+    private DoctorAvailability modifiedAvailability() {
         DoctorAvailability window = new DoctorAvailability(
-                mock(DoctorProfile.class),
-                kind,
-                kind == AvailabilityKind.RECURRING ? java.time.DayOfWeek.MONDAY : null,
-                LocalTime.of(9, 0),
-                LocalTime.of(17, 0),
-                LocalDate.now());
-        window.setAvailable(available);
+                mock(DoctorProfile.class), AvailabilityKind.MODIFIED, null,
+                LocalTime.of(9, 0), LocalTime.of(17, 0), LocalDate.now());
+        window.setEffectiveTo(LocalDate.now());
+        return window;
+    }
+
+    private DoctorAvailability vacationAvailability() {
+        DoctorAvailability window = new DoctorAvailability(
+                mock(DoctorProfile.class), AvailabilityKind.VACATION, null,
+                null, null, LocalDate.now());
+        window.setEffectiveTo(LocalDate.now());
         return window;
     }
 
     @Test
-    void aPatientNeverSeesADatedClosure() {
+    void aPatientNeverSeesAVacation() {
         List<DoctorAvailabilityResponse> visible =
                 availabilityServiceFor(false).list(UUID.randomUUID());
 
-        assertThat(visible).noneMatch(window ->
-                window.kind() == AvailabilityKind.OVERRIDE && !window.available());
+        assertThat(visible).noneMatch(window -> window.kind() == AvailabilityKind.VACATION);
         assertThat(visible).hasSize(2);
     }
 
@@ -371,27 +378,25 @@ class ChangedRulesTest {
         List<DoctorAvailabilityResponse> visible =
                 availabilityServiceFor(false).list(UUID.randomUUID());
 
-        assertThat(visible).allMatch(DoctorAvailabilityResponse::available);
         assertThat(visible).extracting(DoctorAvailabilityResponse::kind)
-                .containsExactly(AvailabilityKind.RECURRING, AvailabilityKind.OVERRIDE);
+                .containsExactly(AvailabilityKind.REGULAR, AvailabilityKind.MODIFIED);
     }
 
     @Test
-    void staffSeeTheClosuresToo() {
+    void staffSeeTheVacationsToo() {
         List<DoctorAvailabilityResponse> visible =
                 availabilityServiceFor(true).list(UUID.randomUUID());
 
         assertThat(visible).hasSize(3);
-        assertThat(visible).anyMatch(window ->
-                window.kind() == AvailabilityKind.OVERRIDE && !window.available());
+        assertThat(visible).anyMatch(window -> window.kind() == AvailabilityKind.VACATION);
     }
 
-    // ─── Overlap policy no longer keys off the available flag; new calendar status ───
+    // ─── Overlap policy is kind-aware; new priority-based calendar status ───
 
     @Test
-    void overlappingWindowsAreRejectedEvenWithDifferentAvailableFlags() {
+    void overlappingWindowsAreRejected() {
         UUID doctorId = UUID.randomUUID();
-        DoctorAvailability existing = availability(AvailabilityKind.RECURRING, true); // Monday 09:00-17:00, available
+        DoctorAvailability existing = regularAvailability(); // Monday 09:00-17:00
         existing.setId(UUID.randomUUID());
         DoctorAvailabilityRepository availabilities = mock(DoctorAvailabilityRepository.class);
         when(availabilities.findByDoctorUserId(doctorId)).thenReturn(List.of(existing));
@@ -401,13 +406,13 @@ class ChangedRulesTest {
 
         DoctorAvailabilityService service =
                 new DoctorAvailabilityService(availabilities, doctors, mock(CurrentUser.class),
-                        mock(ActivityLogService.class));
+                        mock(ActivityLogService.class), mock(AppointmentSessionRepository.class),
+                        clinicProperties());
 
         CreateDoctorAvailabilityRequest conflicting = new CreateDoctorAvailabilityRequest(
-                AvailabilityKind.RECURRING, java.time.DayOfWeek.MONDAY,
+                AvailabilityKind.REGULAR, java.time.DayOfWeek.MONDAY,
                 LocalTime.of(12, 0), LocalTime.of(13, 0),
-                false, // different available flag than the existing row - must still conflict now
-                LocalDate.now(), null);
+                LocalDate.now(), null, false);
 
         assertThatThrownBy(() -> service.add(doctorId, conflicting))
                 .isInstanceOf(ResponseStatusException.class)
@@ -419,27 +424,21 @@ class ChangedRulesTest {
         UUID doctorId = UUID.randomUUID();
         LocalDate monday = nextMonday();
 
-        DoctorAvailability recurring = availability(AvailabilityKind.RECURRING, true); // Monday 09:00-17:00, open
-        DoctorAvailability fullClosure = new DoctorAvailability(
-                mock(DoctorProfile.class),
-                AvailabilityKind.OVERRIDE,
-                null,
-                LocalTime.of(9, 0),
-                LocalTime.of(17, 0),
-                monday);
-        fullClosure.setEffectiveTo(monday);
-        fullClosure.setAvailable(false);
+        DoctorAvailability regular = regularAvailability(); // Monday 09:00-17:00
+        DoctorAvailability vacation = new DoctorAvailability(
+                mock(DoctorProfile.class), AvailabilityKind.VACATION, null, null, null, monday);
+        vacation.setEffectiveTo(monday);
 
         DoctorAvailabilityRepository availabilities = mock(DoctorAvailabilityRepository.class);
-        when(availabilities.findByDoctorUserId(doctorId)).thenReturn(List.of(recurring, fullClosure));
+        when(availabilities.findByDoctorUserId(doctorId)).thenReturn(List.of(regular, vacation));
 
         DoctorAvailabilityService service = new DoctorAvailabilityService(
                 availabilities, mock(DoctorProfileRepository.class), mock(CurrentUser.class),
-                mock(ActivityLogService.class));
+                mock(ActivityLogService.class), mock(AppointmentSessionRepository.class), clinicProperties());
 
         List<DoctorAvailabilityDayStatus> days = service.calendarStatus(doctorId, monday, monday.plusDays(1));
 
-        assertThat(days.get(0).status()).isEqualTo(DayAvailabilityStatus.UNAVAILABLE); // Monday: rule exists, no open time
+        assertThat(days.get(0).status()).isEqualTo(DayAvailabilityStatus.UNAVAILABLE); // Monday: vacation resolves to no open time
         assertThat(days.get(1).status()).isEqualTo(DayAvailabilityStatus.NONE); // Tuesday: no rule at all
     }
 

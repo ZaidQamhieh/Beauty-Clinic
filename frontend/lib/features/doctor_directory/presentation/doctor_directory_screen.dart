@@ -12,6 +12,8 @@ import '../../appointments/data/doctor_summary.dart';
 import '../../appointments/data/treatment_api.dart';
 import '../../appointments/presentation/booking_flow_sheet.dart';
 import '../../doctor_availability/data/doctor_availability_api.dart';
+import '../../doctor_availability/presentation/widgets/availability_sessions_view.dart'
+    show DayWindow, resolveAvailableWindows;
 import '../../patients/presentation/patient_picker.dart';
 
 /// Doctor directory for front-desk booking.
@@ -361,15 +363,22 @@ class _DoctorDirectoryScreenState extends State<DoctorDirectoryScreen> {
 
   Future<void> _openDoctorDialog(DoctorSummary doctor) {
     final schedule = _availability[doctor.userId] ?? const [];
-    final overrides =
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    // "Upcoming" means still relevant: today or later.
+    final exceptions =
         schedule
-            .where((item) => item.kind == AvailabilityKind.override)
+            .where(
+              (item) =>
+                  item.kind != AvailabilityKind.regular &&
+                  !(item.effectiveTo ?? item.effectiveFrom).isBefore(today),
+            )
             .toList()
           ..sort((a, b) => a.effectiveFrom.compareTo(b.effectiveFrom));
     final tags = doctor.categoryTags.isEmpty
         ? doctor.specializations.map(_formatSpecialty).toList()
         : doctor.categoryTags;
-    final today = _todayHours(doctor);
+    final todayHours = _todayHours(doctor);
 
     return showDialog<void>(
       context: context,
@@ -405,7 +414,7 @@ class _DoctorDirectoryScreenState extends State<DoctorDirectoryScreen> {
                 ],
               ),
             ),
-            _statusPill(today),
+            _statusPill(todayHours),
           ],
         ),
         content: SizedBox(
@@ -435,14 +444,14 @@ class _DoctorDirectoryScreenState extends State<DoctorDirectoryScreen> {
               ),
               const SizedBox(height: 8),
               _buildWeekStrip(doctor),
-              if (overrides.isNotEmpty) ...[
+              if (exceptions.isNotEmpty) ...[
                 const Divider(height: 26),
                 Text(
                   'UPCOMING CHANGES',
                   style: AppTypography.labelSmall(color: AppColors.textMuted),
                 ),
                 const SizedBox(height: 8),
-                for (final item in overrides.take(3)) _overrideRow(item),
+                for (final item in exceptions.take(3)) _exceptionRow(item),
               ],
             ],
           ),
@@ -505,28 +514,47 @@ class _DoctorDirectoryScreenState extends State<DoctorDirectoryScreen> {
     );
   }
 
-  Widget _overrideRow(DoctorAvailability item) {
+  // VACATION is the only closed exception; MODIFIED/EXTRA_DAY are open windows.
+  Widget _exceptionRow(DoctorAvailability item) {
     final date = DateFormat(
       'EEE d MMM yyyy',
     ).format(item.effectiveFrom.toLocal());
+    final isOpen = item.kind != AvailabilityKind.vacation;
+    final kindLabel = switch (item.kind) {
+      AvailabilityKind.vacation => 'Vacation',
+      AvailabilityKind.modified => 'Modified hours',
+      AvailabilityKind.extraDay => 'Extra day',
+      AvailabilityKind.regular => 'Regular',
+    };
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: item.available ? AppColors.goldPale : AppColors.bgAlt,
+        color: isOpen ? AppColors.goldPale : AppColors.bgAlt,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         children: [
           Icon(
-            item.available ? Icons.event_available_outlined : Icons.block,
+            isOpen ? Icons.event_available_outlined : Icons.block,
             size: 16,
-            color: item.available ? AppColors.gold : AppColors.textMuted,
+            color: isOpen ? AppColors.gold : AppColors.textMuted,
           ),
           const SizedBox(width: 10),
-          Expanded(child: Text(date, style: AppTypography.labelMedium())),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(date, style: AppTypography.labelMedium()),
+                Text(
+                  kindLabel,
+                  style: AppTypography.bodySmall(color: AppColors.textMuted),
+                ),
+              ],
+            ),
+          ),
           Text(
-            item.available
+            isOpen
                 ? '${_shortTime(item.startTime)}–${_shortTime(item.endTime)}'
                 : 'Not working',
             style: AppTypography.bodySmall(color: AppColors.textSub),
@@ -611,38 +639,61 @@ class _DoctorDirectoryScreenState extends State<DoctorDirectoryScreen> {
     );
   }
 
-  // Overrides for today beat the weekly pattern.
+  // The same priority cascade the backend resolves bookings against -
+  // VACATION/MODIFIED beat REGULAR, EXTRA_DAY only fills an otherwise-empty day.
   _TodayHours _todayHours(DoctorSummary doctor) {
     final schedule = _availability[doctor.userId] ?? const [];
     final now = DateTime.now();
-    for (final item in schedule) {
-      if (item.kind != AvailabilityKind.override) continue;
-      final date = item.effectiveFrom.toLocal();
-      if (date.year == now.year &&
-          date.month == now.month &&
-          date.day == now.day) {
-        return item.available
-            ? _TodayHours(
-                true,
-                '${_shortTime(item.startTime)}–${_shortTime(item.endTime)} · changed for today',
-              )
-            : const _TodayHours(false, 'Not working today');
-      }
+    final today = DateTime(now.year, now.month, now.day);
+    final windows = resolveAvailableWindows(today, schedule);
+    if (windows.isEmpty) {
+      return _TodayHours(false, _nextWorkingDay(doctor));
     }
-
-    final hours = _hoursFor(doctor, _dayFor(now.weekday));
-    if (hours != null) return _TodayHours(true, hours);
-    return _TodayHours(false, _nextWorkingDay(doctor));
+    final label = windows.map(_formatWindow).join(', ');
+    final changed = _hasExceptionOn(schedule, today);
+    return _TodayHours(true, changed ? '$label · changed for today' : label);
   }
 
+  bool _hasExceptionOn(List<DoctorAvailability> schedule, DateTime date) {
+    return schedule.any((item) {
+      if (item.kind == AvailabilityKind.regular) return false;
+      final from = _dateOnly(item.effectiveFrom);
+      final to = item.effectiveTo == null ? from : _dateOnly(item.effectiveTo!);
+      return !date.isBefore(from) && !date.isAfter(to);
+    });
+  }
+
+  DateTime _dateOnly(DateTime value) =>
+      DateTime(value.year, value.month, value.day);
+
+  String _formatWindow(DayWindow window) =>
+      '${_formatClock(window.start)}–${_formatClock(window.end)}';
+
+  String _formatClock(int minutes) {
+    final hour = (minutes ~/ 60).toString().padLeft(2, '0');
+    final minute = (minutes % 60).toString().padLeft(2, '0');
+    return '$hour:$minute';
+  }
+
+  // The recurring pattern only - joins multiple slots (e.g. a lunch gap)
+  // rather than showing just the first one.
   String? _hoursFor(DoctorSummary doctor, AvailabilityDay day) {
     final schedule = _availability[doctor.userId] ?? const [];
-    for (final item in schedule) {
-      if (item.kind != AvailabilityKind.recurring) continue;
-      if (item.dayOfWeek != day || !item.available) continue;
-      return '${_shortTime(item.startTime)}–${_shortTime(item.endTime)}';
-    }
-    return null;
+    final slots =
+        schedule
+            .where(
+              (item) =>
+                  item.kind == AvailabilityKind.regular &&
+                  item.dayOfWeek == day,
+            )
+            .toList()
+          ..sort((a, b) => (a.startTime ?? '').compareTo(b.startTime ?? ''));
+    if (slots.isEmpty) return null;
+    return slots
+        .map(
+          (item) => '${_shortTime(item.startTime)}–${_shortTime(item.endTime)}',
+        )
+        .join(', ');
   }
 
   String _nextWorkingDay(DoctorSummary doctor) {
@@ -680,8 +731,8 @@ class _DoctorDirectoryScreenState extends State<DoctorDirectoryScreen> {
     AvailabilityDay.sunday => 'Sunday',
   };
 
-  String _shortTime(String value) =>
-      value.length >= 5 ? value.substring(0, 5) : value;
+  String _shortTime(String? value) =>
+      value == null || value.length < 5 ? (value ?? '') : value.substring(0, 5);
 
   String _formatSpecialty(String value) {
     return value

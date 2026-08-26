@@ -15,13 +15,14 @@ public interface DoctorAvailabilityRepository extends JpaRepository<DoctorAvaila
 
     List<DoctorAvailability> findByDoctorUserId(UUID doctorUserId);
 
-    // Only the rows that can speak for this date; overrides accumulate and never expire on read.
+    // Only the rows that can speak for this date; dated exceptions match by date alone,
+    // REGULAR also needs the weekday.
     @Query("""
             select a from DoctorAvailability a
             where a.doctor.userId = :doctorUserId
               and a.effectiveFrom <= :date
               and (a.effectiveTo is null or a.effectiveTo >= :date)
-              and (a.kind = OVERRIDE or a.dayOfWeek = :dayOfWeek)
+              and (a.kind <> REGULAR or a.dayOfWeek = :dayOfWeek)
             """)
     List<DoctorAvailability> findEffectiveOn(
             @Param("doctorUserId") UUID doctorUserId,
@@ -34,7 +35,7 @@ public interface DoctorAvailabilityRepository extends JpaRepository<DoctorAvaila
             where a.doctor.userId in :doctorUserIds
               and a.effectiveFrom <= :date
               and (a.effectiveTo is null or a.effectiveTo >= :date)
-              and (a.kind = OVERRIDE or a.dayOfWeek = :dayOfWeek)
+              and (a.kind <> REGULAR or a.dayOfWeek = :dayOfWeek)
             """)
     List<DoctorAvailability> findEffectiveOnForAll(
             @Param("doctorUserIds") Collection<UUID> doctorUserIds,
