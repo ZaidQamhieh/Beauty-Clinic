@@ -287,7 +287,9 @@ class _SessionRecordDialogState extends State<SessionRecordDialog> {
   Future<void> _chooseDate() async {
     final now = DateTime.now();
     // A past follow-up would break the picker: initialDate can't precede firstDate.
-    final start = _followUp == null || _followUp!.isBefore(now) ? now : _followUp!;
+    final start = _followUp == null || _followUp!.isBefore(now)
+        ? now
+        : _followUp!;
     final date = await showDatePicker(
       context: context,
       initialDate: start,

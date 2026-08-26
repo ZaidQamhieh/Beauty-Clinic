@@ -63,15 +63,16 @@ List<DayWindow> resolveAvailableWindows(
     final modified = onDate
         .where((rule) => rule.kind == AvailabilityKind.modified)
         .toList();
-    baseline = (modified.isNotEmpty
-            ? modified
-            : onDate.where(
-                (rule) =>
-                    rule.kind == AvailabilityKind.regular &&
-                    rule.dayOfWeek == weekday,
-              ))
-        .map(_toWindow)
-        .toList();
+    baseline =
+        (modified.isNotEmpty
+                ? modified
+                : onDate.where(
+                    (rule) =>
+                        rule.kind == AvailabilityKind.regular &&
+                        rule.dayOfWeek == weekday,
+                  ))
+            .map(_toWindow)
+            .toList();
   }
 
   if (baseline.isEmpty) {
@@ -750,7 +751,8 @@ class _DayTimelineView extends StatelessWidget {
     final displayStart = _startHour * 60;
     final localStart = ClinicTime.at(session.startTime);
     final localEnd = ClinicTime.at(session.endTime);
-    final startMinutes = (localStart.hour * 60 + localStart.minute) - displayStart;
+    final startMinutes =
+        (localStart.hour * 60 + localStart.minute) - displayStart;
     final endMinutes = (localEnd.hour * 60 + localEnd.minute) - displayStart;
     final clampedStart = startMinutes.clamp(0, _totalMinutes);
     final clampedEnd = endMinutes.clamp(0, _totalMinutes);

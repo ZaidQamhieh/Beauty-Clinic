@@ -9,19 +9,21 @@ import 'package:beauty_clinic_app/features/doctor_availability/presentation/widg
 // of regression by actually building the dialog inside an AlertDialog/showDialog,
 // the way the real screen opens it, for every kind and for both add and edit.
 Future<void> _open(WidgetTester tester, Widget dialog) async {
-  await tester.pumpWidget(MaterialApp(
-    home: Scaffold(
-      body: Builder(
-        builder: (context) => ElevatedButton(
-          onPressed: () => showDialog<AvailabilityDraft>(
-            context: context,
-            builder: (context) => dialog,
+  await tester.pumpWidget(
+    MaterialApp(
+      home: Scaffold(
+        body: Builder(
+          builder: (context) => ElevatedButton(
+            onPressed: () => showDialog<AvailabilityDraft>(
+              context: context,
+              builder: (context) => dialog,
+            ),
+            child: const Text('open'),
           ),
-          child: const Text('open'),
         ),
       ),
     ),
-  ));
+  );
   await tester.tap(find.text('open'));
   await tester.pumpAndSettle();
 }
@@ -30,7 +32,10 @@ void main() {
   testWidgets(
     'adding a REGULAR slot for a weekday opens and offers only Regular',
     (tester) async {
-      await _open(tester, const AvailabilityEntryDialog(initialDay: AvailabilityDay.wednesday));
+      await _open(
+        tester,
+        const AvailabilityEntryDialog(initialDay: AvailabilityDay.wednesday),
+      );
       expect(find.text('Add availability'), findsOneWidget);
       expect(find.text('Regular'), findsOneWidget);
       expect(find.text('Vacation / Leave'), findsNothing);
@@ -42,7 +47,10 @@ void main() {
   testWidgets(
     'adding an exception opens and offers only the three exception kinds',
     (tester) async {
-      await _open(tester, const AvailabilityEntryDialog(initialKind: AvailabilityKind.vacation));
+      await _open(
+        tester,
+        const AvailabilityEntryDialog(initialKind: AvailabilityKind.vacation),
+      );
       expect(find.text('Add availability'), findsOneWidget);
       expect(find.text('Vacation / Leave'), findsOneWidget);
       expect(find.text('Modified Hours'), findsOneWidget);
@@ -76,7 +84,10 @@ void main() {
       // A SnackBar renders on the root Scaffold, which sits behind this
       // dialog's modal barrier while it's open - it would show up dimmed and
       // hard to read there instead of inside the dialog where it's visible.
-      await _open(tester, const AvailabilityEntryDialog(initialKind: AvailabilityKind.vacation));
+      await _open(
+        tester,
+        const AvailabilityEntryDialog(initialKind: AvailabilityKind.vacation),
+      );
       await tester.tap(find.text('Save'));
       await tester.pumpAndSettle();
 

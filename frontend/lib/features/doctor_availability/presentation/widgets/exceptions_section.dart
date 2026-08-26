@@ -48,7 +48,9 @@ class ExceptionsSection extends StatelessWidget {
                     Text('Exceptions', style: AppTypography.labelLarge()),
                     Text(
                       'Date-specific overrides - vacations, extra days, or modified hours',
-                      style: AppTypography.bodySmall(color: AppColors.textMuted),
+                      style: AppTypography.bodySmall(
+                        color: AppColors.textMuted,
+                      ),
                     ),
                   ],
                 ),
@@ -98,7 +100,10 @@ class ExceptionsSection extends StatelessWidget {
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                border: Border.all(color: color.withValues(alpha: 0.3), width: 2),
+                border: Border.all(
+                  color: color.withValues(alpha: 0.3),
+                  width: 2,
+                ),
               ),
               child: Icon(_kindIcon(item.kind), size: 16, color: color),
             ),
@@ -126,7 +131,10 @@ class ExceptionsSection extends StatelessWidget {
                 ],
               ),
             ),
-            TextButton(onPressed: () => onEdit(item), child: const Text('Edit')),
+            TextButton(
+              onPressed: () => onEdit(item),
+              child: const Text('Edit'),
+            ),
             TextButton(
               onPressed: () => onDelete(item),
               style: TextButton.styleFrom(foregroundColor: AppColors.roseDark),

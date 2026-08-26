@@ -128,9 +128,11 @@ class _AvailabilityEntryDialogState extends State<AvailabilityEntryDialog> {
     final item = widget.initial;
     _regularMode = item != null
         ? item.kind == AvailabilityKind.regular
-        : widget.initialDay != null || widget.initialKind == AvailabilityKind.regular;
+        : widget.initialDay != null ||
+              widget.initialKind == AvailabilityKind.regular;
 
-    _kind = item?.kind ??
+    _kind =
+        item?.kind ??
         widget.initialKind ??
         (_regularMode ? AvailabilityKind.regular : AvailabilityKind.vacation);
     _day =
@@ -173,7 +175,9 @@ class _AvailabilityEntryDialogState extends State<AvailabilityEntryDialog> {
       value.name[0].toUpperCase() + value.name.substring(1);
 
   Future<void> _pickDate(bool end) async {
-    final minimum = widget.initial == null && !end ? _todayOnly() : DateTime(2000);
+    final minimum = widget.initial == null && !end
+        ? _todayOnly()
+        : DateTime(2000);
     final wanted = end ? (_to ?? _from) : _from;
     final selected = await showDatePicker(
       context: context,
@@ -224,7 +228,9 @@ class _AvailabilityEntryDialogState extends State<AvailabilityEntryDialog> {
     final needsBoundedRange = _kind != AvailabilityKind.regular;
 
     return AlertDialog(
-      title: Text(widget.initial == null ? 'Add availability' : 'Edit availability'),
+      title: Text(
+        widget.initial == null ? 'Add availability' : 'Edit availability',
+      ),
       content: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 480),
         child: SingleChildScrollView(
@@ -235,21 +241,32 @@ class _AvailabilityEntryDialogState extends State<AvailabilityEntryDialog> {
               if (_errorMessage != null) ...[
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.bgRose,
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: AppColors.rose.withValues(alpha: 0.3)),
+                    border: Border.all(
+                      color: AppColors.rose.withValues(alpha: 0.3),
+                    ),
                   ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.error_outline, size: 16, color: AppColors.roseDark),
+                      const Icon(
+                        Icons.error_outline,
+                        size: 16,
+                        color: AppColors.roseDark,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           _errorMessage!,
-                          style: AppTypography.bodySmall(color: AppColors.roseDark),
+                          style: AppTypography.bodySmall(
+                            color: AppColors.roseDark,
+                          ),
                         ),
                       ),
                     ],
@@ -257,12 +274,18 @@ class _AvailabilityEntryDialogState extends State<AvailabilityEntryDialog> {
                 ),
                 const SizedBox(height: 16),
               ],
-              Text('Type', style: AppTypography.labelSmall(color: AppColors.textSub)),
+              Text(
+                'Type',
+                style: AppTypography.labelSmall(color: AppColors.textSub),
+              ),
               const SizedBox(height: 8),
               _kindGrid(),
               if (needsDay) ...[
                 const SizedBox(height: 16),
-                Text('Day of week', style: AppTypography.labelSmall(color: AppColors.textSub)),
+                Text(
+                  'Day of week',
+                  style: AppTypography.labelSmall(color: AppColors.textSub),
+                ),
                 const SizedBox(height: 8),
                 _dayChips(),
               ],
@@ -304,11 +327,19 @@ class _AvailabilityEntryDialogState extends State<AvailabilityEntryDialog> {
                 Row(
                   children: [
                     Expanded(
-                      child: _timeField('Start time', _start, () => _pickTime(true)),
+                      child: _timeField(
+                        'Start time',
+                        _start,
+                        () => _pickTime(true),
+                      ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: _timeField('End time', _end, () => _pickTime(false)),
+                      child: _timeField(
+                        'End time',
+                        _end,
+                        () => _pickTime(false),
+                      ),
                     ),
                   ],
                 ),
@@ -372,12 +403,18 @@ class _AvailabilityEntryDialogState extends State<AvailabilityEntryDialog> {
         color: active ? meta.bg : AppColors.bgAlt,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: active ? meta.color.withValues(alpha: 0.4) : AppColors.hairline,
+          color: active
+              ? meta.color.withValues(alpha: 0.4)
+              : AppColors.hairline,
         ),
       ),
       child: Row(
         children: [
-          Icon(meta.icon, size: 16, color: active ? meta.color : AppColors.textMuted),
+          Icon(
+            meta.icon,
+            size: 16,
+            color: active ? meta.color : AppColors.textMuted,
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -424,7 +461,9 @@ class _AvailabilityEntryDialogState extends State<AvailabilityEntryDialog> {
             color: active ? AppColors.sageDark : AppColors.textMuted,
           ),
           side: BorderSide(
-            color: active ? AppColors.sage.withValues(alpha: 0.4) : AppColors.hairline,
+            color: active
+                ? AppColors.sage.withValues(alpha: 0.4)
+                : AppColors.hairline,
           ),
           backgroundColor: AppColors.bgAlt,
         );
@@ -441,7 +480,10 @@ class _AvailabilityEntryDialogState extends State<AvailabilityEntryDialog> {
     return ListTile(
       contentPadding: EdgeInsets.zero,
       dense: true,
-      title: Text(label, style: AppTypography.labelSmall(color: AppColors.textSub)),
+      title: Text(
+        label,
+        style: AppTypography.labelSmall(color: AppColors.textSub),
+      ),
       subtitle: Text(value, style: AppTypography.bodyMedium()),
       onTap: onTap,
       trailing: Row(
@@ -465,7 +507,10 @@ class _AvailabilityEntryDialogState extends State<AvailabilityEntryDialog> {
     return ListTile(
       contentPadding: EdgeInsets.zero,
       dense: true,
-      title: Text(label, style: AppTypography.labelSmall(color: AppColors.textSub)),
+      title: Text(
+        label,
+        style: AppTypography.labelSmall(color: AppColors.textSub),
+      ),
       subtitle: Text(value.format(context), style: AppTypography.bodyMedium()),
       onTap: onTap,
       trailing: const Icon(Icons.schedule, size: 18),
@@ -503,7 +548,9 @@ class _AvailabilityEntryDialogState extends State<AvailabilityEntryDialog> {
       }
       if (_minutes(_start) < _minutes(_clinicOpens) ||
           _minutes(_end) > _minutes(_clinicCloses)) {
-        _showError('Availability must be within clinic hours (7:00 AM - 12:00 AM).');
+        _showError(
+          'Availability must be within clinic hours (7:00 AM - 12:00 AM).',
+        );
         return;
       }
     }

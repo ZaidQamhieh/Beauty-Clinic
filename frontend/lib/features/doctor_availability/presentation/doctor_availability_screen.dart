@@ -166,7 +166,10 @@ class _DoctorAvailabilityScreenState extends State<DoctorAvailabilityScreen> {
     } on DoctorAvailabilityConflictException catch (error) {
       if (!mounted) return;
       setState(() => _items = previous);
-      _showBlockingError('Booked appointments would be affected', error.message);
+      _showBlockingError(
+        'Booked appointments would be affected',
+        error.message,
+      );
     } on DoctorAvailabilityException catch (error) {
       if (!mounted) return;
       setState(() => _items = previous);
@@ -278,7 +281,10 @@ class _DoctorAvailabilityScreenState extends State<DoctorAvailabilityScreen> {
     } on DoctorAvailabilityConflictException catch (error) {
       if (!mounted) return;
       setState(() => _items = previous);
-      _showBlockingError('Booked appointments would be affected', error.message);
+      _showBlockingError(
+        'Booked appointments would be affected',
+        error.message,
+      );
     } on DoctorAvailabilityException catch (error) {
       if (!mounted) return;
       setState(() => _items = previous);
@@ -336,27 +342,40 @@ class _DoctorAvailabilityScreenState extends State<DoctorAvailabilityScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('Availability Schedule', style: AppTypography.displaySubtitle()),
+                    Text(
+                      'Availability Schedule',
+                      style: AppTypography.displaySubtitle(),
+                    ),
                     const SizedBox(height: 4),
                     Text(
                       'Set your weekly hours and manage vacations, extra days, '
                       'and modified hours.',
-                      style: AppTypography.bodySmall(color: AppColors.textMuted),
+                      style: AppTypography.bodySmall(
+                        color: AppColors.textMuted,
+                      ),
                     ),
                   ],
                 );
                 final action = FilledButton.icon(
-                  onPressed: () => _openDialog(initialKind: AvailabilityKind.vacation),
+                  onPressed: () =>
+                      _openDialog(initialKind: AvailabilityKind.vacation),
                   icon: const Icon(Icons.add, size: 18),
                   label: const Text('Add Exception'),
                 );
                 return narrow
                     ? Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [titleBlock, const SizedBox(height: 12), action],
+                        children: [
+                          titleBlock,
+                          const SizedBox(height: 12),
+                          action,
+                        ],
                       )
                     : Row(
-                        children: [Expanded(child: titleBlock), action],
+                        children: [
+                          Expanded(child: titleBlock),
+                          action,
+                        ],
                       );
               },
             ),

@@ -45,7 +45,9 @@ class WeeklyScheduleSection extends StatelessWidget {
                     Text('Weekly Schedule', style: AppTypography.labelLarge()),
                     Text(
                       'Recurring availability - applies every week unless overridden',
-                      style: AppTypography.bodySmall(color: AppColors.textMuted),
+                      style: AppTypography.bodySmall(
+                        color: AppColors.textMuted,
+                      ),
                     ),
                   ],
                 ),
@@ -87,7 +89,9 @@ class WeeklyScheduleSection extends StatelessWidget {
                     padding: const EdgeInsets.only(top: 2),
                     child: Text(
                       'Not available',
-                      style: AppTypography.bodySmall(color: AppColors.textMuted),
+                      style: AppTypography.bodySmall(
+                        color: AppColors.textMuted,
+                      ),
                     ),
                   ),
               ],
@@ -137,7 +141,11 @@ class WeeklyScheduleSection extends StatelessWidget {
           const SizedBox(width: 6),
           InkWell(
             onTap: () => onEdit(slot),
-            child: const Icon(Icons.edit_outlined, size: 14, color: AppColors.sageDark),
+            child: const Icon(
+              Icons.edit_outlined,
+              size: 14,
+              color: AppColors.sageDark,
+            ),
           ),
           const SizedBox(width: 6),
           InkWell(

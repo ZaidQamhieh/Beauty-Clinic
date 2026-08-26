@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../data/doctor_availability_api.dart';
-import 'availability_sessions_view.dart' show DayWindow, resolveAvailableWindows;
+import 'availability_sessions_view.dart'
+    show DayWindow, resolveAvailableWindows;
 
 enum _DayStatus { working, off, vacation, extraDay }
 
@@ -113,7 +114,9 @@ class _DayViewSectionState extends State<DayViewSection> {
                     Text('Day View', style: AppTypography.labelLarge()),
                     Text(
                       'Check effective availability for any specific date',
-                      style: AppTypography.bodySmall(color: AppColors.textMuted),
+                      style: AppTypography.bodySmall(
+                        color: AppColors.textMuted,
+                      ),
                     ),
                   ],
                 ),
@@ -144,18 +147,26 @@ class _DayViewSectionState extends State<DayViewSection> {
                 Text(_longDate(_date), style: AppTypography.labelLarge()),
                 const SizedBox(height: 10),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.bgCard,
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: style.color.withValues(alpha: 0.3)),
+                    border: Border.all(
+                      color: style.color.withValues(alpha: 0.3),
+                    ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(style.icon, size: 14, color: style.color),
                       const SizedBox(width: 6),
-                      Text(style.label, style: AppTypography.labelSmall(color: style.color)),
+                      Text(
+                        style.label,
+                        style: AppTypography.labelSmall(color: style.color),
+                      ),
                     ],
                   ),
                 ),
@@ -172,7 +183,10 @@ class _DayViewSectionState extends State<DayViewSection> {
                     Padding(
                       padding: const EdgeInsets.only(bottom: 6),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
+                        ),
                         decoration: BoxDecoration(
                           color: AppColors.bgCard,
                           borderRadius: BorderRadius.circular(10),
@@ -210,12 +224,18 @@ class _DayViewSectionState extends State<DayViewSection> {
       // Null effectiveTo means open-ended (the normal case for REGULAR), not
       // "same day as effectiveFrom" - it must cover every date from then on.
       if (rule.effectiveTo == null) return !onlyDate.isBefore(from);
-      final to = DateTime(rule.effectiveTo!.year, rule.effectiveTo!.month, rule.effectiveTo!.day);
+      final to = DateTime(
+        rule.effectiveTo!.year,
+        rule.effectiveTo!.month,
+        rule.effectiveTo!.day,
+      );
       return !onlyDate.isBefore(from) && !onlyDate.isAfter(to);
     }
 
     final onDate = availability.where(covers);
-    final vacation = onDate.any((rule) => rule.kind == AvailabilityKind.vacation);
+    final vacation = onDate.any(
+      (rule) => rule.kind == AvailabilityKind.vacation,
+    );
     if (windows.isEmpty) {
       return vacation ? _DayStatus.vacation : _DayStatus.off;
     }

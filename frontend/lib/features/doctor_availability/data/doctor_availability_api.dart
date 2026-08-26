@@ -278,9 +278,7 @@ class DoctorAvailabilityApi {
   Future<void> remove(DoctorAvailability item, {String? doctorId}) async {
     try {
       final id = doctorId ?? await _currentDoctorId();
-      await _client.delete<void>(
-        '/api/doctors/$id/availability/${item.id}',
-      );
+      await _client.delete<void>('/api/doctors/$id/availability/${item.id}');
     } on DioException catch (error) {
       throw _mapError(error);
     }

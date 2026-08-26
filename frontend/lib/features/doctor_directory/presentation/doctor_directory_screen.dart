@@ -683,13 +683,16 @@ class _DoctorDirectoryScreenState extends State<DoctorDirectoryScreen> {
         schedule
             .where(
               (item) =>
-                  item.kind == AvailabilityKind.regular && item.dayOfWeek == day,
+                  item.kind == AvailabilityKind.regular &&
+                  item.dayOfWeek == day,
             )
             .toList()
           ..sort((a, b) => (a.startTime ?? '').compareTo(b.startTime ?? ''));
     if (slots.isEmpty) return null;
     return slots
-        .map((item) => '${_shortTime(item.startTime)}–${_shortTime(item.endTime)}')
+        .map(
+          (item) => '${_shortTime(item.startTime)}–${_shortTime(item.endTime)}',
+        )
         .join(', ');
   }
 
