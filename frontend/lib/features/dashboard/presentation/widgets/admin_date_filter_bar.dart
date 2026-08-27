@@ -58,6 +58,19 @@ class AdminDateFilterBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bool isNarrow = constraints.maxWidth < 620;
+        final Widget card = _buildCard(context, isNarrow: isNarrow);
+
+        // Wide: card hugs contents, sits left.
+        if (isNarrow) return card;
+        return Align(alignment: Alignment.centerLeft, child: card);
+      },
+    );
+  }
+
+  Widget _buildCard(BuildContext context, {required bool isNarrow}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
@@ -72,12 +85,8 @@ class AdminDateFilterBar extends StatelessWidget {
           ),
         ],
       ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final bool isNarrow = constraints.maxWidth < 620;
-
-          if (isNarrow) {
-            return Column(
+      child: isNarrow
+          ? Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 _buildSegmentedButtons(context),
@@ -87,24 +96,15 @@ class AdminDateFilterBar extends StatelessWidget {
                   child: _buildDateBadge(),
                 ),
               ],
-            );
-          }
-
-          return Wrap(
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            runSpacing: 12,
-            spacing: 16,
-            children: [
-              // Filter options
-              _buildSegmentedButtons(context),
-
-              // Active Date Range Badge
-              _buildDateBadge(),
-            ],
-          );
-        },
-      ),
+            )
+          : Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildSegmentedButtons(context),
+                const SizedBox(width: 16),
+                _buildDateBadge(),
+              ],
+            ),
     );
   }
 
