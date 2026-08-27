@@ -43,6 +43,7 @@ public class AccountService {
     private final PasswordEncoder passwordEncoder;
     private final ActivityLogService activityLogs;
     private final CurrentUser currentUser;
+    private final RefreshTokenService refreshTokens;
     // Jackson 2 kept for Hibernate JsonNode.
     private final ObjectMapper objectMapper = new ObjectMapper()
             .registerModule(new JavaTimeModule());
@@ -126,6 +127,11 @@ public class AccountService {
         activityLogs.recordChange(
                 actor(), patientOrNull(account), ActivityAction.ACCOUNT_UPDATED,
                 "user_account", account.getId(), ActivityDiff.between(before, after));
+
+        // A reset evicts the owner everywhere.
+        if (hasText(request.password())) {
+            refreshTokens.revokeAllFor(account.getId());
+        }
 
         return AccountResponse.of(account, doctorProfile);
     }

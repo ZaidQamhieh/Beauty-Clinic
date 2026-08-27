@@ -27,12 +27,16 @@ class UserProfileScreen extends StatefulWidget {
     required this.apiClient,
     this.onBack,
     this.onProfileUpdated,
+    this.onPasswordChanged,
   });
 
   final Role role;
   final ApiClient apiClient;
   final VoidCallback? onBack;
   final Future<void> Function()? onProfileUpdated;
+
+  /// A new password ends every session.
+  final Future<void> Function()? onPasswordChanged;
 
   @override
   State<UserProfileScreen> createState() => _UserProfileScreenState();
@@ -337,6 +341,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         _newPasswordController.clear();
         _confirmPasswordController.clear();
       });
+      _showPasswordError('Password updated. Sign in again on every device.');
+      await widget.onPasswordChanged?.call();
     } on IncorrectCurrentPasswordException catch (error) {
       if (!mounted) return;
       setState(() => _changingPassword = false);

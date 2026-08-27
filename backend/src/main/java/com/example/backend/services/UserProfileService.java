@@ -35,6 +35,7 @@ public class UserProfileService {
     private final PasswordEncoder passwordEncoder;
     private final CurrentUser currentUser;
     private final ActivityLogService activityLogs;
+    private final RefreshTokenService refreshTokens;
 
     @Cacheable(value = "patientData", key = "'myProfile:' + @currentUser.requireId()")
     @Transactional(readOnly = true)
@@ -96,6 +97,9 @@ public class UserProfileService {
         activityLogs.record(
                 account.getId(), null, ActivityAction.PASSWORD_CHANGED,
                 "user_account", account.getId());
+
+        // A new password evicts every device.
+        refreshTokens.revokeAllFor(account.getId());
     }
 
     // Never the password hash.
