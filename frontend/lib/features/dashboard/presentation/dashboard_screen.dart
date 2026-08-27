@@ -408,7 +408,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         const SizedBox(height: 16),
         LayoutBuilder(
           builder: (context, constraints) {
-            // Three across reclaims a whole row of vertical space.
+            // Three across reclaims vertical space.
             final int columns = constraints.maxWidth > 1180
                 ? 3
                 : (constraints.maxWidth > 780 ? 2 : 1);
@@ -451,7 +451,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             for (int start = 0; start < cards.length; start += columns) {
               final slice = cards.skip(start).take(columns).toList();
               rows.add(
-                // Cards in a row take the height of the tallest one.
+                // Row cards match the tallest card.
                 IntrinsicHeight(
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -619,7 +619,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ],
             );
 
-            // Bounds the row so both cards take the taller card's height.
+            // Bounds row so cards match height.
             return isDesktop ? IntrinsicHeight(child: row) : row;
           },
         ),
@@ -627,7 +627,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  /// Fills the row height on desktop; plain child when the column is free.
+  /// Fills row height only when bounded.
   Widget _fill(bool bounded, Widget child) =>
       bounded ? Expanded(child: child) : child;
 
@@ -879,9 +879,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
         LayoutBuilder(
           builder: (context, constraints) {
             final bool isDesktop = constraints.maxWidth > 960;
-            return Flex(
+            final Flex row = Flex(
               direction: isDesktop ? Axis.horizontal : Axis.vertical,
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: isDesktop
+                  ? CrossAxisAlignment.stretch
+                  : CrossAxisAlignment.start,
               children: [
                 Expanded(
                   flex: isDesktop ? 1 : 0,
@@ -903,10 +905,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         'Number of completed patient consultations per day in the selected period',
                     badgeText: 'Completed only',
                     badgeColor: AppColors.sage,
+                    plotHeight: isDesktop ? 320 : 220,
                   ),
                 ),
               ],
             );
+
+            // Bounds row so cards match height.
+            return isDesktop ? IntrinsicHeight(child: row) : row;
           },
         ),
         const SizedBox(height: 20),
