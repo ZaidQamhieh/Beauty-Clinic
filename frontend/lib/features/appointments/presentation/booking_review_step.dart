@@ -8,6 +8,9 @@ import '../data/treatment.dart';
 import 'booking_format.dart';
 import 'booking_result_steps.dart';
 
+/// One visit holds at most ten sessions.
+const maxSessionsPerVisit = 10;
+
 /// One chosen treatment, waiting to be booked.
 class BookingCartItem {
   const BookingCartItem({required this.treatment, required this.slot});
@@ -85,7 +88,9 @@ class BookingReviewStep extends StatelessWidget {
           children: [
             Flexible(
               child: OutlinedButton(
-                onPressed: submitting ? null : onAddAnother,
+                onPressed: submitting || items.length >= maxSessionsPerVisit
+                    ? null
+                    : onAddAnother,
                 child: const Text('Add another'),
               ),
             ),

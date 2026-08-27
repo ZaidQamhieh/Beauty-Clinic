@@ -470,6 +470,13 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             ? 'Select at least one specialization.'
             : null) ??
         (isDoctor
+            ? FieldRules.selectionCount(
+                _selectedSpecializations.length,
+                'specializations',
+                max: 20,
+              )
+            : null) ??
+        (isDoctor
             ? FieldRules.yearsOfExperience(
                 _yearsOfExperienceController.text,
                 dateOfBirth: _selectedDateOfBirth,
@@ -676,6 +683,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       builder: (context, _) {
         final dirty = _profileDirty;
         if (dirty) {
+          final problem = _profileProblem();
+          if (problem != null) return _pill(problem, AppColors.rose);
           return _pill('Unsaved changes', AppColors.gold);
         }
         if (_saved) {
@@ -798,7 +807,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         ListenableBuilder(
           listenable: _profileFields,
           builder: (context, _) => FilledButton(
-            onPressed: _saving || !_profileDirty ? null : _save,
+            onPressed: _saving || !_profileDirty || _profileProblem() != null
+                ? null
+                : _save,
             child: _saving
                 ? const SizedBox(
                     width: 16,

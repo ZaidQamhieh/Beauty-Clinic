@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../auth/auth_session.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_typography.dart';
+import '../core/validation/field_rules.dart';
 import '../core/widgets/floating_petals.dart';
 import '../core/widgets/yasmine_logo.dart';
 
@@ -190,16 +191,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   labelText: 'Email',
                                   prefixIcon: Icon(Icons.mail_outline),
                                 ),
-                                validator: (value) {
-                                  final email = value?.trim() ?? '';
-                                  if (email.isEmpty) {
-                                    return 'Enter your email.';
-                                  }
-                                  if (!email.contains('@')) {
-                                    return 'Enter a valid email.';
-                                  }
-                                  return null;
-                                },
+                                validator: FieldRules.email,
                               ),
                               const SizedBox(height: 16),
                               TextFormField(
@@ -230,10 +222,11 @@ class _LoginScreenState extends State<LoginScreen> {
                                     ),
                                   ),
                                 ),
-                                validator: (value) =>
-                                    value == null || value.isEmpty
-                                    ? 'Enter your password.'
-                                    : null,
+                                validator: (value) => FieldRules.boundedText(
+                                  value,
+                                  'Password',
+                                  max: 72,
+                                ),
                               ),
                               if (_errorMessage != null) ...[
                                 const SizedBox(height: 16),

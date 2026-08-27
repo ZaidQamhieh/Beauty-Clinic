@@ -274,7 +274,23 @@ class _SessionRecordDialogState extends State<SessionRecordDialog> {
     if (_reaction == 'SEVERE' && _followUp == null) {
       return 'A severe reaction needs a follow-up date.';
     }
-    return FieldRules.followUpDate(_followUp);
+    final note = FieldRules.boundedText(
+      _note.text,
+      'Clinical note',
+      max: 4000,
+      required: false,
+    );
+    if (note != null) return note;
+    final products = FieldRules.selectionCount(
+      _products.length,
+      'products',
+      max: 20,
+    );
+    if (products != null) return products;
+    return FieldRules.followUpDate(
+      _followUp,
+      notBefore: widget.session.startTime,
+    );
   }
 
   @override

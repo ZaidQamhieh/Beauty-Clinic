@@ -118,6 +118,18 @@ class _StaffFormDialogState extends State<_StaffFormDialog> {
       return;
     }
 
+    final tooMany = _isDoctor
+        ? FieldRules.selectionCount(
+            _selectedSpecializations.length,
+            'specializations',
+            max: 20,
+          )
+        : null;
+    if (tooMany != null) {
+      setState(() => _submitError = tooMany);
+      return;
+    }
+
     setState(() {
       _isSubmitting = true;
       _submitError = null;
