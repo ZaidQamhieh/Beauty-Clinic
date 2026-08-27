@@ -1,3 +1,6 @@
+/// Decides whether a field or option applies.
+typedef FieldVisibility = bool Function(Map<String, dynamic> values);
+
 /// Supported input types a [DynamicFormRenderer] knows how to draw.
 ///
 /// Deliberately small and closed: every case here maps to one widget in
@@ -39,10 +42,24 @@ extension FormFieldTypeWire on FormFieldType {
 /// [value] is the wire value the backend enum serializes to (its Java
 /// `name()`); [label] is what the form displays for it.
 class FormOption {
-  const FormOption({required this.value, required this.label});
+  const FormOption({
+    required this.value,
+    required this.label,
+    this.visibleWhen,
+  });
 
   final String value;
   final String label;
+
+  /// Hides this choice for some answer combinations.
+  final FieldVisibility? visibleWhen;
+
+  bool isVisible(Map<String, dynamic> values) =>
+      visibleWhen?.call(values) ?? true;
+
+  /// Same option carrying a different label.
+  FormOption withLabel(String newLabel) =>
+      FormOption(value: value, label: newLabel, visibleWhen: visibleWhen);
 
   /// Builds options from raw backend enum constants, humanizing each into a
   /// label — e.g. `HORMONAL_CONTRACEPTIVES` -> `Hormonal contraceptives`.
@@ -75,6 +92,7 @@ class FormFieldSchema {
     this.helpText,
     this.options = const [],
     this.maxSelections,
+    this.visibleWhen,
   });
 
   final String id;
@@ -96,5 +114,42 @@ class FormFieldSchema {
   /// list. Null means uncapped.
   final int? maxSelections;
 
+  /// Hides this field for some answer combinations.
+  final FieldVisibility? visibleWhen;
+
   Set<String> get optionValues => options.map((o) => o.value).toSet();
+
+  bool isVisible(Map<String, dynamic> values) =>
+      visibleWhen?.call(values) ?? true;
+
+  List<FormOption> visibleOptions(Map<String, dynamic> values) => [
+    for (final option in options)
+      if (option.isVisible(values)) option,
+  ];
+
+  Set<String> visibleOptionValues(Map<String, dynamic> values) =>
+      visibleOptions(values).map((o) => o.value).toSet();
+
+  /// Value an unanswered field holds.
+  dynamic get emptyValue => switch (type) {
+    FormFieldType.boolean => false,
+    FormFieldType.singleSelect => null,
+    FormFieldType.multiSelect => <String>[],
+  };
+
+  /// Copy carrying only options that apply here.
+  FormFieldSchema resolved(Map<String, dynamic> values) {
+    final visible = visibleOptions(values);
+    if (visible.length == options.length) return this;
+    return FormFieldSchema(
+      id: id,
+      label: label,
+      type: type,
+      required: required,
+      helpText: helpText,
+      options: visible,
+      maxSelections: maxSelections,
+      visibleWhen: visibleWhen,
+    );
+  }
 }

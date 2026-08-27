@@ -198,7 +198,8 @@ class _StaffFormDialogState extends State<_StaffFormDialog> {
                       child: _textField(
                         controller: _firstNameController,
                         label: 'First Name *',
-                        validator: _requiredValidator,
+                        validator: (value) =>
+                            FieldRules.personName(value, 'First name'),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -206,7 +207,8 @@ class _StaffFormDialogState extends State<_StaffFormDialog> {
                       child: _textField(
                         controller: _lastNameController,
                         label: 'Last Name *',
-                        validator: _requiredValidator,
+                        validator: (value) =>
+                            FieldRules.personName(value, 'Last name'),
                       ),
                     ),
                   ],
@@ -217,7 +219,7 @@ class _StaffFormDialogState extends State<_StaffFormDialog> {
                   controller: _dateOfBirthController,
                   onTap: _pickDateOfBirth,
                   validator: (_) =>
-                      _selectedDateOfBirth == null ? 'Required' : null,
+                      FieldRules.dateOfBirth(_selectedDateOfBirth, minAge: 18),
                 ),
                 const SizedBox(height: 12),
                 _dropdownField<_Gender>(
@@ -234,12 +236,7 @@ class _StaffFormDialogState extends State<_StaffFormDialog> {
                   controller: _emailController,
                   label: 'Email Address *',
                   keyboardType: TextInputType.emailAddress,
-                  validator: (value) {
-                    if (value == null || !value.contains('@')) {
-                      return 'Enter a valid email';
-                    }
-                    return null;
-                  },
+                  validator: FieldRules.email,
                 ),
                 const SizedBox(height: 12),
                 Row(
@@ -264,15 +261,16 @@ class _StaffFormDialogState extends State<_StaffFormDialog> {
                       : 'Temporary Password *',
                   obscureText: true,
                   validator: (value) {
-                    final trimmed = value?.trim() ?? '';
-                    if (_isEditing && trimmed.isEmpty) {
+                    // Blank on edit keeps old password.
+                    if (_isEditing && (value?.trim().isEmpty ?? true)) {
                       return null;
                     }
-
-                    if (trimmed.length < 8) {
-                      return 'Minimum 8 characters';
-                    }
-                    return null;
+                    return FieldRules.password(
+                      value,
+                      email: _emailController.text,
+                      firstName: _firstNameController.text,
+                      lastName: _lastNameController.text,
+                    );
                   },
                 ),
                 ListenableBuilder(
@@ -388,39 +386,11 @@ class _StaffFormDialogState extends State<_StaffFormDialog> {
     );
   }
 
-  String? _requiredValidator(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'Required';
-    }
-    return null;
-  }
+  String? _experienceValidator(String? value) =>
+      FieldRules.yearsOfExperience(value, dateOfBirth: _selectedDateOfBirth);
 
-  String? _experienceValidator(String? value) {
-    final trimmed = value?.trim() ?? '';
-    if (trimmed.isEmpty) {
-      return 'Required';
-    }
-
-    final years = int.tryParse(trimmed);
-    if (years == null || years < 0) {
-      return 'Enter a valid number';
-    }
-
-    return null;
-  }
-
-  String? _mobileNumberValidator(String? value) {
-    final trimmed = value?.trim() ?? '';
-    if (trimmed.isEmpty) {
-      return 'Required';
-    }
-
-    if (!RegExp(r'^\d{9}$').hasMatch(trimmed)) {
-      return 'Enter exactly 9 digits';
-    }
-
-    return null;
-  }
+  String? _mobileNumberValidator(String? value) =>
+      FieldRules.phoneDigits(value, length: 9);
 
   Future<void> _pickDateOfBirth() async {
     final now = DateTime.now();

@@ -1,3 +1,4 @@
+import '../domain/clinical_rules.dart';
 import '../domain/form_field_schema.dart';
 import '../domain/form_schema.dart';
 
@@ -14,12 +15,14 @@ abstract final class ClinicalIntakeSchema {
   static const schema = FormSchema(
     id: 'patient-clinical-intake',
     title: 'Clinic Forms',
+    crossFieldRules: ClinicalRules.all,
     fields: [
       FormFieldSchema(
         id: 'pregnantBreastfeeding',
         label: 'Pregnant or breastfeeding',
         type: FormFieldType.boolean,
         required: true,
+        visibleWhen: ClinicalRules.notMale,
       ),
       FormFieldSchema(
         id: 'skinType',
@@ -78,6 +81,7 @@ abstract final class ClinicalIntakeSchema {
           FormOption(
             value: 'HORMONAL_CONTRACEPTIVES',
             label: 'Hormonal contraceptives',
+            visibleWhen: ClinicalRules.notMale,
           ),
           FormOption(value: 'ANTIBIOTICS', label: 'Antibiotics'),
         ],
@@ -125,7 +129,8 @@ abstract final class ClinicalIntakeSchema {
   static Map<String, dynamic> toRequestJson(Map<String, dynamic> values) {
     return {
       'pregnantBreastfeeding':
-          values['pregnantBreastfeeding'] as bool? ?? false,
+          ClinicalRules.notMale(values) &&
+          values['pregnantBreastfeeding'] == true,
       'skinType': values['skinType'],
       'smokingStatus': values['smokingStatus'],
       'allergies': values['allergies'] ?? <String>[],

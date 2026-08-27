@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../auth/auth_session.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_typography.dart';
+import '../core/validation/field_rules.dart';
 import '../core/widgets/floating_petals.dart';
 import '../core/widgets/password_strength_meter.dart';
 import '../core/widgets/yasmine_logo.dart';
@@ -177,14 +178,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 labelText: 'Email',
                                 prefixIcon: Icon(Icons.mail_outline),
                               ),
-                              validator: (value) {
-                                final email = value?.trim() ?? '';
-                                if (email.isEmpty) return 'Enter your email.';
-                                if (!email.contains('@')) {
-                                  return 'Enter a valid email.';
-                                }
-                                return null;
-                              },
+                              validator: FieldRules.email,
                             ),
                             const SizedBox(height: 16),
                             TextFormField(
@@ -211,9 +205,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   ),
                                 ),
                               ),
-                              validator: (value) => (value?.length ?? 0) < 8
-                                  ? 'Use at least 8 characters.'
-                                  : null,
+                              validator: (value) => FieldRules.password(
+                                value,
+                                email: _emailController.text,
+                                firstName: _firstNameController.text,
+                                lastName: _lastNameController.text,
+                              ),
                             ),
                             ListenableBuilder(
                               listenable: _passwordController,
@@ -231,10 +228,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 labelText: 'Confirm password',
                                 prefixIcon: Icon(Icons.lock_outline),
                               ),
-                              validator: (value) =>
-                                  value != _passwordController.text
-                                  ? 'Passwords do not match.'
-                                  : null,
+                              validator: (value) => FieldRules.confirmPassword(
+                                value,
+                                _passwordController.text,
+                              ),
                             ),
                             if (_errorMessage != null) ...[
                               const SizedBox(height: 16),
@@ -315,7 +312,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
         enabled: !_submitting,
         textCapitalization: TextCapitalization.words,
         decoration: InputDecoration(labelText: label),
-        validator: (value) =>
-            (value?.trim().isEmpty ?? true) ? 'Required.' : null,
+        validator: (value) => FieldRules.personName(value, label),
       );
 }

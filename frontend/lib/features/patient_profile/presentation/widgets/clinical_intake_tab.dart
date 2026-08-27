@@ -126,9 +126,11 @@ class _ClinicalIntakeTabState extends State<ClinicalIntakeTab> {
     setState(() => _isSaving = true);
 
     try {
+      // Drops answers to questions this patient never saw.
+      final pruned = _controller.schema.pruneHidden(_controller.values);
       final fieldKeys = _controller.schema.fields.map((f) => f.id).toSet();
       final cleanValues = Map<String, dynamic>.fromEntries(
-        _controller.values.entries.where((e) => fieldKeys.contains(e.key)),
+        pruned.entries.where((e) => fieldKeys.contains(e.key)),
       );
 
       if (widget.patientId == null) {

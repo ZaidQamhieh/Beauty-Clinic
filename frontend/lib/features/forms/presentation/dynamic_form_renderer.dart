@@ -25,16 +25,49 @@ class DynamicFormRenderer extends StatelessWidget {
       child: AnimatedBuilder(
         animation: controller,
         builder: (context, _) {
+          // Questions that do not apply are never drawn.
+          final fields = controller.schema.visibleFields(controller.values);
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              for (final field in controller.schema.fields) ...[
-                _FieldCard(child: _buildField(field)),
+              for (final field in fields) ...[
+                _FieldCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildField(field.resolved(controller.values)),
+                      _buildWarning(field.id),
+                    ],
+                  ),
+                ),
                 const SizedBox(height: 20),
               ],
             ],
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildWarning(String fieldId) {
+    final warning = controller.warnings[fieldId];
+    if (warning == null || controller.errors[fieldId] != null) {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.info_outline, size: 16, color: AppColors.gold),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              warning,
+              style: const TextStyle(fontSize: 12.5, color: AppColors.gold),
+            ),
+          ),
+        ],
       ),
     );
   }
