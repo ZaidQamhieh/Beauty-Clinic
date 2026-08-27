@@ -44,7 +44,7 @@ services:
       AUTH_JWT_SECRET: ${AUTH_JWT_SECRET:?AUTH_JWT_SECRET is required}
       AUTH_TOKEN_ISSUER: ${AUTH_TOKEN_ISSUER:-https://beauty-clinic.example}
       AUTH_ACCESS_TTL: ${AUTH_ACCESS_TTL:-15m}
-      AUTH_REFRESH_TTL: ${AUTH_REFRESH_TTL:-12h}
+      AUTH_REFRESH_TTL: ${AUTH_REFRESH_TTL:-15d}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:?CORS_ALLOWED_ORIGINS is required}
     depends_on:
       postgres:
