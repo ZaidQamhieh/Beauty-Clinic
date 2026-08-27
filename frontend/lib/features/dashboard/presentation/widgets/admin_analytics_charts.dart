@@ -1174,7 +1174,6 @@ class PatientGrowthLineChart extends StatelessWidget {
     this.plotHeight = 220,
   });
 
-
   @override
   Widget build(BuildContext context) {
     final double top = data.isEmpty
