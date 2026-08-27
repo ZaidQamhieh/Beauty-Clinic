@@ -101,10 +101,7 @@ class AdminDateFilterBar extends StatelessWidget {
               spacing: 16,
               runSpacing: 12,
               crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                _buildSegmentedButtons(context),
-                _buildDateBadge(),
-              ],
+              children: [_buildSegmentedButtons(context), _buildDateBadge()],
             ),
     );
   }
