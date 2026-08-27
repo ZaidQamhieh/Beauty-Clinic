@@ -32,7 +32,7 @@ public class DynamicFormController {
 
     @GetMapping
     public List<FormQuestionResponse> publishedSchema() {
-        return forms.schema(false);
+        return forms.visibleTo(forms.schema(false), currentUser.id().orElse(null));
     }
 
     @GetMapping("/answers/me")

@@ -41,6 +41,9 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
   _DoctorSpecialization? _specializationFilter;
   _ExperienceFilter _experienceFilter = _ExperienceFilter.all;
 
+  // Null keeps the order the API returned.
+  bool? _experienceAscending;
+
   @override
   void initState() {
     super.initState();
@@ -127,11 +130,53 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
       );
     }
 
-    return result.toList();
+    final sorted = result.toList();
+    final ascending = _experienceAscending;
+    if (ascending != null) {
+      sorted.sort((a, b) => _compareExperience(a, b, ascending));
+    }
+
+    return sorted;
+  }
+
+  // Staff without years always sort last.
+  int _compareExperience(StaffMember a, StaffMember b, bool ascending) {
+    final left = a.yearsOfExperience;
+    final right = b.yearsOfExperience;
+
+    if (left == null && right == null) {
+      return 0;
+    }
+    if (left == null) {
+      return 1;
+    }
+    if (right == null) {
+      return -1;
+    }
+
+    return ascending ? left.compareTo(right) : right.compareTo(left);
+  }
+
+  void _toggleExperienceSort() {
+    setState(() {
+      _experienceAscending = switch (_experienceAscending) {
+        null => false,
+        false => true,
+        true => null,
+      };
+    });
   }
 
   String _roleLabel(String role) {
     return role == 'RECEPTIONIST' ? 'Receptionist' : 'Doctor';
+  }
+
+  String _listTitle() {
+    return switch (_selectedFilter) {
+      _StaffFilter.all => 'All staff',
+      _StaffFilter.doctor => 'Doctors',
+      _StaffFilter.receptionist => 'Receptionists',
+    };
   }
 
   String _searchHint() {
@@ -273,6 +318,10 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
           final receptionists = staff
               .where((entry) => entry.role == 'RECEPTIONIST')
               .length;
+          final active = staff
+              .where((entry) => entry.status == 'ACTIVE')
+              .length;
+          final deactivated = staff.length - active;
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(24),
@@ -310,13 +359,19 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
                               'Staff Management',
                               style: AppTypography.displayTitle(),
                             ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${staff.length} accounts · $active active · $deactivated deactivated',
+                              style: AppTypography.labelSmall(
+                                color: AppColors.textSub,
+                              ),
+                            ),
                           ],
                         ),
                       ),
                       const SizedBox(width: 16),
-                      Column(
+                      Row(
                         mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           OutlinedButton.icon(
                             onPressed: () =>
@@ -341,7 +396,7 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
                               ),
                             ),
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(width: 8),
                           OutlinedButton.icon(
                             onPressed: () =>
                                 _openFormDialog(role: _StaffRole.doctor),
@@ -371,119 +426,121 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                Wrap(
-                  spacing: 14,
-                  runSpacing: 14,
-                  children: [
-                    _StatTile(
-                      title: 'All',
-                      value: '${staff.length}',
-                      subtitle: 'Show all staff',
-                      icon: Icons.people_alt_rounded,
-                      color: AppColors.rose,
-                      selected: _selectedFilter == _StaffFilter.all,
-                      onTap: () => _setFilter(_StaffFilter.all),
-                    ),
-                    _StatTile(
-                      title: 'Doctors',
-                      value: '$doctors',
-                      subtitle: 'Filter doctors',
-                      icon: Icons.medical_services_rounded,
-                      color: AppColors.lavDark,
-                      selected: _selectedFilter == _StaffFilter.doctor,
-                      onTap: () => _setFilter(_StaffFilter.doctor),
-                    ),
-                    _StatTile(
-                      title: 'Receptionists',
-                      value: '$receptionists',
-                      subtitle: 'Filter receptionists',
-                      icon: Icons.event_available_rounded,
-                      color: AppColors.gold,
-                      selected: _selectedFilter == _StaffFilter.receptionist,
-                      onTap: () => _setFilter(_StaffFilter.receptionist),
-                    ),
-                  ],
+                IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        child: _StatTile(
+                          title: 'All',
+                          value: '${staff.length}',
+                          subtitle: 'Show all staff',
+                          icon: Icons.people_alt_rounded,
+                          color: AppColors.rose,
+                          selected: _selectedFilter == _StaffFilter.all,
+                          onTap: () => _setFilter(_StaffFilter.all),
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: _StatTile(
+                          title: 'Doctors',
+                          value: '$doctors',
+                          subtitle: 'Filter doctors',
+                          icon: Icons.medical_services_rounded,
+                          color: AppColors.lavDark,
+                          selected: _selectedFilter == _StaffFilter.doctor,
+                          onTap: () => _setFilter(_StaffFilter.doctor),
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: _StatTile(
+                          title: 'Receptionists',
+                          value: '$receptionists',
+                          subtitle: 'Filter receptionists',
+                          icon: Icons.event_available_rounded,
+                          color: AppColors.gold,
+                          selected:
+                              _selectedFilter == _StaffFilter.receptionist,
+                          onTap: () => _setFilter(_StaffFilter.receptionist),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 24),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppColors.bgCard,
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      AppSearchField(
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: AppSearchField(
                         hintText: _searchHint(),
                         controller: _searchController,
                       ),
-                      if (_selectedFilter == _StaffFilter.doctor) ...[
-                        const SizedBox(height: 14),
-                        Wrap(
-                          spacing: 12,
-                          runSpacing: 12,
-                          children: [
-                            SizedBox(
-                              width: 240,
-                              child: AppDropdownField<_DoctorSpecialization?>(
-                                initialValue: _specializationFilter,
-                                decoration: InputDecoration(
-                                  labelText: 'Specialization',
-                                  isDense: true,
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
-                                items: [
-                                  const DropdownMenuItem(
-                                    value: null,
-                                    child: Text('All specializations'),
-                                  ),
-                                  ..._DoctorSpecialization.values.map(
-                                    (specialization) => DropdownMenuItem(
-                                      value: specialization,
-                                      child: Text(specialization.label),
-                                    ),
-                                  ),
-                                ],
-                                onChanged: (value) => setState(
-                                  () => _specializationFilter = value,
-                                ),
-                              ),
+                    ),
+                    if (_selectedFilter == _StaffFilter.doctor) ...[
+                      const SizedBox(width: 12),
+                      SizedBox(
+                        width: 240,
+                        child: AppDropdownField<_DoctorSpecialization?>(
+                          initialValue: _specializationFilter,
+                          decoration: InputDecoration(
+                            labelText: 'Specialization',
+                            isDense: true,
+                            filled: true,
+                            fillColor: AppColors.bgCard,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                            SizedBox(
-                              width: 200,
-                              child: AppDropdownField<_ExperienceFilter>(
-                                initialValue: _experienceFilter,
-                                decoration: InputDecoration(
-                                  labelText: 'Years of experience',
-                                  isDense: true,
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
-                                items: _ExperienceFilter.values
-                                    .map(
-                                      (experience) => DropdownMenuItem(
-                                        value: experience,
-                                        child: Text(experience.label),
-                                      ),
-                                    )
-                                    .toList(),
-                                onChanged: (value) {
-                                  if (value != null) {
-                                    setState(() => _experienceFilter = value);
-                                  }
-                                },
+                          ),
+                          items: [
+                            const DropdownMenuItem(
+                              value: null,
+                              child: Text('All specializations'),
+                            ),
+                            ..._DoctorSpecialization.values.map(
+                              (specialization) => DropdownMenuItem(
+                                value: specialization,
+                                child: Text(specialization.label),
                               ),
                             ),
                           ],
+                          onChanged: (value) =>
+                              setState(() => _specializationFilter = value),
                         ),
-                      ],
+                      ),
+                      const SizedBox(width: 12),
+                      SizedBox(
+                        width: 200,
+                        child: AppDropdownField<_ExperienceFilter>(
+                          initialValue: _experienceFilter,
+                          decoration: InputDecoration(
+                            labelText: 'Years of experience',
+                            isDense: true,
+                            filled: true,
+                            fillColor: AppColors.bgCard,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          items: _ExperienceFilter.values
+                              .map(
+                                (experience) => DropdownMenuItem(
+                                  value: experience,
+                                  child: Text(experience.label),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (value) {
+                            if (value != null) {
+                              setState(() => _experienceFilter = value);
+                            }
+                          },
+                        ),
+                      ),
                     ],
-                  ),
+                  ],
                 ),
                 const SizedBox(height: 24),
                 Container(
@@ -506,11 +563,22 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
                         child: Row(
                           children: [
                             Text(
-                              'All Staff',
+                              _listTitle(),
                               style: AppTypography.labelLarge(),
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              '${visibleStaff.length} shown',
+                              style: AppTypography.labelSmall(
+                                color: AppColors.textMuted,
+                              ),
                             ),
                           ],
                         ),
+                      ),
+                      _StaffColumnHeader(
+                        experienceAscending: _experienceAscending,
+                        onToggleExperienceSort: _toggleExperienceSort,
                       ),
                       if (visibleStaff.isEmpty)
                         Padding(
