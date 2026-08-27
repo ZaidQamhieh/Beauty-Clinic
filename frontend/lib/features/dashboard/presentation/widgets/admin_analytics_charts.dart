@@ -4,7 +4,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../data/admin_analytics_models.dart';
 
-/// Gridline step suited to the data.
+/// Gridline step that suits the data, so small clinics still get a grid.
 double _axisStep(double top) {
   if (top <= 0) return 1;
   final double rough = top / 4;
@@ -14,9 +14,11 @@ double _axisStep(double top) {
   return 2000;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
 // 1. SERVICE ANALYTICS WIDGETS
+// ─────────────────────────────────────────────────────────────────────────────
 
-/// Interactive bar breakdown of bookings.
+/// Service Bookings Bar Chart (Luxury interactive bar breakdown)
 class ServiceBookingsBarChart extends StatelessWidget {
   final ServiceAnalyticsData data;
   final bool showTopService;
@@ -48,7 +50,7 @@ class ServiceBookingsBarChart extends StatelessWidget {
             )
           : LayoutBuilder(
               builder: (context, constraints) {
-                // Two abreast when names fit.
+                // Two rows abreast once there is room for both names.
                 final int columns = constraints.maxWidth >= 440 ? 2 : 1;
                 final items = data.bookingsByService;
                 final List<Widget> lines = [];
@@ -59,10 +61,13 @@ class ServiceBookingsBarChart extends StatelessWidget {
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // A short last row spans the width.
-                        for (int i = 0; i < slice.length; i++) ...[
+                        for (int i = 0; i < columns; i++) ...[
                           if (i > 0) const SizedBox(width: 20),
-                          Expanded(child: _buildServiceRow(slice[i])),
+                          Expanded(
+                            child: i < slice.length
+                                ? _buildServiceRow(slice[i])
+                                : const SizedBox.shrink(),
+                          ),
                         ],
                       ],
                     ),
@@ -326,7 +331,9 @@ class ServiceGrowthLineChart extends StatelessWidget {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
 // 2. DOCTOR ANALYTICS WIDGETS
+// ─────────────────────────────────────────────────────────────────────────────
 
 /// Doctor Utilization Bar Chart
 class DoctorUtilizationChart extends StatelessWidget {
@@ -604,7 +611,9 @@ class AvailableSlotsWidget extends StatelessWidget {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
 // 3. APPOINTMENT ANALYTICS WIDGETS
+// ─────────────────────────────────────────────────────────────────────────────
 
 /// Bookings Over Time (Area Chart)
 class BookingsOverTimeChart extends StatelessWidget {
@@ -731,7 +740,7 @@ class BookingsOverTimeChart extends StatelessWidget {
   }
 }
 
-/// Completed, cancelled, no-show and rescheduled.
+/// Appointment Outcomes (Completed / Cancelled / No-show / Rescheduled)
 class AppointmentOutcomesDonut extends StatelessWidget {
   final AppointmentOutcomesData data;
 
@@ -937,7 +946,7 @@ class PeakTimesAndRescheduledWidget extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: data.peakBookingTimes.map((slot) {
-                // Scale against the busiest slot.
+                // Scale against the busiest slot, not a fixed ceiling.
                 final double factor = busiest == 0
                     ? 0.15
                     : (slot.bookingVolume / busiest).clamp(0.15, 1.0);
@@ -1005,7 +1014,9 @@ class PeakTimesAndRescheduledWidget extends StatelessWidget {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
 // 4. PATIENT ANALYTICS WIDGETS
+// ─────────────────────────────────────────────────────────────────────────────
 
 /// New vs Returning Patients Ratio & Growth
 class NewVsReturningDonut extends StatelessWidget {
@@ -1159,17 +1170,6 @@ class PatientGrowthLineChart extends StatelessWidget {
   final Color? badgeColor;
   final String valueLabel;
 
-  /// Grows plot into bounded row height.
-  final bool fillHeight;
-
-  /// Fixed plot, or one taking slack.
-  Widget _plotBox({required Widget child}) => fillHeight
-      ? Expanded(child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 220),
-          child: child,
-        ))
-      : SizedBox(height: 220, child: child);
-
   const PatientGrowthLineChart({
     super.key,
     required this.data,
@@ -1179,7 +1179,6 @@ class PatientGrowthLineChart extends StatelessWidget {
     this.badgeText = '+12% Database Growth',
     this.badgeColor = AppColors.sage,
     this.valueLabel = 'Patients',
-    this.fillHeight = false,
   });
 
   @override
@@ -1197,10 +1196,10 @@ class PatientGrowthLineChart extends StatelessWidget {
       icon: Icons.trending_up_rounded,
       badgeText: badgeText,
       badgeColor: badgeColor,
-      fillChild: fillHeight,
       child: Column(
         children: [
-          _plotBox(
+          SizedBox(
+            height: 220,
             child: LineChart(
               LineChartData(
                 gridData: FlGridData(
@@ -1447,7 +1446,9 @@ class PatientRetentionCard extends StatelessWidget {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
 // BASE ANALYTICS CONTAINER CARD & HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _AnalyticsCard extends StatelessWidget {
   final String title;
@@ -1457,9 +1458,6 @@ class _AnalyticsCard extends StatelessWidget {
   final Color? badgeColor;
   final Widget child;
 
-  /// Body absorbs a bounded card height.
-  final bool fillChild;
-
   const _AnalyticsCard({
     required this.title,
     required this.subtitle,
@@ -1467,7 +1465,6 @@ class _AnalyticsCard extends StatelessWidget {
     this.badgeText,
     this.badgeColor,
     required this.child,
-    this.fillChild = false,
   });
 
   @override
@@ -1555,7 +1552,7 @@ class _AnalyticsCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          if (fillChild) Expanded(child: child) else child,
+          child,
         ],
       ),
     );
