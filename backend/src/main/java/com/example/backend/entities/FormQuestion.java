@@ -52,6 +52,10 @@ public class FormQuestion {
     @Column(name = "display_order", nullable = false)
     private int displayOrder;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "visible_for_gender", nullable = false, length = 10)
+    private VisibleForGender visibleForGender = VisibleForGender.BOTH;
+
     @Column(nullable = false)
     private boolean active = true;
 
@@ -62,5 +66,19 @@ public class FormQuestion {
         BOOLEAN,
         SINGLE_SELECT,
         MULTI_SELECT
+    }
+
+    public enum VisibleForGender {
+        MALE,
+        FEMALE,
+        BOTH;
+
+        public boolean shows(UserAccount.Gender gender) {
+            if (this == BOTH) {
+                return true;
+            }
+
+            return gender != null && name().equals(gender.name());
+        }
     }
 }

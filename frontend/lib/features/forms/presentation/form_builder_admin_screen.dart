@@ -475,6 +475,9 @@ class _QuestionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final fieldType = question['fieldType']?.toString() ?? 'SINGLE_SELECT';
     final isRequired = question['required'] == true;
+    final target = question['visibleForGender']?.toString() ?? 'BOTH';
+    final targetsOneGender = target != 'BOTH';
+    final isFemaleOnly = target == 'FEMALE';
     final isActive = question['active'] == true;
     final fieldKey = question['fieldKey']?.toString() ?? '';
     final label = question['label']?.toString() ?? '';
@@ -585,6 +588,17 @@ class _QuestionCard extends StatelessWidget {
                           color: isRequired ? AppColors.rose : AppColors.sage,
                           bg: isRequired ? AppColors.bgRose : AppColors.bgSage,
                         ),
+                        // Gender targeting pill
+                        if (targetsOneGender)
+                          _buildStatusPill(
+                            label: isFemaleOnly ? 'Female only' : 'Male only',
+                            color: isFemaleOnly
+                                ? AppColors.lavDark
+                                : AppColors.sageDark,
+                            bg: isFemaleOnly
+                                ? AppColors.lavPale
+                                : AppColors.sagePale,
+                          ),
                         // Hidden status pill
                         if (!isActive)
                           _buildStatusPill(
@@ -721,6 +735,7 @@ class _QuestionDialog extends StatefulWidget {
 class _QuestionDialogState extends State<_QuestionDialog> {
   late final TextEditingController fieldKey, label, help, options;
   late String type;
+  late String visibleForGender;
   bool required = false;
 
   @override
@@ -735,6 +750,9 @@ class _QuestionDialogState extends State<_QuestionDialog> {
       text: q == null ? '' : (q['helpText'] as String? ?? ''),
     );
     type = q == null ? 'SINGLE_SELECT' : q['fieldType'] as String;
+    visibleForGender = q == null
+        ? 'BOTH'
+        : (q['visibleForGender'] as String? ?? 'BOTH');
     required = q != null && q['required'] == true;
     final list = q == null ? const [] : q['options'] as List;
     options = TextEditingController(
@@ -751,6 +769,7 @@ class _QuestionDialogState extends State<_QuestionDialog> {
     help.text,
     options.text,
     type,
+    visibleForGender,
     required,
   ];
 
@@ -969,6 +988,60 @@ class _QuestionDialogState extends State<_QuestionDialog> {
                       ),
                       const SizedBox(height: 14),
 
+                      // Gender Targeting Dropdown
+                      Text('Ask this of', style: AppTypography.labelMedium()),
+                      const SizedBox(height: 6),
+                      AppDropdownField<String>(
+                        initialValue: visibleForGender,
+                        decoration: _inputDecoration(),
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'BOTH',
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.people_alt_outlined,
+                                  size: 18,
+                                  color: AppColors.rose,
+                                ),
+                                SizedBox(width: 8),
+                                Text('Everyone'),
+                              ],
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value: 'FEMALE',
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.female,
+                                  size: 18,
+                                  color: AppColors.lavDark,
+                                ),
+                                SizedBox(width: 8),
+                                Text('Female patients only'),
+                              ],
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value: 'MALE',
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.male,
+                                  size: 18,
+                                  color: AppColors.sageDark,
+                                ),
+                                SizedBox(width: 8),
+                                Text('Male patients only'),
+                              ],
+                            ),
+                          ),
+                        ],
+                        onChanged: (v) => setState(() => visibleForGender = v!),
+                      ),
+                      const SizedBox(height: 14),
+
                       // Required Switch Tile
                       Material(
                         color: AppColors.bgAlt,
@@ -1079,6 +1152,7 @@ class _QuestionDialogState extends State<_QuestionDialog> {
                                     : help.text.trim(),
                                 'fieldType': type,
                                 'required': required,
+                                'visibleForGender': visibleForGender,
                                 'displayOrder': widget.question == null
                                     ? 999
                                     : widget.question!['displayOrder'],

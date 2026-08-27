@@ -10,12 +10,12 @@ class DynamicFormApi {
 
   final ApiClient _client;
 
-  /// `GET /api/forms/clinical-intake` — active questions for the patient UI.
+  /// `GET /api/forms/clinical-intake` — patient's questions.
   Future<FormSchema> fetchPublishedSchema() async {
     final response = await _client.get<List<dynamic>>(
       '/api/forms/clinical-intake',
     );
-    return _schemaFromQuestions(response.data ?? const []);
+    return _schemaFromQuestions(response.data);
   }
 
   /// `GET /api/forms/clinical-intake/answers/me`.
@@ -78,13 +78,14 @@ class DynamicFormApi {
     );
   }
 
-  static FormSchema _schemaFromQuestions(List<dynamic> questions) {
+  // Null is no answer; empty applies.
+  static FormSchema _schemaFromQuestions(List<dynamic>? questions) {
     final baselineFieldMap = {
       for (final f in ClinicalIntakeSchema.schema.fields) f.id: f,
     };
 
     final fields = <FormFieldSchema>[];
-    for (final raw in questions) {
+    for (final raw in questions ?? const []) {
       final question = Map<String, dynamic>.from(raw as Map);
       final fieldKey = question['fieldKey'] as String;
       final type = FormFieldTypeWire.fromWire(question['fieldType'] as String);
@@ -107,7 +108,7 @@ class DynamicFormApi {
         }
       }
       for (final opt in rawOptions) {
-        // Keeps the baseline rule when a label is overridden.
+        // Baseline rule survives label override.
         final baselineOption = optionMap[opt.value];
         optionMap[opt.value] = baselineOption?.withLabel(opt.label) ?? opt;
       }
@@ -132,7 +133,7 @@ class DynamicFormApi {
       title: 'Clinic Forms',
       description:
           'Your clinic health form. Required questions must be answered before saving.',
-      fields: fields.isNotEmpty ? fields : ClinicalIntakeSchema.schema.fields,
+      fields: questions == null ? ClinicalIntakeSchema.schema.fields : fields,
     );
   }
 
@@ -143,6 +144,7 @@ class DynamicFormApi {
       'helpText': question['helpText'],
       'fieldType': question['fieldType'],
       'required': question['required'] ?? false,
+      'visibleForGender': question['visibleForGender'] ?? 'BOTH',
       'displayOrder': question['displayOrder'] ?? 999,
       'options': question['options'] ?? const [],
     };
