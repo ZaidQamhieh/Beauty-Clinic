@@ -6,10 +6,11 @@ final _emailPattern = RegExp(
 final _namePattern = RegExp(r"^\p{L}[\p{L}\p{M}'\- .]*$", unicode: true);
 final _digitsOnly = RegExp(r'^\d+$');
 final _repeatedDigit = RegExp(r'^(\d)\1+$');
+final _identifierPattern = RegExp(r'^[A-Za-z][A-Za-z0-9_]*$');
 
 /// Shared field rules for every frontend form.
 abstract final class FieldRules {
-  /// Age in whole years, null when birth unknown.
+  /// Whole years old, null when unknown.
   static int? ageOn(DateTime? birth, [DateTime? asOf]) {
     if (birth == null) return null;
     final now = dayOf(asOf ?? DateTime.now());
@@ -28,12 +29,12 @@ abstract final class FieldRules {
   static String? requiredText(String? value, String label) =>
       (value?.trim().isEmpty ?? true) ? '$label is required.' : null;
 
-  /// Rejects digits and symbols inside a person name.
+  /// Rejects digits and symbols in names.
   static String? personName(String? value, String label) {
     final text = value?.trim() ?? '';
     if (text.isEmpty) return '$label is required.';
     if (text.length < 2) return '$label is too short.';
-    if (text.length > 60) return '$label is too long.';
+    if (text.length > 100) return '$label is too long.';
     if (!_namePattern.hasMatch(text)) {
       return '$label cannot contain digits or symbols.';
     }
@@ -74,6 +75,43 @@ abstract final class FieldRules {
     if (uri.scheme != 'http' && uri.scheme != 'https') {
       return 'Address must start with http or https.';
     }
+    if (text.length > 2048) return '$label is too long.';
+    return null;
+  }
+
+  /// Text bounded by the column width.
+  static String? boundedText(
+    String? value,
+    String label, {
+    required int max,
+    bool required = true,
+  }) {
+    final text = value?.trim() ?? '';
+    if (text.isEmpty) return required ? '$label is required.' : null;
+    if (text.length > max) return '$label is over $max characters.';
+    return null;
+  }
+
+  /// Mirrors the backend field-key pattern.
+  static String? identifierKey(String? value, String label) {
+    final text = value?.trim() ?? '';
+    if (text.isEmpty) return '$label is required.';
+    if (text.length > 100) return '$label is over 100 characters.';
+    if (!_identifierPattern.hasMatch(text)) {
+      return '$label must start with a letter, then letters, digits or _.';
+    }
+    return null;
+  }
+
+  /// Caps how many choices a list takes.
+  static String? selectionCount(
+    int count,
+    String label, {
+    int max = 20,
+    int min = 0,
+  }) {
+    if (count < min) return 'Select at least $min $label.';
+    if (count > max) return 'Select at most $max $label.';
     return null;
   }
 
@@ -119,7 +157,7 @@ abstract final class FieldRules {
     return null;
   }
 
-  /// Bounds a birth date by plausible living age.
+  /// Bounds birth date by plausible age.
   static String? dateOfBirth(
     DateTime? value, {
     int minAge = 16,
@@ -135,7 +173,7 @@ abstract final class FieldRules {
     return null;
   }
 
-  /// Caps experience by years lived since working age.
+  /// Caps experience by years since working age.
   static String? yearsOfExperience(
     String? value, {
     DateTime? dateOfBirth,
@@ -151,7 +189,7 @@ abstract final class FieldRules {
     return null;
   }
 
-  /// Keeps a follow-up on or after its session.
+  /// Keeps follow-up on or after session.
   static String? followUpDate(
     DateTime? value, {
     DateTime? notBefore,

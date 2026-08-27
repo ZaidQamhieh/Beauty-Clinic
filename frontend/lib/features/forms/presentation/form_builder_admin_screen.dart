@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/validation/field_rules.dart';
 import '../../../core/widgets/app_dropdown.dart';
 import '../../../core/widgets/skeleton.dart';
 import '../data/dynamic_form_api.dart';
@@ -59,7 +60,13 @@ class _FormBuilderAdminScreenState extends State<FormBuilderAdminScreen> {
   Future<void> _save([Map<String, dynamic>? q]) async {
     final data = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (_) => _QuestionDialog(question: q),
+      builder: (_) => _QuestionDialog(
+        question: q,
+        takenKeys: {
+          for (final current in _questions)
+            if (current['id'] != q?['id']) current['fieldKey'] as String,
+        },
+      ),
     );
     if (data == null) return;
 
@@ -701,8 +708,11 @@ class _QuestionCard extends StatelessWidget {
 }
 
 class _QuestionDialog extends StatefulWidget {
-  const _QuestionDialog({this.question});
+  const _QuestionDialog({this.question, this.takenKeys = const {}});
   final Map<String, dynamic>? question;
+
+  /// Keys already used by other questions.
+  final Set<String> takenKeys;
 
   @override
   State<_QuestionDialog> createState() => _QuestionDialogState();
@@ -748,6 +758,67 @@ class _QuestionDialogState extends State<_QuestionDialog> {
 
   Listenable get _textFields =>
       Listenable.merge([fieldKey, label, help, options]);
+
+  /// One value:label pair per non-blank line.
+  List<MapEntry<String, String>> _parsedOptions() {
+    final parsed = <MapEntry<String, String>>[];
+    for (final line in options.text.split('\n')) {
+      if (line.trim().isEmpty) continue;
+      final split = line.indexOf(':');
+      final value = (split < 0 ? line : line.substring(0, split)).trim();
+      final text = split < 0 ? value : line.substring(split + 1).trim();
+      parsed.add(MapEntry(value, text));
+    }
+    return parsed;
+  }
+
+  /// First rule this question fails, if any.
+  String? get _problem {
+    final key = FieldRules.identifierKey(fieldKey.text, 'Field key');
+    if (key != null) return key;
+    if (widget.takenKeys.contains(fieldKey.text.trim())) {
+      return 'Another question already uses that field key.';
+    }
+    final labelProblem = FieldRules.boundedText(
+      label.text,
+      'Question',
+      max: 255,
+    );
+    if (labelProblem != null) return labelProblem;
+    final helpProblem = FieldRules.boundedText(
+      help.text,
+      'Help text',
+      max: 2000,
+      required: false,
+    );
+    if (helpProblem != null) return helpProblem;
+    if (type == 'BOOLEAN') return null;
+
+    final parsed = _parsedOptions();
+    final minimum = type == 'SINGLE_SELECT' ? 2 : 1;
+    if (parsed.length < minimum) {
+      return 'Add at least $minimum options, one per line.';
+    }
+    final seen = <String>{};
+    for (final option in parsed) {
+      if (option.key.isEmpty) {
+        return 'Every option needs a value before the colon.';
+      }
+      if (option.key.length > 100) {
+        return 'Option value "${option.key}" is over 100 characters.';
+      }
+      if (option.value.isEmpty) {
+        return 'Option "${option.key}" needs a label after the colon.';
+      }
+      if (option.value.length > 255) {
+        return 'Option "${option.key}" has a label over 255 characters.';
+      }
+      if (!seen.add(option.key)) {
+        return 'Option value "${option.key}" is listed twice.';
+      }
+    }
+    return null;
+  }
 
   @override
   void dispose() {
@@ -951,6 +1022,36 @@ class _QuestionDialogState extends State<_QuestionDialog> {
 
               const SizedBox(height: 18),
 
+              ListenableBuilder(
+                listenable: _textFields,
+                builder: (context, _) {
+                  final problem = _isDirty ? _problem : null;
+                  if (problem == null) return const SizedBox.shrink();
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(
+                          Icons.error_outline,
+                          size: 16,
+                          color: AppColors.rose,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            problem,
+                            style: AppTypography.bodySmall(
+                              color: AppColors.rose,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+
               // Actions
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
@@ -966,13 +1067,10 @@ class _QuestionDialogState extends State<_QuestionDialog> {
                   ListenableBuilder(
                     listenable: _textFields,
                     builder: (context, _) => ElevatedButton(
-                      onPressed: !_isDirty
+                      onPressed: !_isDirty || _problem != null
                           ? null
                           : () {
-                              final lines = options.text
-                                  .split('\n')
-                                  .where((v) => v.trim().isNotEmpty)
-                                  .toList();
+                              final parsed = _parsedOptions();
                               Navigator.pop(context, {
                                 'fieldKey': fieldKey.text.trim(),
                                 'label': label.text.trim(),
@@ -985,18 +1083,13 @@ class _QuestionDialogState extends State<_QuestionDialog> {
                                     ? 999
                                     : widget.question!['displayOrder'],
                                 'options': [
-                                  for (var i = 0; i < lines.length; i++)
-                                    {
-                                      'value': lines[i].split(':').first.trim(),
-                                      'label': lines[i].contains(':')
-                                          ? lines[i]
-                                                .substring(
-                                                  lines[i].indexOf(':') + 1,
-                                                )
-                                                .trim()
-                                          : lines[i].trim(),
-                                      'displayOrder': i,
-                                    },
+                                  if (type != 'BOOLEAN')
+                                    for (var i = 0; i < parsed.length; i++)
+                                      {
+                                        'value': parsed[i].key,
+                                        'label': parsed[i].value,
+                                        'displayOrder': i,
+                                      },
                                 ],
                               });
                             },
