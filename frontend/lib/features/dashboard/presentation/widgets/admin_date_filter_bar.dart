@@ -97,11 +97,12 @@ class AdminDateFilterBar extends StatelessWidget {
                 ),
               ],
             )
-          : Row(
-              mainAxisSize: MainAxisSize.min,
+          : Wrap(
+              spacing: 16,
+              runSpacing: 12,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 _buildSegmentedButtons(context),
-                const SizedBox(width: 16),
                 _buildDateBadge(),
               ],
             ),
@@ -212,11 +213,14 @@ class AdminDateFilterBar extends StatelessWidget {
             color: AppColors.rose,
           ),
           const SizedBox(width: 8),
-          Text(
-            formattedRange,
-            style: AppTypography.labelSmall(
-              color: AppColors.roseDark,
-            ).copyWith(fontWeight: FontWeight.w600),
+          Flexible(
+            child: Text(
+              formattedRange,
+              overflow: TextOverflow.ellipsis,
+              style: AppTypography.labelSmall(
+                color: AppColors.roseDark,
+              ).copyWith(fontWeight: FontWeight.w600),
+            ),
           ),
         ],
       ),
