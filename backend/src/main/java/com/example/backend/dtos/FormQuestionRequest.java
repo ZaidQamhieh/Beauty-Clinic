@@ -16,6 +16,7 @@ public record FormQuestionRequest(
         @NotNull FormQuestion.FieldType fieldType,
         boolean required,
         @Min(0) int displayOrder,
+        @NotNull FormQuestion.VisibleForGender visibleForGender,
         List<FormOptionRequest> options
 ) {
     public record FormOptionRequest(

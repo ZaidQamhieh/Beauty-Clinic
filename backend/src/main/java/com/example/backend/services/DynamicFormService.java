@@ -7,10 +7,13 @@ import com.example.backend.entities.FormQuestion;
 import com.example.backend.entities.FormQuestionOption;
 import com.example.backend.entities.PatientFormResponse;
 import com.example.backend.entities.PatientProfile;
+import com.example.backend.entities.UserAccount;
 import com.example.backend.repositories.FormQuestionRepository;
 import com.example.backend.repositories.PatientFormResponseRepository;
 import com.example.backend.repositories.PatientProfileRepository;
+import com.example.backend.repositories.UserAccountRepository;
 import com.example.backend.security.CurrentUser;
+import com.example.backend.security.Role;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -40,6 +43,7 @@ public class DynamicFormService {
     private final PatientFormResponseRepository responses;
     private final ActivityLogService activityLogs;
     private final PatientProfileRepository patientProfiles;
+    private final UserAccountRepository accounts;
     private final CurrentUser currentUser;
     // Jackson 2 kept for Hibernate JsonNode.
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -53,6 +57,23 @@ public class DynamicFormService {
 
         return rows.stream()
                 .map(question -> FormQuestionResponse.of(question, includeInactive))
+                .collect(Collectors.toCollection(ArrayList::new));
+    }
+
+    // Staff see all; patients see their gender.
+    @Transactional(readOnly = true)
+    public List<FormQuestionResponse> visibleTo(List<FormQuestionResponse> all, UUID userId) {
+        UserAccount account = userId == null ? null : accounts.findById(userId).orElse(null);
+
+        if (account == null || account.getRole() != Role.PATIENT) {
+            return all;
+        }
+
+        UserAccount.Gender gender = account.getGender();
+
+        return all.stream()
+                .filter(question -> FormQuestion.VisibleForGender
+                        .valueOf(question.visibleForGender()).shows(gender))
                 .collect(Collectors.toCollection(ArrayList::new));
     }
 
@@ -134,9 +155,25 @@ public class DynamicFormService {
     @CacheEvict(value = "patientData", allEntries = true)
     @Transactional
     public Map<String, Object> saveAnswers(UUID actorId, UUID patientUserId, Map<String, Object> submitted) {
+        UserAccount.Gender gender = accounts.findById(patientUserId)
+                .map(UserAccount::getGender)
+                .orElse(null);
+
+        // Hidden questions are neither required nor writable.
         List<FormQuestion> activeQuestions =
-                questions.findByFormKeyAndActiveTrueOrderByDisplayOrderAsc(CLINICAL_INTAKE);
-        validate(activeQuestions, submitted);
+                questions.findByFormKeyAndActiveTrueOrderByDisplayOrderAsc(CLINICAL_INTAKE)
+                        .stream()
+                        .filter(question -> question.getVisibleForGender().shows(gender))
+                        .toList();
+        Set<String> writableKeys = activeQuestions.stream()
+                .map(FormQuestion::getFieldKey)
+                .collect(Collectors.toSet());
+
+        // Keys the patient cannot see never land.
+        Map<String, Object> writable = new LinkedHashMap<>(submitted);
+        writable.keySet().retainAll(writableKeys);
+
+        validate(activeQuestions, writable);
 
         PatientFormResponse.Id key = new PatientFormResponse.Id(patientUserId, CLINICAL_INTAKE);
         PatientFormResponse stored = responses.findById(key).orElseGet(() -> {
@@ -151,8 +188,8 @@ public class DynamicFormService {
         );
 
         for (FormQuestion question : activeQuestions) {
-            if (submitted.containsKey(question.getFieldKey())) {
-                merged.put(question.getFieldKey(), submitted.get(question.getFieldKey()));
+            if (writable.containsKey(question.getFieldKey())) {
+                merged.put(question.getFieldKey(), writable.get(question.getFieldKey()));
             }
         }
 
@@ -160,7 +197,7 @@ public class DynamicFormService {
         Map<String, Object> after = ClinicalAnswers.canonical(merged);
 
         // Profile changes before anything claims it.
-        applyToProfile(patientUserId, submitted);
+        applyToProfile(patientUserId, writable);
 
         stored.setAnswers(objectMapper.valueToTree(merged));
         responses.save(stored);
@@ -271,6 +308,7 @@ public class DynamicFormService {
         question.setFieldType(request.fieldType());
         question.setRequired(request.required());
         question.setDisplayOrder(request.displayOrder());
+        question.setVisibleForGender(request.visibleForGender());
 
         if (request.fieldType() == FormQuestion.FieldType.BOOLEAN) {
             question.getOptions().clear();

@@ -14,6 +14,7 @@ public record FormQuestionResponse(
         String fieldType,
         boolean required,
         int displayOrder,
+        String visibleForGender,
         boolean active,
         List<Option> options
 ) {
@@ -35,6 +36,7 @@ public record FormQuestionResponse(
                 question.getFieldType().name(),
                 question.isRequired(),
                 question.getDisplayOrder(),
+                question.getVisibleForGender().name(),
                 question.isActive(),
                 question.getOptions().stream()
                         .filter(option -> includeInactiveOptions || option.isActive())
