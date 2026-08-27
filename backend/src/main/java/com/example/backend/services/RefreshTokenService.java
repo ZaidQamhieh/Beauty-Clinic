@@ -108,14 +108,11 @@ public class RefreshTokenService {
 
         refreshTokens.peekByTokenHash(tokenHash)
                 .ifPresent(token -> {
-                    UUID userId = token.getUser().getId();
-
                     // Stamped first, so revoked stays distinguishable.
                     token.revoke(Instant.now());
                     refreshTokens.saveAndFlush(token);
 
                     refreshTokens.delete(token);
-                    activityLogs.recordLogout(userId);
                 });
     }
 

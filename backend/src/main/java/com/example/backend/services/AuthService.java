@@ -136,8 +136,6 @@ public class AuthService {
                 refreshToken.sessionId()
         );
 
-        activityLogs.recordLogin(user.getId());
-
         return new TokenResponse(
                 accessToken.value(),
                 refreshToken.value(),

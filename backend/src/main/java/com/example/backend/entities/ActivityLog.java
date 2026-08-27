@@ -41,6 +41,7 @@ public class ActivityLog {
     @Column(name = "entity_id")
     private UUID entityId;
 
+    // Changed fields only, never full snapshots.
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "old_values", columnDefinition = "jsonb")
     private JsonNode oldValues;
@@ -52,6 +53,15 @@ public class ActivityLog {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 60)
     private ActivityAction action;
+
+    // Derived from action; callers cannot mismatch.
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private ActivityCategory category;
+
+    // Ties the rows one operation writes together.
+    @Column(name = "correlation_id")
+    private UUID correlationId;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
@@ -68,6 +78,7 @@ public class ActivityLog {
         this.patientUserId = patientUserId;
         this.attemptedIdentifier = attemptedIdentifier;
         this.action = Objects.requireNonNull(action);
+        this.category = action.category();
         this.entityType = entityType;
         this.entityId = entityId;
     }
@@ -83,24 +94,6 @@ public class ActivityLog {
                 action,
                 null,
                 null
-        );
-    }
-
-    // Actor optional: some work has no human.
-    public static ActivityLog onEntity(
-            UUID userId,
-            UUID patientUserId,
-            ActivityAction action,
-            String entityType,
-            UUID entityId
-    ) {
-        return new ActivityLog(
-                userId,
-                patientUserId,
-                null,
-                action,
-                Objects.requireNonNull(entityType),
-                Objects.requireNonNull(entityId)
         );
     }
 
@@ -126,7 +119,7 @@ public class ActivityLog {
         );
     }
 
-    // Entity and payload both optional.
+    // Actor, entity and payload all optional.
     public static ActivityLog of(
             UUID userId,
             UUID patientUserId,
@@ -138,18 +131,6 @@ public class ActivityLog {
     ) {
         ActivityLog log = new ActivityLog(
                 userId, patientUserId, null, action, entityType, entityId
-        );
-        log.oldValues = oldValues;
-        log.newValues = newValues;
-        return log;
-    }
-
-    public static ActivityLog clinicalProfileUpdated(
-            UUID actorId, UUID patientUserId, JsonNode oldValues, JsonNode newValues
-    ) {
-        ActivityLog log = new ActivityLog(
-                actorId, patientUserId, null, ActivityAction.CLINICAL_PROFILE_UPDATED,
-                "patient_profile", patientUserId
         );
         log.oldValues = oldValues;
         log.newValues = newValues;
@@ -170,5 +151,11 @@ public class ActivityLog {
         );
         log.createdAt = createdAt;
         return log;
+    }
+
+    // Set once before saving.
+    public ActivityLog correlatedWith(UUID correlationId) {
+        this.correlationId = correlationId;
+        return this;
     }
 }

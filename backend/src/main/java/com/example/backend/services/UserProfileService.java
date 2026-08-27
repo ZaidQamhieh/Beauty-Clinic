@@ -11,9 +11,6 @@ import com.example.backend.repositories.UserAccountRepository;
 import com.example.backend.security.CurrentUser;
 import com.example.backend.entities.ActivityAction;
 import com.example.backend.security.Role;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -38,9 +35,6 @@ public class UserProfileService {
     private final PasswordEncoder passwordEncoder;
     private final CurrentUser currentUser;
     private final ActivityLogService activityLogs;
-    // Jackson 2 kept for Hibernate JsonNode.
-    private final ObjectMapper objectMapper = new ObjectMapper()
-            .registerModule(new JavaTimeModule());
 
     @Cacheable(value = "patientData", key = "'myProfile:' + @currentUser.requireId()")
     @Transactional(readOnly = true)
@@ -61,7 +55,7 @@ public class UserProfileService {
                     HttpStatus.CONFLICT, "Phone number already registered");
         }
 
-        JsonNode before = snapshot(account);
+        Map<String, Object> before = snapshot(account);
 
         account.setFirstName(request.firstName());
         account.setLastName(request.lastName());
@@ -77,9 +71,9 @@ public class UserProfileService {
         DoctorProfileResponse doctorProfile = updateDoctorProfile(account, request);
         users.save(account);
 
-        activityLogs.record(
+        activityLogs.recordChange(
                 account.getId(), null, ActivityAction.PROFILE_UPDATED,
-                "user_account", account.getId(), before, snapshot(account));
+                "user_account", account.getId(), ActivityDiff.between(before, snapshot(account)));
 
         return UserProfileResponse.of(account, doctorProfile);
     }
@@ -105,7 +99,7 @@ public class UserProfileService {
     }
 
     // Never the password hash.
-    private JsonNode snapshot(UserAccount account) {
+    private Map<String, Object> snapshot(UserAccount account) {
         Map<String, Object> fields = new LinkedHashMap<>();
         fields.put("email", account.getEmail());
         fields.put("phone", account.getPhone());
@@ -114,7 +108,7 @@ public class UserProfileService {
         fields.put("dateOfBirth", account.getDateOfBirth());
         fields.put("imageUrl", account.getImageUrl());
         fields.put("gender", account.getGender());
-        return objectMapper.valueToTree(fields);
+        return fields;
     }
 
     private DoctorProfileResponse updateDoctorProfile(

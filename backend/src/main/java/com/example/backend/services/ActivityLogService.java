@@ -2,11 +2,13 @@ package com.example.backend.services;
 
 import com.example.backend.dtos.ActivityLogResponse;
 import com.example.backend.entities.ActivityAction;
+import com.example.backend.entities.ActivityCategory;
 import com.example.backend.entities.ActivityLog;
 import com.example.backend.entities.UserAccount;
 import com.example.backend.repositories.ActivityLogRepository;
 import com.example.backend.repositories.UserAccountRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -18,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -28,8 +31,6 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 
 @Service
 @RequiredArgsConstructor
@@ -38,50 +39,39 @@ public class ActivityLogService {
     private final ActivityLogRepository activityLogs;
     private final UserAccountRepository users;
     private final ActivityCorrelation correlation;
-    // Jackson 2 kept for Hibernate JsonNode.
-    private final ObjectMapper objectMapper = new ObjectMapper();
 
-    @Transactional
-    public void recordLogin(UUID userId) {
-        recordUserEvent(userId, ActivityAction.LOGIN);
-    }
-
-    @Transactional
-    public void recordLogout(UUID userId) {
-        recordUserEvent(userId, ActivityAction.LOGOUT);
-    }
+    // One row per patient per window.
+    @Value("${app.activity-log.view-window-minutes:15}")
+    private long viewWindowMinutes;
 
     @Transactional
     public void recordRegistration(UUID userId) {
-        recordUserEvent(userId, ActivityAction.ACCOUNT_REGISTERED);
+        activityLogs.save(stamp(ActivityLog.forUser(userId, ActivityAction.ACCOUNT_REGISTERED)));
     }
 
     // Survives the rejected login rolling back.
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void recordFailedLogin(String attemptedIdentifier) {
-        activityLogs.save(
-                ActivityLog.failedLogin(attemptedIdentifier)
-        );
+        activityLogs.save(stamp(ActivityLog.failedLogin(attemptedIdentifier)));
     }
 
     // Joins the caller: rolled-back bookings claim nothing.
     @Transactional
     public void recordAppointment(UUID actorId, UUID patientUserId, ActivityAction action, UUID appointmentId) {
-        activityLogs.save(ActivityLog.of(
-                actorId, patientUserId, action, "appointment", appointmentId, null, correlationNode()));
+        record(actorId, patientUserId, action, "appointment", appointmentId);
     }
 
     @Transactional
     public void recordSession(UUID actorId, UUID patientUserId, ActivityAction action, UUID sessionId) {
-        activityLogs.save(ActivityLog.of(
-                actorId, patientUserId, action, "appointment_session", sessionId, null, correlationNode()));
+        record(actorId, patientUserId, action, "appointment_session", sessionId);
     }
 
     @Transactional
     public void recordClinicalProfileUpdate(
             UUID actorId, UUID patientUserId, JsonNode oldValues, JsonNode newValues
     ) {
-        activityLogs.save(ActivityLog.clinicalProfileUpdated(actorId, patientUserId, oldValues, newValues));
+        record(actorId, patientUserId, ActivityAction.CLINICAL_PROFILE_UPDATED,
+                "patient_profile", patientUserId, oldValues, newValues);
     }
 
     // A denial outlives the work it refused.
@@ -89,7 +79,7 @@ public class ActivityLogService {
     public void recordPermissionDenied(Optional<UUID> userId) {
         // Only a committed actor is visible here.
         activityLogs.save(
-                ActivityLog.permissionDenied(userId.filter(users::existsById).orElse(null))
+                stamp(ActivityLog.permissionDenied(userId.filter(users::existsById).orElse(null)))
         );
     }
 
@@ -109,17 +99,52 @@ public class ActivityLogService {
             JsonNode oldValues,
             JsonNode newValues
     ) {
-        activityLogs.save(ActivityLog.of(
-                actorId, patientUserId, action, entityType, entityId, oldValues, newValues));
+        activityLogs.save(stamp(ActivityLog.of(
+                actorId, patientUserId, action, entityType, entityId, oldValues, newValues)));
     }
 
-    // Reads and security events never roll back.
+    // Nothing changed, so nothing happened.
+    @Transactional
+    public void recordChange(
+            UUID actorId,
+            UUID patientUserId,
+            ActivityAction action,
+            String entityType,
+            UUID entityId,
+            ActivityDiff.Change change
+    ) {
+        if (change.isEmpty()) {
+            return;
+        }
+
+        record(actorId, patientUserId, action, entityType, entityId, change.before(), change.after());
+    }
+
+    // Security events never roll back.
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void recordIndependently(
             UUID actorId, UUID patientUserId, ActivityAction action, String entityType, UUID entityId
     ) {
-        activityLogs.save(ActivityLog.of(
-                actorId, patientUserId, action, entityType, entityId, null, null));
+        activityLogs.save(stamp(ActivityLog.of(actorId, patientUserId, action, entityType, entityId, null, null)));
+    }
+
+    // Reads outlive the query that triggered them.
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void recordView(
+            UUID actorId, UUID patientUserId, ActivityAction action, String entityType, UUID entityId
+    ) {
+        if (actorId == null || patientUserId == null) {
+            return;
+        }
+
+        Instant since = Instant.now().minus(Duration.ofMinutes(viewWindowMinutes));
+
+        if (activityLogs.existsByUserIdAndPatientUserIdAndActionAndCreatedAtAfter(
+                actorId, patientUserId, action, since)) {
+            return;
+        }
+
+        activityLogs.save(stamp(ActivityLog.of(actorId, patientUserId, action, entityType, entityId, null, null)));
     }
 
     @Transactional(readOnly = true)
@@ -130,7 +155,14 @@ public class ActivityLogService {
 
     // Page doesn't round-trip through the Redis ObjectMapper.
     @Transactional(readOnly = true)
-    public Page<ActivityLogResponse> search(ActivityAction action, Instant from, Instant to, String search, Pageable pageable) {
+    public Page<ActivityLogResponse> search(
+            ActivityAction action,
+            ActivityCategory category,
+            Instant from,
+            Instant to,
+            String search,
+            Pageable pageable
+    ) {
         String term = search == null || search.isBlank() ? null : search.trim();
 
         List<UUID> accountIds = accountIdsFor(term);
@@ -140,6 +172,9 @@ public class ActivityLogService {
 
             if (action != null) {
                 predicates.add(cb.equal(root.get("action"), action));
+            }
+            if (category != null) {
+                predicates.add(cb.equal(root.get("category"), category));
             }
             if (from != null) {
                 predicates.add(cb.greaterThanOrEqualTo(root.get("createdAt"), from));
@@ -151,12 +186,8 @@ public class ActivityLogService {
                 predicates.add(matching(root, cb, term, accountIds));
             }
 
-            // Auth events and plain reads clutter the admin log.
-            predicates.add(cb.not(
-                    root.get("action").in(ActivityAction.LOGIN, ActivityAction.LOGOUT, ActivityAction.LOGIN_FAILED,
-                            ActivityAction.CLINICAL_PROFILE_VIEWED, ActivityAction.CLINICAL_HISTORY_VIEWED,
-                            ActivityAction.CLINICAL_LIST_VIEWED, ActivityAction.SESSION_RECORDS_VIEWED)
-            ));
+            // Retired actions are history, not current activity.
+            predicates.add(cb.notEqual(root.get("category"), ActivityCategory.LEGACY));
 
             return cb.and(predicates.toArray(new Predicate[0]));
         }, stable(pageable));
@@ -192,16 +223,8 @@ public class ActivityLogService {
     }
 
     // Ties the rows one operation writes together.
-    private JsonNode correlationNode() {
-        Optional<UUID> id = correlation.current();
-
-        if (id.isEmpty()) {
-            return null;
-        }
-
-        ObjectNode node = objectMapper.createObjectNode();
-        node.put("correlationId", id.get().toString());
-        return node;
+    private ActivityLog stamp(ActivityLog log) {
+        return log.correlatedWith(correlation.current().orElse(null));
     }
 
     // The screen promises names, so resolve them.
@@ -227,14 +250,5 @@ public class ActivityLogService {
                 pageable.getPageNumber(),
                 pageable.getPageSize(),
                 pageable.getSort().and(Sort.by(Sort.Direction.DESC, "id")));
-    }
-
-    private void recordUserEvent(
-            UUID userId,
-            ActivityAction action
-    ) {
-        activityLogs.save(
-                ActivityLog.forUser(userId, action)
-        );
     }
 }

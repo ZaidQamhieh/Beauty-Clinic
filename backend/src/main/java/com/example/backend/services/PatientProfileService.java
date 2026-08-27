@@ -128,6 +128,10 @@ public class PatientProfileService {
     public PatientRecordResponse readClinical(UUID userId) {
         PatientRecordResponse record = PatientRecordResponse.of(require(userId));
 
+        activityLogs.recordView(
+                currentUser.id().orElse(null), userId,
+                ActivityAction.CLINICAL_PROFILE_VIEWED, "patient_profile", userId);
+
         return record;
     }
 
@@ -136,7 +140,7 @@ public class PatientProfileService {
     public PatientDetailResponse updateDemographics(UUID userId, PatientDetailsRequest request) {
         PatientProfile profile = require(userId);
         UserAccount account = profile.getUser();
-        JsonNode before = demographics(account);
+        Map<String, Object> before = demographics(account);
 
         account.setFirstName(request.firstName());
         account.setLastName(request.lastName());
@@ -145,15 +149,15 @@ public class PatientProfileService {
         account.setEmail(request.email());
         account.setGender(request.gender());
 
-        activityLogs.record(
+        activityLogs.recordChange(
                 currentUser.id().orElse(null), userId,
                 ActivityAction.PATIENT_DEMOGRAPHICS_UPDATED,
-                "user_account", userId, before, demographics(account));
+                "user_account", userId, ActivityDiff.between(before, demographics(account)));
 
         return PatientDetailResponse.of(profile);
     }
 
-    private JsonNode demographics(UserAccount account) {
+    private Map<String, Object> demographics(UserAccount account) {
         Map<String, Object> fields = new LinkedHashMap<>();
         fields.put("email", account.getEmail());
         fields.put("phone", account.getPhone());
@@ -161,7 +165,7 @@ public class PatientProfileService {
         fields.put("lastName", account.getLastName());
         fields.put("dateOfBirth", account.getDateOfBirth());
         fields.put("gender", account.getGender());
-        return objectMapper.valueToTree(fields);
+        return fields;
     }
 
     @CacheEvict(value = "patientData", allEntries = true)
@@ -247,6 +251,10 @@ public class PatientProfileService {
     @Transactional(readOnly = true)
     public Page<ClinicalHistoryResponse> clinicalHistory(UUID userId, Pageable pageable) {
         require(userId);
+
+        activityLogs.recordView(
+                currentUser.id().orElse(null), userId,
+                ActivityAction.CLINICAL_HISTORY_VIEWED, "patient_profile", userId);
 
         var page = activityLogs.clinicalHistory(userId, pageable);
 

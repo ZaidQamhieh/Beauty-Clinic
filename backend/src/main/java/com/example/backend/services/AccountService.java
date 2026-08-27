@@ -71,8 +71,8 @@ public class AccountService {
         DoctorProfileResponse doctorProfile = createDoctorProfile(account, request);
 
         activityLogs.record(
-                actor(), null, ActivityAction.ACCOUNT_CREATED,
-                "user_account", account.getId(), null, snapshot(account));
+                actor(), patientOrNull(account), ActivityAction.ACCOUNT_CREATED,
+                "user_account", account.getId(), null, json(snapshot(account)));
 
         return AccountResponse.of(account, doctorProfile);
     }
@@ -93,8 +93,7 @@ public class AccountService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Account role cannot be changed");
         }
 
-        JsonNode before = snapshot(account);
-        AccountStatus previousStatus = account.getStatus();
+        Map<String, Object> before = snapshot(account);
 
         account.setEmail(request.email());
         account.setPhone(request.phone());
@@ -116,22 +115,17 @@ public class AccountService {
 
         DoctorProfileResponse doctorProfile = updateDoctorProfile(account, request);
 
-        UUID actor = actor();
-        activityLogs.record(
-                actor, null, ActivityAction.ACCOUNT_UPDATED,
-                "user_account", account.getId(), before, snapshot(account));
+        Map<String, Object> after = snapshot(account);
 
-        // A reset is not a field edit.
+        // A reset is an ordinary change.
         if (hasText(request.password())) {
-            activityLogs.record(actor, null, ActivityAction.PASSWORD_RESET, "user_account", account.getId());
+            before.put("passwordReset", false);
+            after.put("passwordReset", true);
         }
 
-        if (previousStatus != account.getStatus()) {
-            activityLogs.record(
-                    actor, null, ActivityAction.ACCOUNT_STATUS_CHANGED,
-                    "user_account", account.getId(),
-                    text(previousStatus), text(account.getStatus()));
-        }
+        activityLogs.recordChange(
+                actor(), patientOrNull(account), ActivityAction.ACCOUNT_UPDATED,
+                "user_account", account.getId(), ActivityDiff.between(before, after));
 
         return AccountResponse.of(account, doctorProfile);
     }
@@ -142,7 +136,7 @@ public class AccountService {
         UserAccount account = users.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found"));
 
-        JsonNode before = snapshot(account);
+        JsonNode before = json(snapshot(account));
 
         if (account.getRole() == Role.DOCTOR) {
             doctors.deleteById(id);
@@ -151,7 +145,7 @@ public class AccountService {
         users.deleteById(id);
 
         activityLogs.record(
-                actor(), null, ActivityAction.ACCOUNT_DELETED,
+                actor(), patientOrNull(account), ActivityAction.ACCOUNT_DELETED,
                 "user_account", id, before, null);
     }
 
@@ -160,7 +154,7 @@ public class AccountService {
     }
 
     // Never the password hash.
-    private JsonNode snapshot(UserAccount account) {
+    private Map<String, Object> snapshot(UserAccount account) {
         Map<String, Object> fields = new LinkedHashMap<>();
         fields.put("email", account.getEmail());
         fields.put("phone", account.getPhone());
@@ -170,11 +164,16 @@ public class AccountService {
         fields.put("gender", account.getGender());
         fields.put("role", account.getRole());
         fields.put("status", account.getStatus());
+        return fields;
+    }
+
+    private JsonNode json(Map<String, Object> fields) {
         return objectMapper.valueToTree(fields);
     }
 
-    private JsonNode text(AccountStatus status) {
-        return objectMapper.valueToTree(Map.of("status", status));
+    // Patient rows belong in that patient's history.
+    private UUID patientOrNull(UserAccount account) {
+        return account.getRole() == Role.PATIENT ? account.getId() : null;
     }
 
     private DoctorProfileResponse createDoctorProfile(

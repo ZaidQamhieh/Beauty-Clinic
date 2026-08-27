@@ -50,9 +50,9 @@ class ActivityLogControllerTest extends AbstractIntegrationTest {
         UserAccount patient = users.save(new UserAccount(
                 "patient@example.com", "hash", "Pat", "Ient", Role.PATIENT));
         patientProfiles.save(new PatientProfile(patient));
-        activityLogs.save(ActivityLog.onEntity(
+        activityLogs.save(ActivityLog.of(
                 actor.getId(), patient.getId(), ActivityAction.PROFILE_UPDATED,
-                "user_account", UUID.randomUUID()));
+                "user_account", UUID.randomUUID(), null, null));
 
         mockMvc.perform(get("/api/activity-logs")
                         .param("search", "actor@example.com")

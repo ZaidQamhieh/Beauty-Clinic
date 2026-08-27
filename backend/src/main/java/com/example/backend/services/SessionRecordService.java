@@ -50,8 +50,15 @@ public class SessionRecordService {
 
     @Transactional(readOnly = true)
     public Page<SessionRecordResponse> list(UUID patientUserId, Pageable pageable) {
-        return records.findBySessionAppointmentPatientUserIdOrderByCreatedAtDesc(patientUserId, pageable)
-                .map(record -> SessionRecordResponse.of(record, prescribedProductIds(record)));
+        Page<SessionRecordResponse> page =
+                records.findBySessionAppointmentPatientUserIdOrderByCreatedAtDesc(patientUserId, pageable)
+                        .map(record -> SessionRecordResponse.of(record, prescribedProductIds(record)));
+
+        activityLogs.recordView(
+                currentUser.id().orElse(null), patientUserId,
+                ActivityAction.SESSION_RECORDS_VIEWED, "session_record", patientUserId);
+
+        return page;
     }
 
     @Cacheable(value = "patientData", key = "'prescribed:' + #patientUserId")
