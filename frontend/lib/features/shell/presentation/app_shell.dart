@@ -292,7 +292,7 @@ class _AppShellState extends State<AppShell> {
           },
           {
             'id': 'products',
-            'label': 'Products',
+            'label': 'My Products',
             'icon': Icons.inventory_2_outlined,
           },
         ];
