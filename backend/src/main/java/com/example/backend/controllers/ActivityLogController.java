@@ -2,6 +2,7 @@ package com.example.backend.controllers;
 
 import com.example.backend.dtos.ActivityLogResponse;
 import com.example.backend.entities.ActivityAction;
+import com.example.backend.entities.ActivityCategory;
 import com.example.backend.security.access.AdminOnly;
 import com.example.backend.services.ActivityLogService;
 import lombok.RequiredArgsConstructor;
@@ -25,11 +26,12 @@ public class ActivityLogController {
     @GetMapping
     public Page<ActivityLogResponse> list(
             @RequestParam(required = false) ActivityAction action,
+            @RequestParam(required = false) ActivityCategory category,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to,
             @RequestParam(required = false) String search,
             Pageable pageable
     ) {
-        return activityLogs.search(action, from, to, search, pageable);
+        return activityLogs.search(action, category, from, to, search, pageable);
     }
 }
