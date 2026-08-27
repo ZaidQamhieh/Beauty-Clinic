@@ -716,34 +716,42 @@ class _DashboardScreenState extends State<DashboardScreen> {
         LayoutBuilder(
           builder: (context, constraints) {
             final bool isWide = constraints.maxWidth > 880;
-            return Flex(
+            final Flex row = Flex(
               direction: isWide ? Axis.horizontal : Axis.vertical,
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: isWide
+                  ? CrossAxisAlignment.stretch
+                  : CrossAxisAlignment.start,
               children: [
                 // Stats Cards Column
                 Expanded(
                   flex: isWide ? 1 : 0,
                   child: Column(
                     children: [
-                      _StatCard(
-                        label: "Today's Patients",
-                        value: _doctorDashboardData!.todayPatientsCount
-                            .toString(),
-                        sub:
-                            "${todayAppts.where((a) => a.status == 'PLANNED').length} remaining",
-                        icon: Icons.calendar_today,
-                        color: AppColors.rose,
-                        valueBesideLabel: true,
+                      _fill(
+                        isWide,
+                        _StatCard(
+                          label: "Today's Patients",
+                          value: _doctorDashboardData!.todayPatientsCount
+                              .toString(),
+                          sub:
+                              "${todayAppts.where((a) => a.status == 'PLANNED').length} remaining",
+                          icon: Icons.calendar_today,
+                          color: AppColors.rose,
+                          valueBesideLabel: true,
+                        ),
                       ),
                       const SizedBox(height: 16),
-                      _StatCard(
-                        label: "Active patients under my care",
-                        value: _doctorDashboardData!.activePatientsCount
-                            .toString(),
-                        sub: "",
-                        icon: Icons.people,
-                        color: AppColors.lav,
-                        valueBesideLabel: true,
+                      _fill(
+                        isWide,
+                        _StatCard(
+                          label: "Active patients under my care",
+                          value: _doctorDashboardData!.activePatientsCount
+                              .toString(),
+                          sub: "",
+                          icon: Icons.people,
+                          color: AppColors.lav,
+                          valueBesideLabel: true,
+                        ),
                       ),
                     ],
                   ),
@@ -862,6 +870,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ],
             );
+
+            // Bounds row so columns match height.
+            return isWide ? IntrinsicHeight(child: row) : row;
           },
         ),
 

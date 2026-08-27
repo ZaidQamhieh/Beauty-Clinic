@@ -60,12 +60,8 @@ class AdminDateFilterBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final bool isNarrow = constraints.maxWidth < 620;
-        final Widget card = _buildCard(context, isNarrow: isNarrow);
-
-        // Wide: card hugs contents, sits left.
-        if (isNarrow) return card;
-        return Align(alignment: Alignment.centerLeft, child: card);
+        final bool isNarrow = constraints.maxWidth < 860;
+        return _buildCard(context, isNarrow: isNarrow);
       },
     );
   }
@@ -97,99 +93,101 @@ class AdminDateFilterBar extends StatelessWidget {
                 ),
               ],
             )
-          : Wrap(
-              spacing: 16,
-              runSpacing: 12,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [_buildSegmentedButtons(context), _buildDateBadge()],
+          : Row(
+              children: [
+                // Chips divide the free width.
+                Expanded(child: _buildSegmentedButtons(context, fill: true)),
+                const SizedBox(width: 16),
+                _buildDateBadge(),
+              ],
             ),
     );
   }
 
-  Widget _buildSegmentedButtons(BuildContext context) {
+  Widget _buildSegmentedButtons(BuildContext context, {bool fill = false}) {
+    final Widget track = Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: AppColors.bgAlt,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: fill ? MainAxisSize.max : MainAxisSize.min,
+        mainAxisAlignment: fill
+            ? MainAxisAlignment.spaceBetween
+            : MainAxisAlignment.start,
+        children: AdminDateRangeType.values.map((type) {
+          final bool isSelected = selectedRangeType == type;
+          final Widget chip = Padding(
+            padding: const EdgeInsets.only(right: 2),
+            child: InkWell(
+              onTap: () {
+                if (type == AdminDateRangeType.custom) {
+                  _handleCustomDatePick(context);
+                } else {
+                  onRangeSelected(type, null);
+                }
+              },
+              borderRadius: BorderRadius.circular(10),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: isSelected ? AppColors.white : Colors.transparent,
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: isSelected
+                      ? [
+                          const BoxShadow(
+                            color: AppColors.shadow,
+                            blurRadius: 6,
+                            offset: Offset(0, 2),
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (type == AdminDateRangeType.custom) ...[
+                      Icon(
+                        Icons.calendar_month_outlined,
+                        size: 14,
+                        color: isSelected
+                            ? AppColors.rose
+                            : AppColors.textMuted,
+                      ),
+                      const SizedBox(width: 6),
+                    ],
+                    Text(
+                      type.label,
+                      style:
+                          AppTypography.labelSmall(
+                            color: isSelected
+                                ? AppColors.roseDark
+                                : AppColors.textSub,
+                          ).copyWith(
+                            fontWeight: isSelected
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+          return chip;
+        }).toList(),
+      ),
+    );
+
+    if (fill) return track;
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color: AppColors.bgAlt,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: AdminDateRangeType.values.map((type) {
-                final bool isSelected = selectedRangeType == type;
-                return Padding(
-                  padding: const EdgeInsets.only(right: 2),
-                  child: InkWell(
-                    onTap: () {
-                      if (type == AdminDateRangeType.custom) {
-                        _handleCustomDatePick(context);
-                      } else {
-                        onRangeSelected(type, null);
-                      }
-                    },
-                    borderRadius: BorderRadius.circular(10),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 180),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? AppColors.white
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(10),
-                        boxShadow: isSelected
-                            ? [
-                                const BoxShadow(
-                                  color: AppColors.shadow,
-                                  blurRadius: 6,
-                                  offset: Offset(0, 2),
-                                ),
-                              ]
-                            : null,
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (type == AdminDateRangeType.custom) ...[
-                            Icon(
-                              Icons.calendar_month_outlined,
-                              size: 14,
-                              color: isSelected
-                                  ? AppColors.rose
-                                  : AppColors.textMuted,
-                            ),
-                            const SizedBox(width: 6),
-                          ],
-                          Text(
-                            type.label,
-                            style:
-                                AppTypography.labelSmall(
-                                  color: isSelected
-                                      ? AppColors.roseDark
-                                      : AppColors.textSub,
-                                ).copyWith(
-                                  fontWeight: isSelected
-                                      ? FontWeight.w700
-                                      : FontWeight.w500,
-                                ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-        ],
-      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [track]),
     );
   }
 
