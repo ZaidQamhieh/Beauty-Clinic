@@ -77,7 +77,7 @@ class _BeautyClinicAppState extends State<BeautyClinicApp> {
   String? _userImageUrl;
   String? _selectedDoctorId;
 
-  // Guards against re-fetching on every subsequent session-changed event.
+  // Guards re-fetching on later session events.
   bool _clinicTimeRequested = false;
 
   // Where a refresh started, before auth loaded.
@@ -114,21 +114,27 @@ class _BeautyClinicAppState extends State<BeautyClinicApp> {
 
   void _handleSessionChanged() {
     if (!mounted) return;
-    if (_session.isAuthenticated) {
-      if (_userName == null) {
-        _loadUserName();
+    if (!_session.isAuthenticated) {
+      // Backend sign-out leaves no name behind.
+      if (_userName != null || _userImageUrl != null) {
+        setState(() {
+          _userName = null;
+          _userImageUrl = null;
+        });
       }
-      if (!_clinicTimeRequested) {
-        _clinicTimeRequested = true;
-        _loadClinicTime();
-      }
+      _selectedDoctorId = null;
+      return;
+    }
+    if (_userName == null) {
+      _loadUserName();
+    }
+    if (!_clinicTimeRequested) {
+      _clinicTimeRequested = true;
+      _loadClinicTime();
     }
   }
 
-  // Doctor/admin screens (calendar, availability) never visit Appointments,
-  // which is the only other place this gets set - without this, their
-  // session-time displays would fall back to the device's own zone instead
-  // of the clinic's.
+  // Clinic zone for screens skipping Appointments.
   Future<void> _loadClinicTime() async {
     try {
       final rules = await _treatmentApi.rules();
@@ -181,7 +187,8 @@ class _BeautyClinicAppState extends State<BeautyClinicApp> {
     }
   }
 
-  String get _activeRole => _session.role?.wireName.toLowerCase() ?? 'admin';
+  // Least privilege while signed out; never admin.
+  String get _activeRole => _session.role?.wireName.toLowerCase() ?? 'patient';
 
   // Nav and routes share one table.
   GoRouter _buildRouter() {
@@ -638,6 +645,7 @@ class _BeautyClinicAppState extends State<BeautyClinicApp> {
           apiClient: _apiClient,
           onBack: () => _router.go(AppRoutes.pathFor('dashboard')),
           onProfileUpdated: _loadUserName,
+          onPasswordChanged: _logout,
         );
       case 'landing':
       case 'consultations':

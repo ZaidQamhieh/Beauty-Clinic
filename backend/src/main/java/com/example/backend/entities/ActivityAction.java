@@ -63,6 +63,7 @@ public enum ActivityAction {
     ROLE_CHANGE_REJECTED(SECURITY),
     DISABLED_ACCOUNT_REJECTED(SECURITY),
     REFRESH_TOKEN_REJECTED(SECURITY),
+    SESSIONS_REVOKED(SECURITY),
 
     // Retired; kept so old rows load.
     LOGIN(LEGACY),

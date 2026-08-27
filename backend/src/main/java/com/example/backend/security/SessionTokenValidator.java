@@ -6,18 +6,21 @@ import com.example.backend.entities.ActivityAction;
 import com.example.backend.services.AccessTokenService;
 import com.example.backend.services.ActivityLogService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.OAuth2TokenValidator;
 import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 // Rejects tokens whose session or account changed.
 @Component
 @RequiredArgsConstructor
+@Slf4j
 class SessionTokenValidator implements OAuth2TokenValidator<Jwt> {
 
     private static final OAuth2Error MALFORMED_SESSION = new OAuth2Error(
@@ -28,7 +31,7 @@ class SessionTokenValidator implements OAuth2TokenValidator<Jwt> {
             "invalid_token", "Token is missing a valid user claim", null
     );
 
-    // Vague: the holder may not be the owner.
+    // Vague: holder may not be owner.
     private static final OAuth2Error STALE = new OAuth2Error(
             "invalid_token", "Session is no longer valid", null
     );
@@ -53,8 +56,7 @@ class SessionTokenValidator implements OAuth2TokenValidator<Jwt> {
 
         // Account may be gone; name no actor.
         if (owner.isEmpty()) {
-            activityLogs.recordIndependently(
-                    null, null, ActivityAction.STALE_SESSION_REJECTED,
+            audit(null, ActivityAction.STALE_SESSION_REJECTED,
                     "refresh_token", sessionId.get());
             return OAuth2TokenValidatorResult.failure(STALE);
         }
@@ -62,15 +64,13 @@ class SessionTokenValidator implements OAuth2TokenValidator<Jwt> {
         UserAccount account = owner.get();
 
         if (!account.isEnabled()) {
-            activityLogs.recordIndependently(
-                    account.getId(), null, ActivityAction.DISABLED_ACCOUNT_REJECTED,
+            audit(account.getId(), ActivityAction.DISABLED_ACCOUNT_REJECTED,
                     "user_account", account.getId());
             return OAuth2TokenValidatorResult.failure(STALE);
         }
 
         if (!carriesCurrentRole(token, account)) {
-            activityLogs.recordIndependently(
-                    account.getId(), null, ActivityAction.ROLE_CHANGE_REJECTED,
+            audit(account.getId(), ActivityAction.ROLE_CHANGE_REJECTED,
                     "user_account", account.getId());
             return OAuth2TokenValidatorResult.failure(STALE);
         }
@@ -78,10 +78,20 @@ class SessionTokenValidator implements OAuth2TokenValidator<Jwt> {
         return OAuth2TokenValidatorResult.success();
     }
 
-    // A role change invalidates the token.
+    // Logging never upgrades 401 to 500.
+    private void audit(UUID actorId, ActivityAction action, String entityType, UUID entityId) {
+        try {
+            activityLogs.recordIndependently(actorId, null, action, entityType, entityId);
+        } catch (RuntimeException unloggable) {
+            log.warn("Could not record {}: {}", action, unloggable.toString());
+        }
+    }
+
+    // Exactly the current role, nothing extra.
     private boolean carriesCurrentRole(Jwt token, UserAccount account) {
         var authorities = token.getClaimAsStringList(AccessTokenService.AUTHORITIES_CLAIM);
-        return authorities != null && authorities.contains(account.getRole().authority().getAuthority());
+        return authorities != null
+                && authorities.equals(List.of(account.getRole().authority().getAuthority()));
     }
 
     private Optional<UUID> uuidClaim(Jwt token, String claim) {

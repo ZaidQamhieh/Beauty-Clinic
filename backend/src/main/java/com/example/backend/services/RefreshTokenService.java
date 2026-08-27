@@ -116,6 +116,28 @@ public class RefreshTokenService {
                 });
     }
 
+    // Signs out every device for account.
+    @Transactional
+    public int revokeAllFor(UUID userId) {
+        var live = refreshTokens.findLiveForUser(userId);
+
+        Instant now = Instant.now();
+        live.forEach(token -> {
+            // Stamped first, so revoked stays distinguishable.
+            token.revoke(now);
+            refreshTokens.saveAndFlush(token);
+            refreshTokens.delete(token);
+        });
+
+        if (!live.isEmpty()) {
+            activityLogs.record(
+                    userId, null, ActivityAction.SESSIONS_REVOKED,
+                    "user_account", userId);
+        }
+
+        return live.size();
+    }
+
     public record IssuedRefreshToken(
         UUID sessionId,
         String value
