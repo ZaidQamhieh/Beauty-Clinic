@@ -10,6 +10,7 @@ import '../../appointments/data/appointment_api.dart';
 import '../../appointments/presentation/booking_format.dart';
 import '../../forms/data/clinical_intake_api.dart';
 import '../../forms/data/dynamic_form_api.dart';
+import '../../../core/validation/field_rules.dart';
 import '../../forms/domain/clinical_rules.dart';
 import '../../products/data/product.dart';
 import '../../products/data/product_api.dart';
@@ -1751,6 +1752,33 @@ class _SessionRecordDialogState extends State<_SessionRecordDialog> {
 
   bool get _isDirty => !listEquals(_snapshot(), _initialSnapshot);
 
+  /// First rule this record fails, if any.
+  String? get _problem {
+    if (_skinReaction != 'NONE' && _noteController.text.trim().isEmpty) {
+      return 'Describe the reaction in the clinical note.';
+    }
+    if (_skinReaction == 'SEVERE' && _followUpDate == null) {
+      return 'A severe reaction needs a follow-up date.';
+    }
+    final note = FieldRules.boundedText(
+      _noteController.text,
+      'Clinical note',
+      max: 4000,
+      required: false,
+    );
+    if (note != null) return note;
+    final products = FieldRules.selectionCount(
+      _selectedProductIds.length,
+      'products',
+      max: 20,
+    );
+    if (products != null) return products;
+    return FieldRules.followUpDate(
+      _followUpDate,
+      notBefore: widget.session.startTime,
+    );
+  }
+
   @override
   void dispose() {
     _noteController.dispose();
@@ -1829,6 +1857,20 @@ class _SessionRecordDialogState extends State<_SessionRecordDialog> {
                       : 'Follow-up: ${_followUpDate!.toIso8601String().split('T').first}',
                 ),
               ),
+              ListenableBuilder(
+                listenable: _noteController,
+                builder: (context, _) {
+                  final problem = _isDirty ? _problem : null;
+                  if (problem == null) return const SizedBox.shrink();
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      problem,
+                      style: const TextStyle(color: Colors.red, fontSize: 12),
+                    ),
+                  );
+                },
+              ),
               const SizedBox(height: 16),
               Text('Prescribe products', style: AppTypography.labelLarge()),
               if (widget.catalog.isEmpty)
@@ -1868,7 +1910,7 @@ class _SessionRecordDialogState extends State<_SessionRecordDialog> {
         ListenableBuilder(
           listenable: _noteController,
           builder: (context, _) => FilledButton(
-            onPressed: _isDirty ? _submit : null,
+            onPressed: !_isDirty || _problem != null ? null : _submit,
             child: const Text('Save session record'),
           ),
         ),

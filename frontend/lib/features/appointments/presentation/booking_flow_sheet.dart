@@ -418,7 +418,16 @@ class _BookingFlowSheetState extends State<BookingFlowSheet>
 
   // ─── Cart ─────────────────────────────────────────────────────────────────
 
+  bool get _cartIsFull => _cart.length >= maxSessionsPerVisit;
+
   void _chooseSlot(FreeSlot slot) {
+    if (_cartIsFull) {
+      setState(
+        () => _reviewError =
+            'A visit holds at most $maxSessionsPerVisit treatments.',
+      );
+      return;
+    }
     setState(() {
       _cart.add(BookingCartItem(treatment: _selectedTreatment!, slot: slot));
       _reviewError = null;
@@ -430,6 +439,13 @@ class _BookingFlowSheetState extends State<BookingFlowSheet>
 
   // Refetch drops held slots; clears stale selection.
   void _addAnother() {
+    if (_cartIsFull) {
+      setState(
+        () => _reviewError =
+            'A visit holds at most $maxSessionsPerVisit treatments.',
+      );
+      return;
+    }
     setState(() {
       _step = _Step.browse;
       _selectedTreatment = null;
