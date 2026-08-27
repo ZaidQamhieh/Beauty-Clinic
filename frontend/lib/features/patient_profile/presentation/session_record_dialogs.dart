@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_typography.dart';
+import '../../../core/validation/field_rules.dart';
 import '../../../network/api_client.dart';
 import '../../appointments/data/appointment.dart';
 import '../../appointments/data/appointment_api.dart';
@@ -10,10 +11,7 @@ import '../../products/data/product_api.dart';
 import '../data/session_record.dart';
 import '../data/session_record_api.dart';
 
-/// The "mark attended & record" / "add session record" / "view session
-/// record" flow, shared by every screen that lets a doctor record a
-/// session's clinical outcome (currently ClinicAppointmentsScreen and the
-/// doctor's My Calendar).
+/// Shared session-record flow for doctor screens.
 
 class SessionRecordInput {
   const SessionRecordInput({
@@ -29,9 +27,7 @@ class SessionRecordInput {
   final List<String> prescribedProductIds;
 }
 
-/// Opens the record form, marks [session] attended if it was still planned,
-/// then saves the record. Shows its own success/error snack bar. Returns
-/// true on success, so the caller knows to refresh its session-record map.
+/// Marks session attended, then saves record.
 Future<bool> completeSessionWithRecord({
   required BuildContext context,
   required ApiClient apiClient,
@@ -75,8 +71,7 @@ Future<bool> completeSessionWithRecord({
   }
 }
 
-/// Opens the record form pre-filled with [record] and saves the edit.
-/// Returns true on success.
+/// Edits an existing session record.
 Future<bool> editSessionRecord({
   required BuildContext context,
   required ApiClient apiClient,
@@ -115,7 +110,7 @@ Future<bool> editSessionRecord({
   }
 }
 
-/// Shows the read-only record, with an Edit action when [canEdit].
+/// Shows a record, editable when permitted.
 void showSessionRecordViewDialog({
   required BuildContext context,
   required SessionRecord record,
@@ -164,9 +159,7 @@ void showSessionRecordViewDialog({
   );
 }
 
-/// Shown in place of the record when a read-only viewer (the admin
-/// doctor-detail view) taps a session that has none yet - there is nothing
-/// to view, and no capability here to create one.
+/// Placeholder when a viewer cannot record.
 void showNoSessionRecordDialog(BuildContext context) {
   showDialog<void>(
     context: context,
@@ -185,12 +178,7 @@ void showNoSessionRecordDialog(BuildContext context) {
   );
 }
 
-/// The tri-state button: "Mark attended & record" (no record, still
-/// planned) -> "Add session record" (completed, no record yet) -> "View
-/// session record" (record already exists). [readOnly] (the admin
-/// doctor-detail view, which can look but not record) collapses the first
-/// two states into a plain "No record yet" - there is nothing it can do
-/// about a missing record, so it should not read as an action to take.
+/// Tri-state button for recording a session.
 class SessionRecordActionButton extends StatelessWidget {
   const SessionRecordActionButton({
     super.key,
@@ -278,6 +266,17 @@ class _SessionRecordDialogState extends State<SessionRecordDialog> {
 
   bool get _isDirty => !listEquals(_snapshot(), _initialSnapshot);
 
+  /// First rule this record fails, if any.
+  String? get _problem {
+    if (_reaction != 'NONE' && _note.text.trim().isEmpty) {
+      return 'Describe the reaction in the clinical note.';
+    }
+    if (_reaction == 'SEVERE' && _followUp == null) {
+      return 'A severe reaction needs a follow-up date.';
+    }
+    return FieldRules.followUpDate(_followUp);
+  }
+
   @override
   void dispose() {
     _note.dispose();
@@ -286,7 +285,7 @@ class _SessionRecordDialogState extends State<SessionRecordDialog> {
 
   Future<void> _chooseDate() async {
     final now = DateTime.now();
-    // A past follow-up would break the picker: initialDate can't precede firstDate.
+    // Picker rejects initialDate before firstDate.
     final start = _followUp == null || _followUp!.isBefore(now)
         ? now
         : _followUp!;
@@ -342,6 +341,20 @@ class _SessionRecordDialogState extends State<SessionRecordDialog> {
                       : 'Follow-up: ${_followUp!.toIso8601String().split('T').first}',
                 ),
               ),
+              ListenableBuilder(
+                listenable: _note,
+                builder: (context, _) {
+                  final problem = _problem;
+                  if (problem == null) return const SizedBox.shrink();
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      problem,
+                      style: const TextStyle(color: Colors.red, fontSize: 12),
+                    ),
+                  );
+                },
+              ),
               const SizedBox(height: 12),
               Text('Prescribe products', style: AppTypography.labelLarge()),
               ...widget.catalog.map(
@@ -371,7 +384,7 @@ class _SessionRecordDialogState extends State<SessionRecordDialog> {
         ListenableBuilder(
           listenable: _note,
           builder: (context, _) => FilledButton(
-            onPressed: !_isDirty
+            onPressed: !_isDirty || _problem != null
                 ? null
                 : () => Navigator.of(context).pop(
                     SessionRecordInput(

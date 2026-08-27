@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/validation/field_rules.dart';
 import '../../../core/widgets/app_dropdown.dart';
 import '../../../core/widgets/skeleton.dart';
 import '../data/product.dart';
@@ -506,9 +507,7 @@ class _ProductFormState extends State<_ProductForm> {
                   controller: _name,
                   decoration: const InputDecoration(labelText: 'Name'),
                   maxLength: 60,
-                  validator: (value) => value == null || value.trim().isEmpty
-                      ? 'Enter a name'
-                      : null,
+                  validator: (value) => FieldRules.requiredText(value, 'Name'),
                 ),
                 TextFormField(
                   controller: _imageUrl,
@@ -516,6 +515,8 @@ class _ProductFormState extends State<_ProductForm> {
                     labelText: 'Image URL (optional)',
                   ),
                   maxLength: 2048,
+                  validator: (value) =>
+                      FieldRules.httpUrl(value, label: 'Image URL'),
                 ),
                 const SizedBox(height: 12),
                 _dropdown(
@@ -538,12 +539,11 @@ class _ProductFormState extends State<_ProductForm> {
                     labelText: 'Stock quantity',
                   ),
                   keyboardType: TextInputType.number,
-                  validator: (value) {
-                    final stock = int.tryParse(value ?? '');
-                    return stock == null || stock < 0
-                        ? 'Enter a non-negative number'
-                        : null;
-                  },
+                  validator: (value) => FieldRules.nonNegativeInt(
+                    value,
+                    'Stock quantity',
+                    max: 100000,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 Wrap(

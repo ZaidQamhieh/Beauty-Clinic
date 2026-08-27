@@ -10,6 +10,7 @@ import '../../appointments/data/appointment_api.dart';
 import '../../appointments/presentation/booking_format.dart';
 import '../../forms/data/clinical_intake_api.dart';
 import '../../forms/data/dynamic_form_api.dart';
+import '../../forms/domain/clinical_rules.dart';
 import '../../products/data/product.dart';
 import '../../products/data/product_api.dart';
 import '../data/session_record_api.dart';
@@ -938,6 +939,8 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
     final smoking = _patientData?['smokingStatus'] != null
         ? _humanizeEnum(_patientData!['smokingStatus'].toString())
         : 'Not recorded';
+    // Never asked of male records.
+    final showsPregnancy = ClinicalRules.notMale(_patientData ?? const {});
     final pregnant = _patientData?['pregnantBreastfeeding'] == true
         ? 'Yes'
         : 'No';
@@ -955,7 +958,7 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
         _buildInfoRow('Date of Birth', dob),
         _buildInfoRow('Skin Type', skinType),
         _buildInfoRow('Smoking Status', smoking),
-        _buildInfoRow('Pregnant / Nursing', pregnant),
+        if (showsPregnancy) _buildInfoRow('Pregnant / Nursing', pregnant),
         _buildInfoRow(
           'Allergies',
           allergies.isNotEmpty

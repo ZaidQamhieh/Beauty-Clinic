@@ -9,14 +9,25 @@ class DynamicFormController extends ChangeNotifier {
     required FormSchema schema,
     Map<String, dynamic>? initialValues,
   }) : _schema = schema,
-       values = {...schema.defaultValues(), ...?initialValues},
-       _saved = {...schema.defaultValues(), ...?initialValues};
+       values = const {},
+       _saved = const {} {
+    final initial = schema.pruneHidden({
+      ...schema.defaultValues(),
+      ...?initialValues,
+    });
+    values = initial;
+    _saved = {...initial};
+    warnings = FormValidator.warnings(schema, initial);
+  }
 
   FormSchema _schema;
   FormSchema get schema => _schema;
 
   Map<String, dynamic> values;
   Map<String, String> errors = {};
+
+  /// Advisory messages that do not block saving.
+  Map<String, String> warnings = {};
 
   /// Last saved snapshot, for the dirty check.
   Map<String, dynamic> _saved;
@@ -28,11 +39,13 @@ class DynamicFormController extends ChangeNotifier {
   bool get isDirty => !_deepEquals(values, _saved);
 
   void setValue(String fieldId, dynamic value) {
-    values = {...values, fieldId: value};
+    // Answers to newly hidden questions are dropped.
+    values = _schema.pruneHidden({...values, fieldId: value});
     if (touched) {
       // Live re-validate after a submit attempt.
       errors = FormValidator.validate(_schema, values);
     }
+    warnings = FormValidator.warnings(_schema, values);
     notifyListeners();
   }
 
@@ -40,33 +53,36 @@ class DynamicFormController extends ChangeNotifier {
   void updateSchema(FormSchema newSchema) {
     _schema = newSchema;
     final allowedIds = newSchema.fields.map((f) => f.id).toSet();
-    values = {
+    values = newSchema.pruneHidden({
       ...newSchema.defaultValues(),
       for (final entry in values.entries)
         if (allowedIds.contains(entry.key)) entry.key: entry.value,
-    };
+    });
     // Schema switch alone is not an edit.
-    _saved = {
+    _saved = newSchema.pruneHidden({
       ...newSchema.defaultValues(),
       for (final entry in _saved.entries)
         if (allowedIds.contains(entry.key)) entry.key: entry.value,
-    };
+    });
     if (touched) errors = FormValidator.validate(_schema, values);
+    warnings = FormValidator.warnings(_schema, values);
     notifyListeners();
   }
 
   bool validate() {
     touched = true;
     errors = FormValidator.validate(_schema, values);
+    warnings = FormValidator.warnings(_schema, values);
     notifyListeners();
     return errors.isEmpty;
   }
 
   /// Discards edits, restoring the given snapshot.
   void reset(Map<String, dynamic> initialValues) {
-    values = {...schema.defaultValues(), ...initialValues};
-    _saved = {...schema.defaultValues(), ...initialValues};
+    values = _schema.pruneHidden({...schema.defaultValues(), ...initialValues});
+    _saved = {...values};
     errors = {};
+    warnings = FormValidator.warnings(_schema, values);
     touched = false;
     notifyListeners();
   }

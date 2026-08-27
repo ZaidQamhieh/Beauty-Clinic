@@ -1,4 +1,5 @@
 import 'form_field_schema.dart';
+import 'form_issue.dart';
 
 /// A named, ordered set of [FormFieldSchema]s that together describe one
 /// backend request/response shape (one DTO).
@@ -13,12 +14,16 @@ class FormSchema {
     required this.title,
     this.description,
     required this.fields,
+    this.crossFieldRules = const [],
   });
 
   final String id;
   final String title;
   final String? description;
   final List<FormFieldSchema> fields;
+
+  /// Rules spanning several answers at once.
+  final List<CrossFieldRule> crossFieldRules;
 
   FormFieldSchema? fieldById(String id) {
     for (final field in fields) {
@@ -27,18 +32,42 @@ class FormSchema {
     return null;
   }
 
+  /// Fields that apply to the answers so far.
+  List<FormFieldSchema> visibleFields(Map<String, dynamic> values) => [
+    for (final field in fields)
+      if (field.isVisible(values)) field,
+  ];
+
   /// Starting values for a fresh form: `false` for a boolean, `null` for a
   /// single-select, `[]` for a multi-select — matching what an unfilled row
   /// under the ERD's own defaults/nullability would hold.
   Map<String, dynamic> defaultValues() {
-    return {
-      for (final field in fields)
-        field.id: switch (field.type) {
-          FormFieldType.boolean => false,
-          FormFieldType.singleSelect => null,
-          FormFieldType.multiSelect => <String>[],
-        },
-    };
+    return {for (final field in fields) field.id: field.emptyValue};
+  }
+
+  /// Clears answers to questions no longer shown.
+  Map<String, dynamic> pruneHidden(Map<String, dynamic> values) {
+    final pruned = {...values};
+    for (final field in fields) {
+      if (!field.isVisible(values)) {
+        pruned[field.id] = field.emptyValue;
+        continue;
+      }
+      final allowed = field.visibleOptionValues(values);
+      if (allowed.length == field.options.length) continue;
+      final current = pruned[field.id];
+      if (field.type == FormFieldType.multiSelect && current is List) {
+        pruned[field.id] = [
+          for (final value in current.cast<String>())
+            if (allowed.contains(value)) value,
+        ];
+      } else if (field.type == FormFieldType.singleSelect &&
+          current is String &&
+          !allowed.contains(current)) {
+        pruned[field.id] = null;
+      }
+    }
+    return pruned;
   }
 
   /// Returns a copy of this schema with one field replaced — the primitive
@@ -48,6 +77,7 @@ class FormSchema {
       id: id,
       title: title,
       description: description,
+      crossFieldRules: crossFieldRules,
       fields: [
         for (final field in fields)
           field.id == replacement.id ? replacement : field,

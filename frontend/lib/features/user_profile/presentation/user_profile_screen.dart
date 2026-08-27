@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../../auth/role.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/validation/field_rules.dart';
 import '../../../core/widgets/app_dropdown.dart';
 import '../../../core/widgets/password_strength_meter.dart';
 import '../../../core/widgets/profile_avatar.dart';
@@ -227,56 +228,16 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   Future<void> _save() async {
-    if (_firstNameController.text.trim().isEmpty ||
-        _lastNameController.text.trim().isEmpty ||
-        _phoneController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'First name, last name, and phone number are required.',
-          ),
-        ),
-      );
-      return;
-    }
-    if (_phoneController.text.trim().length != 7) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('A phone number is 7 digits after the prefix.'),
-        ),
-      );
-      return;
-    }
-    if (_selectedDateOfBirth == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Date of birth is required.')),
-      );
-      return;
-    }
-    if (_selectedGender == null) {
+    final problem = _profileProblem();
+    if (problem != null) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Gender is required.')));
+      ).showSnackBar(SnackBar(content: Text(problem)));
       return;
     }
     final yearsOfExperience = int.tryParse(
       _yearsOfExperienceController.text.trim(),
     );
-    if (widget.role == Role.doctor && _selectedSpecializations.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Select at least one specialization.')),
-      );
-      return;
-    }
-    if (widget.role == Role.doctor &&
-        (yearsOfExperience == null || yearsOfExperience < 0)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Years of experience must be a non-negative number.'),
-        ),
-      );
-      return;
-    }
     // Closes the editor now; reopens if refused.
     setState(() {
       _saving = true;
@@ -342,8 +303,14 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       _showPasswordError('Complete all password fields.');
       return;
     }
-    if (newPassword.length < 8) {
-      _showPasswordError('The new password must be at least 8 characters.');
+    final weakness = FieldRules.password(
+      newPassword,
+      email: _emailController.text,
+      firstName: _firstNameController.text,
+      lastName: _lastNameController.text,
+    );
+    if (weakness != null) {
+      _showPasswordError(weakness);
       return;
     }
     if (newPassword != confirmPassword) {
@@ -480,6 +447,34 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         ],
       ),
     );
+  }
+
+  /// First rule this profile fails, if any.
+  String? _profileProblem() {
+    final isDoctor = widget.role == Role.doctor;
+    return FieldRules.personName(_firstNameController.text, 'First name') ??
+        FieldRules.personName(_lastNameController.text, 'Last name') ??
+        FieldRules.phoneDigits(_phoneController.text) ??
+        FieldRules.dateOfBirth(
+          _selectedDateOfBirth,
+          minAge: widget.role == Role.patient ? 16 : 18,
+        ) ??
+        (_selectedGender == null ? 'Gender is required.' : null) ??
+        (_hasPhoto
+            ? FieldRules.httpUrl(
+                _imageUrlController.text,
+                label: 'Profile picture URL',
+              )
+            : null) ??
+        (isDoctor && _selectedSpecializations.isEmpty
+            ? 'Select at least one specialization.'
+            : null) ??
+        (isDoctor
+            ? FieldRules.yearsOfExperience(
+                _yearsOfExperienceController.text,
+                dateOfBirth: _selectedDateOfBirth,
+              )
+            : null);
   }
 
   /// Prefix dropdown, then seven digits.

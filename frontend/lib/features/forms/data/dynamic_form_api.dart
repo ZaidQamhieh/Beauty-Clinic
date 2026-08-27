@@ -1,4 +1,5 @@
 import '../../../network/api_client.dart';
+import '../domain/clinical_rules.dart';
 import '../domain/form_field_schema.dart';
 import '../domain/form_schema.dart';
 import 'clinical_intake_schema.dart';
@@ -106,7 +107,9 @@ class DynamicFormApi {
         }
       }
       for (final opt in rawOptions) {
-        optionMap[opt.value] = opt;
+        // Keeps the baseline rule when a label is overridden.
+        final baselineOption = optionMap[opt.value];
+        optionMap[opt.value] = baselineOption?.withLabel(opt.label) ?? opt;
       }
 
       fields.add(
@@ -118,12 +121,14 @@ class DynamicFormApi {
           helpText: question['helpText'] as String?,
           options: optionMap.values.toList(),
           maxSelections: type == FormFieldType.multiSelect ? 20 : null,
+          visibleWhen: baselineField?.visibleWhen,
         ),
       );
     }
 
     return FormSchema(
       id: 'clinical-intake',
+      crossFieldRules: ClinicalRules.all,
       title: 'Clinic Forms',
       description:
           'Your clinic health form. Required questions must be answered before saving.',
