@@ -23,6 +23,9 @@ class ApiClient {
     this.dio.interceptors.add(
       QueuedInterceptorsWrapper(onRequest: _onRequest, onError: _onError),
     );
+    // Interceptor-free: a retry inside the queue deadlocks.
+    _retryDio = Dio(this.dio.options)
+      ..httpClientAdapter = this.dio.httpClientAdapter;
     _cachedForUserId = _authSession.userId;
     _authSession.addListener(_dropCacheIfUserChanged);
   }
@@ -31,6 +34,7 @@ class ApiClient {
 
   final AuthSession _authSession;
   final Dio dio;
+  late final Dio _retryDio;
   final Map<String, _CacheEntry> _cache = {};
 
   // Never leak one user's data to another.
@@ -194,18 +198,20 @@ class ApiClient {
     final statusCode = error.response?.statusCode;
 
     if (statusCode == 403) {
-      handler.next(
-        DioException(
-          requestOptions: request,
-          response: error.response,
-          type: error.type,
-          error: const ForbiddenException(),
-        ),
-      );
+      handler.next(_asForbidden(error));
       return;
     }
 
-    if (statusCode != 401 || request.extra[_retriedAfterRefresh] == true) {
+    if (request.extra[_retriedAfterRefresh] == true) {
+      // New token rejected; session is gone.
+      if (statusCode == 401) {
+        await _authSession.endRejectedSession();
+      }
+      handler.next(error);
+      return;
+    }
+
+    if (statusCode != 401) {
       handler.next(error);
       return;
     }
@@ -230,13 +236,31 @@ class ApiClient {
         },
         extra: {...request.extra, _retriedAfterRefresh: true},
       );
-      handler.resolve(await dio.fetch<dynamic>(retry));
+      handler.resolve(await _retryDio.fetch<dynamic>(retry));
     } on AuthException {
       // Session already cleared; pass 401 through.
       handler.next(error);
     } on DioException catch (retryError) {
-      handler.next(retryError);
+      final retryStatus = retryError.response?.statusCode;
+
+      // New token rejected; session is gone.
+      if (retryStatus == 401) {
+        await _authSession.endRejectedSession();
+      }
+
+      handler.next(
+        retryStatus == 403 ? _asForbidden(retryError) : retryError,
+      );
     }
+  }
+
+  DioException _asForbidden(DioException error) {
+    return DioException(
+      requestOptions: error.requestOptions,
+      response: error.response,
+      type: error.type,
+      error: const ForbiddenException(),
+    );
   }
 
   String? _bearerToken(Object? authorization) {

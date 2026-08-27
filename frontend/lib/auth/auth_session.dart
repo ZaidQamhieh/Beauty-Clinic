@@ -71,6 +71,9 @@ class AuthSession extends ChangeNotifier {
   int _scheduledRefreshFailures = 0;
   bool _disposed = false;
 
+  // Bumped on sign-out; stale rotations cannot resurrect.
+  int _generation = 0;
+
   AuthStatus get status => _status;
   bool get isAuthenticated => _status == AuthStatus.authenticated;
 
@@ -219,7 +222,25 @@ class AuthSession extends ChangeNotifier {
     return (await _refreshTokens()).accessToken;
   }
 
+  /// Server rejected a freshly minted token.
+  Future<void> endRejectedSession() async {
+    if (_tokens == null) {
+      return;
+    }
+    await _invalidateSession();
+  }
+
   Future<void> logout() async {
+    // Await rotation first; revoke the live token.
+    final pendingRefresh = _refreshInFlight;
+    if (pendingRefresh != null) {
+      try {
+        await pendingRefresh;
+      } catch (_) {
+        // Failed rotation leaves nothing to revoke.
+      }
+    }
+
     final refreshToken = _tokens?.refreshToken;
     final serverLogout = refreshToken == null
         ? null
@@ -270,6 +291,7 @@ class AuthSession extends ChangeNotifier {
   }
 
   Future<TokenPair> _performRefresh() async {
+    final startedIn = _generation;
     final currentTokens = _tokens;
     if (currentTokens == null) {
       throw const SessionExpiredException();
@@ -283,7 +305,7 @@ class AuthSession extends ChangeNotifier {
       await _invalidateSession();
       throw const SessionExpiredException();
     }
-    if (storedTokens == null) {
+    if (storedTokens == null || _generation != startedIn) {
       await _invalidateSession();
       throw const SessionExpiredException();
     }
@@ -300,6 +322,10 @@ class AuthSession extends ChangeNotifier {
         data: {'refreshToken': storedTokens.refreshToken},
       );
       final tokens = _tokensFromResponse(response.data);
+      // Signed out mid-flight; stay signed out.
+      if (_generation != startedIn) {
+        throw const SessionExpiredException();
+      }
       await _replaceTokens(tokens);
       return tokens;
     } on DioException catch (error) {
@@ -353,6 +379,7 @@ class AuthSession extends ChangeNotifier {
   }
 
   Future<void> _invalidateSession({bool reportStorageError = false}) async {
+    _generation += 1;
     _refreshTimer?.cancel();
     _refreshTimer = null;
     _scheduledRefreshFailures = 0;
