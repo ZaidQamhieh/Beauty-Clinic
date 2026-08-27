@@ -250,11 +250,7 @@ class _StaffRow extends StatelessWidget {
             width: _colRole,
             child: Align(
               alignment: Alignment.centerLeft,
-              child: _pill(
-                _roleLabel(item.role),
-                roleBackground,
-                roleAccent,
-              ),
+              child: _pill(_roleLabel(item.role), roleBackground, roleAccent),
             ),
           ),
           SizedBox(
@@ -303,7 +299,9 @@ class _StaffRow extends StatelessWidget {
       );
     }
 
-    final labels = item.specializations.map(_formatSpecializationLabel).toList();
+    final labels = item.specializations
+        .map(_formatSpecializationLabel)
+        .toList();
     final visible = labels.take(2).toList();
     final hidden = labels.skip(visible.length).toList();
 
@@ -313,10 +311,7 @@ class _StaffRow extends StatelessWidget {
       children: [
         ...visible.map((label) => _SpecializationChip(label, tooltip: label)),
         if (hidden.isNotEmpty)
-          _SpecializationChip(
-            '+${hidden.length}',
-            tooltip: hidden.join('\n'),
-          ),
+          _SpecializationChip('+${hidden.length}', tooltip: hidden.join('\n')),
       ],
     );
   }
