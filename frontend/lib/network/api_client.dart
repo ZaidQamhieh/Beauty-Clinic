@@ -248,9 +248,7 @@ class ApiClient {
         await _authSession.endRejectedSession();
       }
 
-      handler.next(
-        retryStatus == 403 ? _asForbidden(retryError) : retryError,
-      );
+      handler.next(retryStatus == 403 ? _asForbidden(retryError) : retryError);
     }
   }
 

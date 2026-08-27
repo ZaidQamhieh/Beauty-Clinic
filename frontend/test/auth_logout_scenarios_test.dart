@@ -10,41 +10,44 @@ import 'helpers/auth_test_fakes.dart';
 void main() {
   final now = DateTime.utc(2026, 8, 6, 12);
 
-  test('a rotation landing after logout cannot sign the user back in', () async {
-    final store = MemoryTokenStore();
-    final rotationGate = Completer<void>();
-    final adapter = QueueAdapter([
-      (_) => jsonResponse(
-        200,
-        tokenResponse('access-1', 'refresh-1', expiresInSeconds: 20),
-      ),
-      (_) async {
-        await rotationGate.future;
-        return jsonResponse(200, tokenResponse('access-2', 'refresh-2'));
-      },
-      (_) => ResponseBody.fromString('', 204),
-    ]);
-    final session = testSession(adapter, store, now);
-    addTearDown(session.dispose);
+  test(
+    'a rotation landing after logout cannot sign the user back in',
+    () async {
+      final store = MemoryTokenStore();
+      final rotationGate = Completer<void>();
+      final adapter = QueueAdapter([
+        (_) => jsonResponse(
+          200,
+          tokenResponse('access-1', 'refresh-1', expiresInSeconds: 20),
+        ),
+        (_) async {
+          await rotationGate.future;
+          return jsonResponse(200, tokenResponse('access-2', 'refresh-2'));
+        },
+        (_) => ResponseBody.fromString('', 204),
+      ]);
+      final session = testSession(adapter, store, now);
+      addTearDown(session.dispose);
 
-    await session.initialize();
-    await session.login(email: 'owner@example.com', password: 'password');
+      await session.initialize();
+      await session.login(email: 'owner@example.com', password: 'password');
 
-    final rotation = session.validAccessToken();
-    await Future<void>.delayed(Duration.zero);
+      final rotation = session.validAccessToken();
+      await Future<void>.delayed(Duration.zero);
 
-    final signOut = session.logout();
-    rotationGate.complete();
-    await rotation;
-    await signOut;
-    await Future<void>.delayed(const Duration(milliseconds: 20));
+      final signOut = session.logout();
+      rotationGate.complete();
+      await rotation;
+      await signOut;
+      await Future<void>.delayed(const Duration(milliseconds: 20));
 
-    expect(session.status, AuthStatus.unauthenticated);
-    expect(store.value, isNull);
-    // Revokes the token now live server-side.
-    expect(adapter.requests.last.path, '/api/auth/logout');
-    expect(adapter.requests.last.data, {'refreshToken': 'refresh-2'});
-  });
+      expect(session.status, AuthStatus.unauthenticated);
+      expect(store.value, isNull);
+      // Revokes the token now live server-side.
+      expect(adapter.requests.last.path, '/api/auth/logout');
+      expect(adapter.requests.last.data, {'refreshToken': 'refresh-2'});
+    },
+  );
 
   test('a sign-out in another tab ends this one too', () async {
     final store = MemoryTokenStore();
@@ -264,8 +267,10 @@ void main() {
       client.get<dynamic>('/api/appointments/day-version'),
     ]);
 
-    expect(authAdapter.requests.where((r) => r.path == '/api/auth/refresh'),
-        hasLength(1));
+    expect(
+      authAdapter.requests.where((r) => r.path == '/api/auth/refresh'),
+      hasLength(1),
+    );
     expect(
       apiAdapter.requests.last.headers[ApiClient.authorizationHeader],
       'Bearer access-2',
