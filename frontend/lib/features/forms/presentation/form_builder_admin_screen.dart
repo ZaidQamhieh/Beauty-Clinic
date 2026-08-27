@@ -801,7 +801,8 @@ class _QuestionDialogState extends State<_QuestionDialog> {
     }
     final seen = <String>{};
     for (final option in parsed) {
-      if (option.key.isEmpty) return 'Every option needs a value before the colon.';
+      if (option.key.isEmpty)
+        return 'Every option needs a value before the colon.';
       if (option.key.length > 100) {
         return 'Option value "${option.key}" is over 100 characters.';
       }
