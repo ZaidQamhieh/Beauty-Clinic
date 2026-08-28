@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:beauty_clinic_app/core/widgets/profile_avatar.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/widgets/app_dropdown.dart';
 import '../../../../core/widgets/skeleton.dart';
 import '../../../network/api_client.dart';
 import '../../appointments/data/appointment.dart';
@@ -1634,9 +1635,11 @@ class _ProductAssignmentDialogState extends State<_ProductAssignmentDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            DropdownButtonFormField<Product>(
+            AppDropdownField<Product>(
               initialValue: _selectedProduct,
               decoration: const InputDecoration(labelText: 'Product'),
+              labelOf: (product) =>
+                  '${product.brandLabel} ${product.typeLabel}',
               items: widget.catalog
                   .map(
                     (product) => DropdownMenuItem(
@@ -1655,7 +1658,7 @@ class _ProductAssignmentDialogState extends State<_ProductAssignmentDialog> {
                 child: Text('Source: Patient owned'),
               )
             else
-              DropdownButtonFormField<String>(
+              AppDropdownField<String>(
                 initialValue: _source,
                 decoration: const InputDecoration(labelText: 'Source'),
                 items: const [
@@ -1834,7 +1837,7 @@ class _SessionRecordDialogState extends State<_SessionRecordDialog> {
                 ),
               ),
               const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
+              AppDropdownField<String>(
                 initialValue: _skinReaction,
                 decoration: const InputDecoration(labelText: 'Skin reaction'),
                 items: const [

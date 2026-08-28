@@ -235,8 +235,7 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
       session: session,
     );
     if (saved) {
-      // No skeleton for a routine refresh - what's on screen already stands
-      // until the confirmed data replaces it.
+      // Routine refresh keeps the current screen.
       await _refreshQuietly();
     }
   }
@@ -566,6 +565,28 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
     );
   }
 
+  Widget _doctorOption(String label, bool isSelected) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 22,
+          child: isSelected
+              ? const Icon(Icons.check, size: 16, color: AppColors.roseDark)
+              : null,
+        ),
+        Expanded(
+          child: Text(
+            label,
+            overflow: TextOverflow.ellipsis,
+            style: isSelected
+                ? AppTypography.labelLarge(color: AppColors.roseDark)
+                : AppTypography.bodyMedium(),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildDoctorFilterButton() {
     DoctorSummary? selectedDoctor;
     for (final doctor in _doctors) {
@@ -576,17 +597,24 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
     }
     final label = selectedDoctor?.fullName ?? 'Any doctor';
 
+    // Opens under the chip, never over it.
     return PopupMenuButton<String>(
       tooltip: 'Filter by doctor',
-      initialValue: _doctorFilter ?? '',
+      position: PopupMenuPosition.under,
       onSelected: (value) =>
           setState(() => _doctorFilter = value.isEmpty ? null : value),
       itemBuilder: (context) => [
-        const PopupMenuItem<String>(value: '', child: Text('Any doctor')),
+        PopupMenuItem<String>(
+          value: '',
+          child: _doctorOption('Any doctor', _doctorFilter == null),
+        ),
         ..._doctors.map(
           (doctor) => PopupMenuItem<String>(
             value: doctor.userId,
-            child: Text(doctor.fullName),
+            child: _doctorOption(
+              doctor.fullName,
+              doctor.userId == _doctorFilter,
+            ),
           ),
         ),
       ],
