@@ -10,5 +10,6 @@ public interface PatientProductRepository extends JpaRepository<PatientProduct, 
 
     List<PatientProduct> findByPatientUserId(UUID patientUserId);
 
-    boolean existsByPatientUserIdAndProductId(UUID patientUserId, UUID productId);
+    // Matches uq_patient_product_current; discontinued rows may be re-added.
+    boolean existsByPatientUserIdAndProductIdAndDiscontinuedOnIsNull(UUID patientUserId, UUID productId);
 }
