@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/widgets/skeleton.dart';
+import '../../../appointments/data/appointment.dart';
 import '../../data/doctor_availability_api.dart';
 import 'availability_sessions_view.dart'
-    show DayWindow, resolveAvailableWindows;
+    show DayHoursBar, DayWindow, resolveAvailableWindows;
 
 enum _DayStatus { working, off, vacation, extraDay }
 
@@ -57,9 +59,17 @@ const List<AvailabilityDay> _weekdaysInOrder = [
 /// Lets a doctor check their effective availability for any specific date,
 /// resolved the same way the backend resolves it for booking.
 class DayViewSection extends StatefulWidget {
-  const DayViewSection({super.key, required this.availability});
+  const DayViewSection({
+    super.key,
+    required this.availability,
+    required this.fetchSessions,
+  });
 
   final List<DoctorAvailability> availability;
+
+  /// Booked visits for the picked day, so the hours bar can shade them in
+  /// alongside available/unavailable time.
+  final Future<List<Appointment>> Function(DateTime date) fetchSessions;
 
   @override
   State<DayViewSection> createState() => _DayViewSectionState();
@@ -67,23 +77,30 @@ class DayViewSection extends StatefulWidget {
 
 class _DayViewSectionState extends State<DayViewSection> {
   late DateTime _date;
+  late Future<List<Appointment>> _sessionsFuture;
 
   @override
   void initState() {
     super.initState();
     final now = DateTime.now();
     _date = DateTime(now.year, now.month, now.day);
+    _sessionsFuture = widget.fetchSessions(_date);
   }
 
   Future<void> _pickDate() async {
+    final now = DateTime.now();
+    final firstSelectable = DateTime(now.year, now.month, now.day);
     final picked = await showDatePicker(
       context: context,
-      initialDate: _date,
-      firstDate: DateTime(2000),
+      initialDate: _date.isBefore(firstSelectable) ? firstSelectable : _date,
+      firstDate: firstSelectable,
       lastDate: DateTime(2100),
     );
     if (picked != null) {
-      setState(() => _date = DateTime(picked.year, picked.month, picked.day));
+      setState(() {
+        _date = DateTime(picked.year, picked.month, picked.day);
+        _sessionsFuture = widget.fetchSessions(_date);
+      });
     }
   }
 
@@ -177,29 +194,27 @@ class _DayViewSectionState extends State<DayViewSection> {
                         ? 'Doctor is on leave this day.'
                         : 'No working hours on this day.',
                     style: AppTypography.bodySmall(color: AppColors.textMuted),
-                  )
-                else
-                  for (final window in windows)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.bgCard,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: AppColors.border),
-                        ),
-                        child: Text(
-                          '${_formatMinutes(window.start)} - ${_formatMinutes(window.end)}',
-                          style: AppTypography.labelMedium(),
-                        ),
-                      ),
-                    ),
+                  ),
               ],
             ),
+          ),
+          const SizedBox(height: 16),
+          FutureBuilder<List<Appointment>>(
+            future: _sessionsFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState != ConnectionState.done) {
+                return const Skeleton(width: double.infinity, height: 28);
+              }
+              final sessions = <AppointmentSession>[
+                for (final appointment in snapshot.data ?? const [])
+                  ...appointment.sessions,
+              ];
+              return DayHoursBar(
+                date: _date,
+                availability: widget.availability,
+                sessions: sessions,
+              );
+            },
           ),
         ],
       ),
@@ -247,14 +262,6 @@ class _DayViewSectionState extends State<DayViewSection> {
           (rule.kind == AvailabilityKind.regular && rule.dayOfWeek == weekday),
     );
     return hasBaseline ? _DayStatus.working : _DayStatus.extraDay;
-  }
-
-  String _formatMinutes(int minutes) {
-    final hour = minutes ~/ 60;
-    final minute = minutes % 60;
-    final period = hour >= 12 ? 'PM' : 'AM';
-    final hour12 = hour % 12 == 0 ? 12 : hour % 12;
-    return '$hour12:${minute.toString().padLeft(2, '0')} $period';
   }
 
   String _weekdayLabel(DateTime date) => const [

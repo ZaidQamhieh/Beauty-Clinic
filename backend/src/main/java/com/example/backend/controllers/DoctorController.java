@@ -5,6 +5,7 @@ import com.example.backend.dtos.DoctorAvailabilityDayStatus;
 import com.example.backend.dtos.DoctorAvailabilityResponse;
 import com.example.backend.dtos.DoctorResponse;
 import com.example.backend.dtos.DoctorProfileRequest;
+import com.example.backend.dtos.SplitDoctorAvailabilityRequest;
 import com.example.backend.security.access.AdminOnly;
 import com.example.backend.security.access.Authenticated;
 import com.example.backend.security.access.DoctorSelfOrAdmin;
@@ -113,6 +114,15 @@ public class DoctorController {
             @PathVariable UUID userId,
             @PathVariable UUID availabilityId) {
         availability.remove(userId, availabilityId);
+    }
+
+    @PostMapping("/{userId}/availability/{availabilityId}/split")
+    @DoctorSelfOrAdmin
+    public List<DoctorAvailabilityResponse> splitAvailability(
+            @PathVariable UUID userId,
+            @PathVariable UUID availabilityId,
+            @Valid @RequestBody SplitDoctorAvailabilityRequest request) {
+        return availability.split(userId, availabilityId, request);
     }
 
 }

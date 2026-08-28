@@ -67,6 +67,7 @@ class WeeklyScheduleSection extends StatelessWidget {
   Widget _dayRow(AvailabilityDay day) {
     final slots = regular.where((item) => item.dayOfWeek == day).toList()
       ..sort((a, b) => (a.startTime ?? '').compareTo(b.startTime ?? ''));
+    final clusters = _clusterByTimeOverlap(slots);
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 14),
@@ -103,7 +104,7 @@ class WeeklyScheduleSection extends StatelessWidget {
               runSpacing: 8,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                for (final slot in slots) _slotChip(slot),
+                for (final cluster in clusters) _slotCluster(cluster),
                 OutlinedButton.icon(
                   onPressed: () => onAdd(day),
                   style: OutlinedButton.styleFrom(
@@ -123,7 +124,66 @@ class WeeklyScheduleSection extends StatelessWidget {
     );
   }
 
-  Widget _slotChip(DoctorAvailability slot) {
+  // Groups slots whose time ranges overlap - same hours (or overlapping
+  // ones), scheduled over different, non-overlapping effective-date ranges.
+  // The backend allows this (its redundant-overlap check only rejects a
+  // date-range overlap too), so two slots can otherwise render as
+  // identical-looking chips side by side with nothing to tell them apart.
+  List<List<DoctorAvailability>> _clusterByTimeOverlap(
+    List<DoctorAvailability> slots,
+  ) {
+    final remaining = [...slots];
+    final clusters = <List<DoctorAvailability>>[];
+    while (remaining.isNotEmpty) {
+      final cluster = [remaining.removeAt(0)];
+      var grew = true;
+      while (grew) {
+        grew = false;
+        remaining.removeWhere((candidate) {
+          final overlaps = cluster.any(
+            (member) => _timesOverlap(member, candidate),
+          );
+          if (overlaps) {
+            cluster.add(candidate);
+            grew = true;
+            return true;
+          }
+          return false;
+        });
+      }
+      clusters.add(cluster);
+    }
+    return clusters;
+  }
+
+  bool _timesOverlap(DoctorAvailability a, DoctorAvailability b) {
+    final aStart = a.startTime ?? '';
+    final aEnd = a.endTime ?? '';
+    final bStart = b.startTime ?? '';
+    final bEnd = b.endTime ?? '';
+    return aStart.compareTo(bEnd) < 0 && bStart.compareTo(aEnd) < 0;
+  }
+
+  Widget _slotCluster(List<DoctorAvailability> cluster) {
+    if (cluster.length == 1) {
+      return _slotChip(cluster.single);
+    }
+    // Latest effective-from on top.
+    final ordered = [...cluster]
+      ..sort((a, b) => b.effectiveFrom.compareTo(a.effectiveFrom));
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var i = 0; i < ordered.length; i++) ...[
+          if (i != 0) const SizedBox(height: 6),
+          _slotChip(ordered[i], showDateRange: true),
+        ],
+      ],
+    );
+  }
+
+  Widget _slotChip(DoctorAvailability slot, {bool showDateRange = false}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
@@ -134,28 +194,59 @@ class WeeklyScheduleSection extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            '${_short(slot.startTime)} - ${_short(slot.endTime)}',
-            style: AppTypography.labelSmall(color: AppColors.sageDark),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '${_short(slot.startTime)} - ${_short(slot.endTime)}',
+                style: AppTypography.labelSmall(color: AppColors.sageDark),
+              ),
+              if (showDateRange)
+                Text(
+                  _dateRange(slot),
+                  style: AppTypography.bodySmall(
+                    color: AppColors.sageDark.withValues(alpha: 0.75),
+                  ),
+                ),
+            ],
           ),
           const SizedBox(width: 6),
-          InkWell(
-            onTap: () => onEdit(slot),
-            child: const Icon(
-              Icons.edit_outlined,
-              size: 14,
-              color: AppColors.sageDark,
+          Tooltip(
+            message: slot.hasEnded ? 'View' : 'Edit',
+            child: InkWell(
+              onTap: () => onEdit(slot),
+              child: Icon(
+                slot.hasEnded ? Icons.visibility_outlined : Icons.edit_outlined,
+                size: 14,
+                color: AppColors.sageDark,
+              ),
             ),
           ),
-          const SizedBox(width: 6),
-          InkWell(
-            onTap: () => onDelete(slot),
-            child: const Icon(Icons.close, size: 14, color: AppColors.roseDark),
-          ),
+          if (!slot.hasEnded) ...[
+            const SizedBox(width: 6),
+            InkWell(
+              onTap: () => onDelete(slot),
+              child: const Icon(
+                Icons.close,
+                size: 14,
+                color: AppColors.roseDark,
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
+
+  String _dateRange(DoctorAvailability slot) {
+    final from = _dateOnly(slot.effectiveFrom);
+    if (slot.effectiveTo == null) return 'from $from';
+    return '$from → ${_dateOnly(slot.effectiveTo!)}';
+  }
+
+  String _dateOnly(DateTime value) =>
+      '${value.year}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
 
   String _short(String? value) =>
       value == null || value.length < 5 ? (value ?? '') : value.substring(0, 5);
