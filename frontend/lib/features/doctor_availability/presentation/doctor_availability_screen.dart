@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/widgets/confirm_dialog.dart';
+import '../../../core/widgets/error_dialog.dart';
 import '../../../core/widgets/skeleton.dart';
 import '../data/doctor_availability_api.dart';
 import 'widgets/availability_entry_dialog.dart';
@@ -14,9 +15,7 @@ class DoctorAvailabilityScreen extends StatefulWidget {
 
   final DoctorAvailabilityApi api;
 
-  /// Null when a doctor is viewing their own schedule (every call targets
-  /// "me"). Set when an admin is viewing a specific doctor's schedule from
-  /// the doctor detail view - every call targets that doctor explicitly.
+  /// Null targets "me"; set targets that doctor.
   final String? doctorId;
 
   @override
@@ -157,7 +156,7 @@ class _DoctorAvailabilityScreenState extends State<DoctorAvailabilityScreen> {
       }
     } on DoctorAvailabilityShadowedException catch (error) {
       if (!mounted) return;
-      // Not saved yet - roll back the optimistic entry while confirming.
+      // Not saved yet; roll back while confirming.
       setState(() => _items = previous);
       final confirmed = await _confirmShadow(error);
       if (confirmed == true) {
@@ -173,15 +172,11 @@ class _DoctorAvailabilityScreenState extends State<DoctorAvailabilityScreen> {
     } on DoctorAvailabilityException catch (error) {
       if (!mounted) return;
       setState(() => _items = previous);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error.message)));
+      showErrorDialog(context, error.message);
     } catch (_) {
       if (!mounted) return;
       setState(() => _items = previous);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to save availability.')),
-      );
+      showErrorDialog(context, 'Unable to save availability.');
     }
   }
 
@@ -222,25 +217,13 @@ class _DoctorAvailabilityScreenState extends State<DoctorAvailabilityScreen> {
   }
 
   Future<void> _confirmRemove(DoctorAvailability item) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Remove this entry?'),
-        content: Text(_describe(item)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: AppColors.rose),
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Remove'),
-          ),
-        ],
-      ),
+    final confirmed = await confirmDanger(
+      context,
+      title: 'Remove this entry?',
+      message: _describe(item),
+      confirmLabel: 'Remove',
     );
-    if (confirmed == true) {
+    if (confirmed && mounted) {
       await _remove(item);
     }
   }
@@ -288,15 +271,11 @@ class _DoctorAvailabilityScreenState extends State<DoctorAvailabilityScreen> {
     } on DoctorAvailabilityException catch (error) {
       if (!mounted) return;
       setState(() => _items = previous);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error.message)));
+      showErrorDialog(context, error.message);
     } catch (_) {
       if (!mounted) return;
       setState(() => _items = previous);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to delete availability.')),
-      );
+      showErrorDialog(context, 'Unable to delete availability.');
     }
   }
 

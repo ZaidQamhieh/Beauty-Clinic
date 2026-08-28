@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/error_dialog.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/widgets/skeleton.dart';
 import '../../../forms/data/clinical_intake_api.dart';
@@ -126,7 +127,7 @@ class _ClinicalIntakeTabState extends State<ClinicalIntakeTab> {
     setState(() => _isSaving = true);
 
     try {
-      // Drops answers to questions this patient never saw.
+      // Drops answers to unseen questions.
       final pruned = _controller.schema.pruneHidden(_controller.values);
       final fieldKeys = _controller.schema.fields.map((f) => f.id).toSet();
       final cleanValues = Map<String, dynamic>.fromEntries(
@@ -172,12 +173,7 @@ class _ClinicalIntakeTabState extends State<ClinicalIntakeTab> {
 
       setState(() => _isSaving = false);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to save clinic forms: $e'),
-          backgroundColor: AppColors.rose,
-        ),
-      );
+      showErrorDialog(context, 'Failed to save clinic forms: $e');
     }
   }
 

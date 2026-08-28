@@ -1,4 +1,6 @@
 import '../../core/widgets/app_search_field.dart';
+import '../../core/widgets/confirm_dialog.dart';
+import '../../core/widgets/error_dialog.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -243,28 +245,16 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
   }
 
   Future<void> _deleteStaff(StaffMember member) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Delete ${member.fullName}?'),
-        content: Text(
-          'This will permanently remove the ${_roleLabel(member.role).toLowerCase()} account.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
+    final confirmed = await confirmDanger(
+      context,
+      title: 'Delete ${member.fullName}?',
+      message:
+          'This will permanently remove the '
+          '${_roleLabel(member.role).toLowerCase()} account.',
+      confirmLabel: 'Delete',
     );
 
-    if (confirmed != true) {
+    if (!confirmed || !mounted) {
       return;
     }
 
@@ -275,9 +265,7 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
       _refreshStaff();
     } on DioException catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(_friendlyDioError(error))));
+      showErrorDialog(context, _friendlyDioError(error));
     }
   }
 

@@ -6,6 +6,8 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/validation/field_rules.dart';
 import '../../../core/widgets/app_dropdown.dart';
+import '../../../core/widgets/confirm_dialog.dart';
+import '../../../core/widgets/error_dialog.dart';
 import '../../../core/widgets/skeleton.dart';
 import '../data/product.dart';
 import '../data/product_api.dart';
@@ -165,32 +167,21 @@ class _ProductCatalogScreenState extends State<ProductCatalogScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() => _items = previous);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Unable to save product.')));
+      showErrorDialog(context, 'Unable to save product.');
     }
   }
 
   Future<void> _delete(Product product) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete product?'),
-        content: Text('Delete ${product.brandLabel} ${product.typeLabel}?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
+    final confirmed = await confirmDanger(
+      context,
+      title: 'Delete product?',
+      message:
+          'This removes ${product.brandLabel} ${product.typeLabel} '
+          'from the catalogue for everyone.',
+      confirmLabel: 'Delete',
     );
 
-    if (confirmed != true || !mounted) return;
+    if (!confirmed || !mounted) return;
 
     final previous = _items;
     setState(() {
@@ -206,9 +197,7 @@ class _ProductCatalogScreenState extends State<ProductCatalogScreen> {
       if (!mounted) return;
       // Nothing was deleted; put it back.
       setState(() => _items = previous);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to delete product.')),
-      );
+      showErrorDialog(context, 'Unable to delete product.');
     }
   }
 

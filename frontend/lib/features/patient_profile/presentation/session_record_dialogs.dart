@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_dropdown.dart';
+import '../../../core/widgets/error_dialog.dart';
 import '../../../core/validation/field_rules.dart';
 import '../../../network/api_client.dart';
 import '../../appointments/data/appointment.dart';
@@ -64,9 +65,7 @@ Future<bool> completeSessionWithRecord({
     return true;
   } catch (_) {
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not complete the session.')),
-      );
+      showErrorDialog(context, 'Could not complete the session.');
     }
     return false;
   }
@@ -103,9 +102,7 @@ Future<bool> editSessionRecord({
     return true;
   } catch (_) {
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not edit the session record.')),
-      );
+      showErrorDialog(context, 'Could not edit the session record.');
     }
     return false;
   }

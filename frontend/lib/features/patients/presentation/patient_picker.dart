@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/widgets/error_dialog.dart';
 import '../../../network/api_client.dart';
 
 /// Picks a patient before a staff booking.
@@ -18,9 +19,7 @@ Future<String?> showPatientPicker(
         .toList();
   } catch (_) {
     if (context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Could not load patients.')));
+      showErrorDialog(context, 'Could not load patients.');
     }
     return null;
   }

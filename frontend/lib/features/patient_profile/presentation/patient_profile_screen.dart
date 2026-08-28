@@ -15,6 +15,8 @@ import '../../../core/validation/field_rules.dart';
 import '../../forms/domain/clinical_rules.dart';
 import '../../products/data/product.dart';
 import '../../products/data/product_api.dart';
+import '../../../core/widgets/confirm_dialog.dart';
+import '../../../core/widgets/error_dialog.dart';
 import '../data/session_record_api.dart';
 import '../data/session_record.dart';
 import 'widgets/clinical_intake_tab.dart';
@@ -420,15 +422,11 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
       } catch (_) {
         if (!mounted) return;
         setState(() => _sessionRecords = previousRecords);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not save the session record.')),
-        );
+        showErrorDialog(context, 'Could not save the session record.');
       }
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not save the session record.')),
-      );
+      showErrorDialog(context, 'Could not save the session record.');
     }
   }
 
@@ -473,10 +471,27 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
     }
     final catalog = await productApi.list();
     if (!mounted) return;
+    // Server refuses products already in routine.
+    final inRoutine = _patientProducts
+        .whereType<PatientProductRecord>()
+        .where((item) => item.discontinuedOn == null)
+        .map((item) => item.productId)
+        .toSet();
+    final available = catalog
+        .where((product) => !inRoutine.contains(product.id))
+        .toList();
+    if (available.isEmpty) {
+      await showErrorDialog(
+        context,
+        'Every product in the catalogue is already in this routine.',
+        title: 'Nothing left to add',
+      );
+      return;
+    }
     final selection = await showDialog<({Product product, String source})>(
       context: context,
       builder: (context) => _ProductAssignmentDialog(
-        catalog: catalog,
+        catalog: available,
         ownProductsOnly:
             widget.canChooseOwnProducts && !widget.canManageProducts,
       ),
@@ -504,13 +519,11 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
       );
       if (!mounted) return;
       setState(() => _replaceProduct(pending.id, created));
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
       // The card leaves again; nothing was saved.
       setState(() => _replaceProduct(pending.id, null));
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not assign product.')),
-      );
+      showApiErrorDialog(context, error, 'Could not assign product.');
     }
   }
 
@@ -532,6 +545,18 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
         productApi == null) {
       return;
     }
+    final confirmed = await confirmDanger(
+      context,
+      title: 'Stop this product?',
+      message:
+          '${_humanizeEnum(item.brand)} · ${_humanizeEnum(item.productType)} '
+          'leaves the routine. It stays in history and can be added again.',
+      confirmLabel: 'Stop it',
+      cancelLabel: 'Keep it',
+    );
+    if (!confirmed || !mounted) {
+      return;
+    }
     // Stops at once; reverts if refused.
     final stopped = PatientProductRecord(
       id: item.id,
@@ -548,12 +573,10 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
       final updated = await productApi.discontinueForPatient(targetId, item.id);
       if (!mounted) return;
       setState(() => _replaceProduct(item.id, updated));
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
       setState(() => _replaceProduct(item.id, item));
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not discontinue product.')),
-      );
+      showApiErrorDialog(context, error, 'Could not discontinue product.');
     }
   }
 
@@ -1262,7 +1285,11 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
       );
     }
 
-    final routine = _patientProducts.whereType<PatientProductRecord>().toList();
+    // Stopped products leave the list.
+    final routine = _patientProducts
+        .whereType<PatientProductRecord>()
+        .where((item) => item.discontinuedOn == null)
+        .toList();
     if (routine.isEmpty && _prescribedProducts.isEmpty) {
       return Center(
         child: Column(
@@ -1397,13 +1424,10 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
                 .map(
                   (item) => _productTile(
                     '${_humanizeEnum(item.brand)} · ${_humanizeEnum(item.productType)}',
-                    item.discontinuedOn != null
-                        ? 'Stopped ${item.discontinuedOn}'
-                        : item.startedOn == null
+                    item.startedOn == null
                         ? 'Not clinic advice'
                         : 'Started ${item.startedOn} · not clinic advice',
                     trailing: _routineTrailing(item),
-                    dimmed: item.discontinuedOn != null,
                   ),
                 )
                 .toList(),
@@ -1413,12 +1437,6 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
   }
 
   Widget? _routineTrailing(PatientProductRecord item) {
-    if (item.discontinuedOn != null) {
-      return Text(
-        'Stopped',
-        style: AppTypography.labelSmall(color: AppColors.textMuted),
-      );
-    }
     if (widget.canManageProducts || widget.canChooseOwnProducts) {
       return TextButton(
         onPressed: () => _discontinuePatientProduct(item),
@@ -1511,53 +1529,45 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
     );
   }
 
-  Widget _productTile(
-    String title,
-    String subtitle, {
-    Widget? trailing,
-    bool dimmed = false,
-  }) {
-    return Opacity(
-      opacity: dimmed ? .6 : 1,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: AppColors.bgCard,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(9),
-              decoration: BoxDecoration(
-                color: AppColors.bgAlt,
-                borderRadius: BorderRadius.circular(11),
-              ),
-              child: const Icon(
-                Icons.spa_outlined,
-                color: AppColors.textSub,
-                size: 20,
-              ),
+  Widget _productTile(String title, String subtitle, {Widget? trailing}) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.bgCard,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(9),
+            decoration: BoxDecoration(
+              color: AppColors.bgAlt,
+              borderRadius: BorderRadius.circular(11),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: AppTypography.labelLarge()),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: AppTypography.bodySmall(color: AppColors.textMuted),
-                  ),
-                ],
-              ),
+            child: const Icon(
+              Icons.spa_outlined,
+              color: AppColors.textSub,
+              size: 20,
             ),
-            ?trailing,
-          ],
-        ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: AppTypography.labelLarge()),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: AppTypography.bodySmall(color: AppColors.textMuted),
+                ),
+              ],
+            ),
+          ),
+          ?trailing,
+        ],
       ),
     );
   }

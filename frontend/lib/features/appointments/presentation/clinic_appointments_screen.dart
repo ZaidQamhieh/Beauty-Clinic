@@ -5,6 +5,8 @@ import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/app_search_field.dart';
+import '../../../core/widgets/confirm_dialog.dart';
+import '../../../core/widgets/error_dialog.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/skeleton.dart';
 import '../../../network/api_client.dart';
@@ -180,28 +182,16 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
 
   Future<void> _cancel(Appointment appointment) async {
     if (!_canModify(appointment)) return;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Cancel appointment?'),
-        content: Text(
+    final confirmed = await confirmDanger(
+      context,
+      title: 'Cancel appointment?',
+      message:
           'Cancel ${appointment.patientName}\'s appointment on '
           '${DateFormat('d MMM yyyy · HH:mm').format(appointment.scheduledAt.toLocal())}?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Keep'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: FilledButton.styleFrom(backgroundColor: AppColors.rose),
-            child: const Text('Cancel appointment'),
-          ),
-        ],
-      ),
+      confirmLabel: 'Cancel appointment',
+      cancelLabel: 'Keep',
     );
-    if (confirmed != true || !mounted) return;
+    if (!confirmed || !mounted) return;
 
     final previous = _appointments;
     // Reads cancelled now; reverts if refused.
@@ -216,9 +206,7 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() => _appointments = previous);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not cancel the appointment.')),
-      );
+      showErrorDialog(context, 'Could not cancel the appointment.');
     }
   }
 
