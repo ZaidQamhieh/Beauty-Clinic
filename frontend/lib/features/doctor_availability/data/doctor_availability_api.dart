@@ -335,8 +335,9 @@ class DoctorAvailabilityApi {
       );
       return (response.data as List)
           .map(
-            (json) =>
-                DoctorAvailability.fromJson(Map<String, dynamic>.from(json as Map)),
+            (json) => DoctorAvailability.fromJson(
+              Map<String, dynamic>.from(json as Map),
+            ),
           )
           .toList();
     } on DioException catch (error) {

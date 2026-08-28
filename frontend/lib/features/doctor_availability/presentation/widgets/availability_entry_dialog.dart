@@ -240,7 +240,9 @@ class _AvailabilityEntryDialogState extends State<AvailabilityEntryDialog> {
     if (!end &&
         _kind == AvailabilityKind.extraDay &&
         _extraDayHasBaselineHours(normalized)) {
-      _showError('An extra day can only be added on a date with no working hours.');
+      _showError(
+        'An extra day can only be added on a date with no working hours.',
+      );
       return;
     }
     setState(() {
@@ -288,7 +290,9 @@ class _AvailabilityEntryDialogState extends State<AvailabilityEntryDialog> {
     // Item 2: deny an end time that doesn't leave a valid window after the
     // start time (and vice versa) at pick time, not just at submit.
     if (start && _minutes(selected) + _minDurationMinutes > _minutes(_end)) {
-      _showError('Start time must leave at least 30 minutes before the end time.');
+      _showError(
+        'Start time must leave at least 30 minutes before the end time.',
+      );
       return;
     }
     if (!start && _minutes(selected) - _minutes(_start) < _minDurationMinutes) {
@@ -709,8 +713,11 @@ class _AvailabilityEntryDialogState extends State<AvailabilityEntryDialog> {
       _showError('Effective from must be today or later.');
       return;
     }
-    if (_kind == AvailabilityKind.extraDay && _extraDayHasBaselineHours(_from)) {
-      _showError('An extra day can only be added on a date with no working hours.');
+    if (_kind == AvailabilityKind.extraDay &&
+        _extraDayHasBaselineHours(_from)) {
+      _showError(
+        'An extra day can only be added on a date with no working hours.',
+      );
       return;
     }
     if (_kind != AvailabilityKind.vacation) {
