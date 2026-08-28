@@ -34,7 +34,11 @@ Future<void> showApiErrorDialog(
   String fallback, {
   String title = 'Something went wrong',
 }) {
-  return showErrorDialog(context, _serverDetail(error) ?? fallback, title: title);
+  return showErrorDialog(
+    context,
+    _serverDetail(error) ?? fallback,
+    title: title,
+  );
 }
 
 // Reads "detail" off a problem+json body.

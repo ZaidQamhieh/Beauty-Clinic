@@ -339,7 +339,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         _confirmPasswordController.clear();
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Password updated. Sign in again on every device.')),
+        const SnackBar(
+          content: Text('Password updated. Sign in again on every device.'),
+        ),
       );
       await widget.onPasswordChanged?.call();
     } on IncorrectCurrentPasswordException catch (error) {
