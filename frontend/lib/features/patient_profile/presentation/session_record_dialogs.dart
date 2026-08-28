@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_typography.dart';
+import '../../../core/widgets/app_dropdown.dart';
 import '../../../core/validation/field_rules.dart';
 import '../../../network/api_client.dart';
 import '../../appointments/data/appointment.dart';
@@ -334,7 +335,7 @@ class _SessionRecordDialogState extends State<SessionRecordDialog> {
                   alignLabelWithHint: true,
                 ),
               ),
-              DropdownButtonFormField<String>(
+              AppDropdownField<String>(
                 initialValue: _reaction,
                 decoration: const InputDecoration(labelText: 'Skin reaction'),
                 items: const [

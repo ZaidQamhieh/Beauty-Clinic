@@ -59,10 +59,10 @@ public class PatientProductService {
         Product product = products.findById(request.productId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No such product"));
 
-        if (patientProducts.existsByPatientUserIdAndProductId(
+        if (patientProducts.existsByPatientUserIdAndProductIdAndDiscontinuedOnIsNull(
                 patientUserId, request.productId())) {
             throw new ResponseStatusException(
-                    HttpStatus.CONFLICT, "This product has already been added for this patient");
+                    HttpStatus.CONFLICT, "This product is already in this patient's current routine");
         }
 
         PatientProduct patientProduct = new PatientProduct(patient, product, request.source());

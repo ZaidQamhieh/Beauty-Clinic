@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/widgets/menu_anchor_host.dart';
 
 /// One product filter facet, as menu.
-class FacetMenuButton extends StatelessWidget {
+class FacetMenuButton extends StatefulWidget {
   const FacetMenuButton({
     super.key,
     required this.label,
@@ -27,10 +28,35 @@ class FacetMenuButton extends StatelessWidget {
   final String Function(String value)? labelFor;
 
   @override
+  State<FacetMenuButton> createState() => _FacetMenuButtonState();
+}
+
+class _FacetMenuButtonState extends State<FacetMenuButton> with MenuAnchorHost {
+  final MenuController _menu = MenuController();
+  final GlobalKey _anchorKey = GlobalKey();
+
+  @override
+  MenuController get menuController => _menu;
+
+  @override
+  GlobalKey get menuAnchorKey => _anchorKey;
+
+  @override
+  double get preferredMenuHeight => 320;
+
+  @override
   Widget build(BuildContext context) {
+    final selected = widget.selected;
+    final counts = widget.counts;
+    final labelFor = widget.labelFor;
     final active = selected.isNotEmpty;
 
     return MenuAnchor(
+      controller: _menu,
+      alignmentOffset: const Offset(0, menuGap),
+      consumeOutsideTap: true,
+      onOpen: handleMenuOpen,
+      onClose: handleMenuClose,
       style: MenuStyle(
         backgroundColor: const WidgetStatePropertyAll(AppColors.bgCard),
         shape: WidgetStatePropertyAll(
@@ -45,7 +71,7 @@ class FacetMenuButton extends StatelessWidget {
       ),
       menuChildren: [
         ConstrainedBox(
-          constraints: const BoxConstraints(maxHeight: 320, minWidth: 230),
+          constraints: BoxConstraints(maxHeight: maxMenuHeight, minWidth: 230),
           child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -55,12 +81,12 @@ class FacetMenuButton extends StatelessWidget {
                     label: labelFor?.call(entry.key) ?? entry.key,
                     count: entry.value,
                     checked: selected.contains(entry.key),
-                    onTap: () => onToggle(entry.key),
+                    onTap: () => widget.onToggle(entry.key),
                   ),
                 if (active) ...[
                   const Divider(height: 13, color: AppColors.hairline),
                   InkWell(
-                    onTap: onClear,
+                    onTap: widget.onClear,
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 14,
@@ -85,10 +111,11 @@ class FacetMenuButton extends StatelessWidget {
         ),
       ],
       builder: (context, controller, _) {
+        // Key rides the trigger, for measuring.
         return InkWell(
+          key: _anchorKey,
           borderRadius: BorderRadius.circular(12),
-          onTap: () =>
-              controller.isOpen ? controller.close() : controller.open(),
+          onTap: () => _menu.isOpen ? _menu.close() : _menu.open(),
           child: Container(
             height: 38,
             padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -103,7 +130,7 @@ class FacetMenuButton extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  label,
+                  widget.label,
                   style: AppTypography.bodyMedium(
                     color: active ? AppColors.roseDark : AppColors.textSub,
                   ),
