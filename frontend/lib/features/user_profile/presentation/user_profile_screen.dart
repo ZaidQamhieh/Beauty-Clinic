@@ -6,6 +6,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/validation/field_rules.dart';
 import '../../../core/widgets/app_dropdown.dart';
+import '../../../core/widgets/error_dialog.dart';
 import '../../../core/widgets/password_strength_meter.dart';
 import '../../../core/widgets/profile_avatar.dart';
 import '../../../core/widgets/skeleton.dart';
@@ -234,9 +235,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   Future<void> _save() async {
     final problem = _profileProblem();
     if (problem != null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(problem)));
+      showErrorDialog(context, problem);
       return;
     }
     final yearsOfExperience = int.tryParse(
@@ -279,9 +278,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         _editing = true;
         _saved = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to save your profile.')),
-      );
+      showErrorDialog(context, 'Unable to save your profile.');
     }
   }
 
@@ -341,7 +338,11 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         _newPasswordController.clear();
         _confirmPasswordController.clear();
       });
-      _showPasswordError('Password updated. Sign in again on every device.');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Password updated. Sign in again on every device.'),
+        ),
+      );
       await widget.onPasswordChanged?.call();
     } on IncorrectCurrentPasswordException catch (error) {
       if (!mounted) return;
@@ -355,9 +356,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   void _showPasswordError(String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    showErrorDialog(context, message);
   }
 
   void _cancelPasswordChange() {

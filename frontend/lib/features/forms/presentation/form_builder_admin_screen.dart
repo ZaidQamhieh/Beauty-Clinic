@@ -4,6 +4,8 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/validation/field_rules.dart';
 import '../../../core/widgets/app_dropdown.dart';
+import '../../../core/widgets/confirm_dialog.dart';
+import '../../../core/widgets/error_dialog.dart';
 import '../../../core/widgets/skeleton.dart';
 import '../data/dynamic_form_api.dart';
 
@@ -97,13 +99,23 @@ class _FormBuilderAdminScreenState extends State<FormBuilderAdminScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() => _questions = previous);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not save the question.')),
-      );
+      showErrorDialog(context, 'Could not save the question.');
     }
   }
 
   Future<void> _setActive(Map<String, dynamic> q, bool active) async {
+    if (!active) {
+      final confirmed = await confirmDanger(
+        context,
+        title: 'Hide this question?',
+        message:
+            'Patients stop seeing it on the intake form. '
+            'Answers already given are kept.',
+        confirmLabel: 'Hide it',
+        cancelLabel: 'Leave it',
+      );
+      if (!confirmed || !mounted) return;
+    }
     final previous = _questions;
     setState(() {
       _questions = [
@@ -119,12 +131,9 @@ class _FormBuilderAdminScreenState extends State<FormBuilderAdminScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() => _questions = previous);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            active ? 'Could not show the question.' : 'Could not hide it.',
-          ),
-        ),
+      showErrorDialog(
+        context,
+        active ? 'Could not show the question.' : 'Could not hide it.',
       );
     }
   }

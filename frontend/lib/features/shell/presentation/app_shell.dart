@@ -226,35 +226,20 @@ class _AppShellState extends State<AppShell> {
     );
   }
 
+  // One order everywhere; account sits last.
   List<Map<String, dynamic>> _getMenuItemsForRole(String role) {
     switch (role) {
       case 'doctor':
         return [
           {
-            'id': 'my_profile',
-            'label': 'My Account',
-            'icon': Icons.person_outline,
-          },
-          {
             'id': 'dashboard',
             'label': 'Dashboard',
-            'icon': Icons.calendar_today_outlined,
+            'icon': Icons.dashboard_outlined,
           },
-          {'id': 'patients', 'label': 'Patients', 'icon': Icons.people_outline},
           {
             'id': 'appointments',
             'label': 'Appointments',
             'icon': Icons.calendar_today_outlined,
-          },
-          {
-            'id': 'clinical_forms',
-            'label': 'Patient Forms History',
-            'icon': Icons.assignment_outlined,
-          },
-          {
-            'id': 'products',
-            'label': 'Products',
-            'icon': Icons.inventory_2_outlined,
           },
           {
             'id': 'my_calendar',
@@ -266,20 +251,26 @@ class _AppShellState extends State<AppShell> {
             'label': 'Availability',
             'icon': Icons.event_available_outlined,
           },
-        ];
-      case 'patient':
-        return [
-          {'id': 'dashboard', 'label': 'Dashboard', 'icon': Icons.spa_outlined},
+          {'id': 'patients', 'label': 'Patients', 'icon': Icons.people_outline},
+          {
+            'id': 'clinical_forms',
+            'label': 'Patient Forms History',
+            'icon': Icons.assignment_outlined,
+          },
+          {
+            'id': 'products',
+            'label': 'Products',
+            'icon': Icons.inventory_2_outlined,
+          },
           {
             'id': 'my_profile',
             'label': 'My Account',
             'icon': Icons.person_outline,
           },
-          {
-            'id': 'patient_profile',
-            'label': 'My Medical Profile',
-            'icon': Icons.health_and_safety_outlined,
-          },
+        ];
+      case 'patient':
+        return [
+          {'id': 'dashboard', 'label': 'Dashboard', 'icon': Icons.spa_outlined},
           {
             'id': 'appointments',
             'label': 'Treatments & Visits',
@@ -291,18 +282,23 @@ class _AppShellState extends State<AppShell> {
             'icon': Icons.calendar_view_day_outlined,
           },
           {
+            'id': 'patient_profile',
+            'label': 'My Medical Profile',
+            'icon': Icons.health_and_safety_outlined,
+          },
+          {
             'id': 'products',
             'label': 'My Products',
             'icon': Icons.inventory_2_outlined,
           },
-        ];
-      case 'receptionist':
-        return [
           {
             'id': 'my_profile',
             'label': 'My Account',
             'icon': Icons.person_outline,
           },
+        ];
+      case 'receptionist':
+        return [
           {
             'id': 'dashboard',
             'label': 'Dashboard',
@@ -311,13 +307,9 @@ class _AppShellState extends State<AppShell> {
           {
             'id': 'appointments',
             'label': 'Appointments',
-            'icon': Icons.event_note_outlined,
+            'icon': Icons.calendar_today_outlined,
           },
-          {
-            'id': 'patients',
-            'label': 'Patients',
-            'icon': Icons.folder_shared_outlined,
-          },
+          {'id': 'patients', 'label': 'Patients', 'icon': Icons.people_outline},
           {
             'id': 'doctors',
             'label': 'Doctors',
@@ -328,39 +320,30 @@ class _AppShellState extends State<AppShell> {
             'label': 'Products',
             'icon': Icons.inventory_2_outlined,
           },
-        ];
-      case 'admin':
-      default:
-        return [
           {
             'id': 'my_profile',
             'label': 'My Account',
             'icon': Icons.person_outline,
           },
+        ];
+      case 'admin':
+      default:
+        return [
           {
             'id': 'dashboard',
             'label': 'Overview Dashboard',
             'icon': Icons.grid_view_rounded,
           },
           {
-            'id': 'staff_management',
-            'label': 'Staff Management',
-            'icon': Icons.groups_rounded,
-          },
-          {
-            'id': 'patients',
-            'label': 'Patients',
-            'icon': Icons.people_alt_outlined,
-          },
-          {
             'id': 'appointments',
             'label': 'Appointments',
             'icon': Icons.calendar_today_outlined,
           },
+          {'id': 'patients', 'label': 'Patients', 'icon': Icons.people_outline},
           {
-            'id': 'activity_log',
-            'label': 'Activity Log',
-            'icon': Icons.history_rounded,
+            'id': 'staff_management',
+            'label': 'Staff Management',
+            'icon': Icons.groups_rounded,
           },
           {
             'id': 'clinical_forms',
@@ -373,9 +356,19 @@ class _AppShellState extends State<AppShell> {
             'icon': Icons.inventory_2_outlined,
           },
           {
+            'id': 'activity_log',
+            'label': 'Activity Log',
+            'icon': Icons.history_rounded,
+          },
+          {
             'id': 'form_builder',
             'label': 'Form Builder',
             'icon': Icons.dynamic_form_outlined,
+          },
+          {
+            'id': 'my_profile',
+            'label': 'My Account',
+            'icon': Icons.person_outline,
           },
         ];
     }

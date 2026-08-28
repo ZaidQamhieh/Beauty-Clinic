@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/widgets/confirm_dialog.dart';
+import '../../../core/widgets/error_dialog.dart';
 import '../../../core/widgets/skeleton.dart';
 import '../../../network/api_client.dart';
 import '../data/appointment.dart';
@@ -259,7 +261,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     } catch (_) {
       if (!mounted || run != _loadRun) return;
       setState(() => _loadingMore = false);
-      _snack('Could not load more. Try again.');
+      _showError('Could not load more. Try again.');
     }
   }
 
@@ -302,28 +304,16 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
   }
 
   Future<void> _cancel(Appointment appointment) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Cancel this visit?'),
-        content: Text(
+    final confirmed = await confirmDanger(
+      context,
+      title: 'Cancel this visit?',
+      message:
           'This cancels every remaining treatment on '
           '${BookingFormat.dayWithYear(appointment.scheduledAt)}.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Keep it'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: AppColors.rose),
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Cancel visit'),
-          ),
-        ],
-      ),
+      confirmLabel: 'Cancel visit',
+      cancelLabel: 'Keep it',
     );
-    if (confirmed != true) return;
+    if (!confirmed || !mounted) return;
 
     final restore = _snapshotLists();
     // Moves to history now; server confirms after.
@@ -351,15 +341,15 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     } on BookingConflictException catch (error) {
       if (!mounted) return;
       _restoreLists(restore);
-      _snack(error.message);
+      _showError(error.message);
     } on ForbiddenException {
       if (!mounted) return;
       _restoreLists(restore);
-      _snack('That appointment is not yours to cancel.');
+      _showError('That appointment is not yours to cancel.');
     } catch (_) {
       if (!mounted) return;
       _restoreLists(restore);
-      _snack('Could not cancel. Check your connection and try again.');
+      _showError('Could not cancel. Check your connection and try again.');
     }
   }
 
@@ -383,29 +373,17 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     Appointment appointment,
     AppointmentSession session,
   ) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Cancel this treatment?'),
-        content: Text(
+    final confirmed = await confirmDanger(
+      context,
+      title: 'Cancel this treatment?',
+      message:
           'This drops ${session.treatmentLabel} from the visit on '
           '${BookingFormat.dayWithYear(appointment.scheduledAt)}. '
           'The rest of the visit stays booked.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Keep it'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: AppColors.rose),
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Cancel treatment'),
-          ),
-        ],
-      ),
+      confirmLabel: 'Cancel treatment',
+      cancelLabel: 'Keep it',
     );
-    if (confirmed != true) return;
+    if (!confirmed || !mounted) return;
 
     final restore = _snapshotLists();
     // Drops the row now; server confirms after.
@@ -419,15 +397,15 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     } on BookingConflictException catch (error) {
       if (!mounted) return;
       _restoreLists(restore);
-      _snack(error.message);
+      _showError(error.message);
     } on ForbiddenException {
       if (!mounted) return;
       _restoreLists(restore);
-      _snack('That treatment is not yours to cancel.');
+      _showError('That treatment is not yours to cancel.');
     } catch (_) {
       if (!mounted) return;
       _restoreLists(restore);
-      _snack('Could not cancel. Check your connection and try again.');
+      _showError('Could not cancel. Check your connection and try again.');
     }
   }
 
@@ -501,6 +479,10 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _showError(String message) {
+    showErrorDialog(context, message);
   }
 
   @override
