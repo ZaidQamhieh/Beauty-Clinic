@@ -135,6 +135,7 @@ class _DoctorProfileScreenState extends State<DoctorProfileScreen>
                 ),
                 DoctorAvailabilityScreen(
                   api: widget.availabilityApi,
+                  appointmentApi: widget.appointmentApi,
                   doctorId: widget.doctorId,
                 ),
                 _StatisticsTab(

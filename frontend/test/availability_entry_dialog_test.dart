@@ -34,7 +34,10 @@ void main() {
     (tester) async {
       await _open(
         tester,
-        const AvailabilityEntryDialog(initialDay: AvailabilityDay.wednesday),
+        const AvailabilityEntryDialog(
+          availability: [],
+          initialDay: AvailabilityDay.wednesday,
+        ),
       );
       expect(find.text('Add availability'), findsOneWidget);
       expect(find.text('Regular'), findsOneWidget);
@@ -49,7 +52,10 @@ void main() {
     (tester) async {
       await _open(
         tester,
-        const AvailabilityEntryDialog(initialKind: AvailabilityKind.vacation),
+        const AvailabilityEntryDialog(
+          availability: [],
+          initialKind: AvailabilityKind.vacation,
+        ),
       );
       expect(find.text('Add availability'), findsOneWidget);
       expect(find.text('Vacation / Leave'), findsOneWidget);
@@ -60,7 +66,7 @@ void main() {
   );
 
   testWidgets('plain add with no locked kind/day opens', (tester) async {
-    await _open(tester, const AvailabilityEntryDialog());
+    await _open(tester, const AvailabilityEntryDialog(availability: []));
     expect(find.text('Add availability'), findsOneWidget);
   });
 
@@ -74,7 +80,10 @@ void main() {
       effectiveFrom: DateTime(2026, 1, 1),
       effectiveTo: null,
     );
-    await _open(tester, AvailabilityEntryDialog(initial: item));
+    await _open(
+      tester,
+      AvailabilityEntryDialog(availability: [item], initial: item),
+    );
     expect(find.text('Edit availability'), findsOneWidget);
   });
 
@@ -86,7 +95,10 @@ void main() {
       // hard to read there instead of inside the dialog where it's visible.
       await _open(
         tester,
-        const AvailabilityEntryDialog(initialKind: AvailabilityKind.vacation),
+        const AvailabilityEntryDialog(
+          availability: [],
+          initialKind: AvailabilityKind.vacation,
+        ),
       );
       await tester.tap(find.text('Save'));
       await tester.pumpAndSettle();
@@ -98,17 +110,28 @@ void main() {
     },
   );
 
-  testWidgets('editing an existing VACATION item opens', (tester) async {
+  testWidgets('editing an existing, not-yet-ended VACATION item opens', (
+    tester,
+  ) async {
+    // Deliberately relative to "now", not a hardcoded date: a VACATION whose
+    // effective-to date has already passed opens read-only ("View
+    // availability") instead, which is a different scenario from this test.
+    final today = DateTime.now();
+    final from = DateTime(today.year, today.month, today.day + 5);
+    final to = DateTime(today.year, today.month, today.day + 6);
     final item = DoctorAvailability(
       id: 'y',
       kind: AvailabilityKind.vacation,
       dayOfWeek: null,
       startTime: null,
       endTime: null,
-      effectiveFrom: DateTime(2026, 8, 20),
-      effectiveTo: DateTime(2026, 8, 20),
+      effectiveFrom: from,
+      effectiveTo: to,
     );
-    await _open(tester, AvailabilityEntryDialog(initial: item));
+    await _open(
+      tester,
+      AvailabilityEntryDialog(availability: [item], initial: item),
+    );
     expect(find.text('Edit availability'), findsOneWidget);
   });
 }

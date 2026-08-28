@@ -115,6 +115,18 @@ class DoctorAvailability {
   final DateTime effectiveFrom;
   final DateTime? effectiveTo;
 
+  /// True once this entry's effective range has fully ended (its
+  /// effective-to date is before today). An ended entry is history: it can
+  /// only be viewed, never edited or removed, so what actually happened on
+  /// those past dates can't be rewritten after the fact.
+  bool get hasEnded {
+    final to = effectiveTo;
+    if (to == null) return false;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    return to.isBefore(today);
+  }
+
   factory DoctorAvailability.fromJson(Map<String, dynamic> json) {
     return DoctorAvailability(
       id: (json['id'] ?? '').toString(),
@@ -279,6 +291,54 @@ class DoctorAvailabilityApi {
     try {
       final id = doctorId ?? await _currentDoctorId();
       await _client.delete<void>('/api/doctors/$id/availability/${item.id}');
+    } on DioException catch (error) {
+      throw _mapError(error);
+    }
+  }
+
+  /// Truncates [item] to end the day before [splitDate], atomically. When
+  /// [newSegment] is given it becomes a fresh record starting on
+  /// [splitDate] (an edit to an already-started entry); when it's null,
+  /// nothing replaces what's dropped (deleting only the future, history
+  /// left untouched). Both rows are checked together against booked
+  /// appointments, so a gap that would orphan one is never silently
+  /// created between two separate calls.
+  Future<List<DoctorAvailability>> split(
+    DoctorAvailability item, {
+    required DateTime splitDate,
+    AvailabilityKind? newKind,
+    AvailabilityDay? newDayOfWeek,
+    String? newStartTime,
+    String? newEndTime,
+    DateTime? newEffectiveTo,
+    bool acknowledgeShadow = false,
+    String? doctorId,
+  }) async {
+    final id = doctorId ?? await _currentDoctorId();
+    try {
+      final response = await _client.post<dynamic>(
+        '/api/doctors/$id/availability/${item.id}/split',
+        data: {
+          'splitDate': _date(splitDate),
+          'newSegment': newKind == null
+              ? null
+              : _body(
+                  newKind,
+                  newDayOfWeek,
+                  newStartTime,
+                  newEndTime,
+                  splitDate,
+                  newEffectiveTo,
+                  acknowledgeShadow,
+                ),
+        },
+      );
+      return (response.data as List)
+          .map(
+            (json) =>
+                DoctorAvailability.fromJson(Map<String, dynamic>.from(json as Map)),
+          )
+          .toList();
     } on DioException catch (error) {
       throw _mapError(error);
     }

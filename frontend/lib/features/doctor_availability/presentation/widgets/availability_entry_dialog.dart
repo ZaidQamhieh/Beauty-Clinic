@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../data/doctor_availability_api.dart';
+import 'availability_sessions_view.dart' show resolveAvailableWindows;
 
 /// What the dialog hands back on Save; the screen turns this into a
 /// create/update API call.
@@ -15,6 +16,7 @@ class AvailabilityDraft {
     this.end,
     required this.from,
     this.to,
+    this.isSplit = false,
   });
 
   final AvailabilityKind kind;
@@ -25,6 +27,11 @@ class AvailabilityDraft {
   final String? end;
   final DateTime from;
   final DateTime? to;
+
+  /// True when this draft describes the new, forward-looking record of a
+  /// split edit: the original entry already started, so its past portion is
+  /// left untouched and this draft becomes a fresh record starting today.
+  final bool isSplit;
 }
 
 class _KindMeta {
@@ -71,10 +78,15 @@ const Map<AvailabilityKind, _KindMeta> _kindMeta = {
 class AvailabilityEntryDialog extends StatefulWidget {
   const AvailabilityEntryDialog({
     super.key,
+    required this.availability,
     this.initial,
     this.initialDay,
     this.initialKind,
   });
+
+  /// Every existing entry, used to check whether an EXTRA_DAY date already
+  /// has working hours and so can't take one.
+  final List<DoctorAvailability> availability;
 
   /// The item being edited; null when adding a new one.
   final DoctorAvailability? initial;
@@ -141,16 +153,38 @@ class _AvailabilityEntryDialogState extends State<AvailabilityEntryDialog> {
         (_kind == AvailabilityKind.regular ? AvailabilityDay.monday : null);
     _start = _parseTime(item?.startTime) ?? const TimeOfDay(hour: 9, minute: 0);
     _end = _parseTime(item?.endTime) ?? const TimeOfDay(hour: 17, minute: 0);
-    _from = item?.effectiveFrom ?? _todayOnly();
-    _to = item?.effectiveTo;
+    final today = _todayOnly();
+    // A record with a past portion (it started before today) can't have that
+    // portion rewritten. If it's already fully over, editing is blocked
+    // outright. Otherwise editing becomes a split: the original record's
+    // history stays as-is, and this dialog edits a new record that starts
+    // today - so _from is pinned to today rather than the original start.
+    _alreadyEnded = item?.hasEnded ?? false;
+    _splitMode =
+        item != null && item.effectiveFrom.isBefore(today) && !_alreadyEnded;
+
+    _from = _splitMode ? today : (item?.effectiveFrom ?? today);
+    _to = _kind == AvailabilityKind.extraDay ? _from : item?.effectiveTo;
     _initialSnapshot = _snapshot();
   }
+
+  late final bool _alreadyEnded;
+  late final bool _splitMode;
 
   late List<Object?> _initialSnapshot;
 
   List<Object?> _snapshot() => [_kind, _day, _start, _end, _from, _to];
 
   bool get _isDirty => !listEquals(_snapshot(), _initialSnapshot);
+
+  bool get _isEditing => widget.initial != null;
+
+  // Item 6: once an entry has already started (its original start date is
+  // today or earlier), that start date is locked - only a not-yet-started
+  // entry's start date may still move, and only forward. In split mode the
+  // "start" being locked is today's date, standing in for the new record.
+  bool get _fromLockedForEditing =>
+      _isEditing && !widget.initial!.effectiveFrom.isAfter(_todayOnly());
 
   TimeOfDay? _parseTime(String? value) {
     if (value == null) return null;
@@ -175,9 +209,23 @@ class _AvailabilityEntryDialogState extends State<AvailabilityEntryDialog> {
       value.name[0].toUpperCase() + value.name.substring(1);
 
   Future<void> _pickDate(bool end) async {
-    final minimum = widget.initial == null && !end
-        ? _todayOnly()
-        : DateTime(2000);
+    if (_alreadyEnded) return;
+    // A locked start date has no picker wired to it at all; this guards a
+    // direct call all the same.
+    if (!end && _fromLockedForEditing) return;
+
+    final today = _todayOnly();
+    final DateTime minimum;
+    if (end) {
+      // Item 2: "to" can never precede whatever "from" is currently set to.
+      minimum = _from;
+    } else if (_isEditing) {
+      // Item 6: a not-yet-started entry's start may move, but never back to
+      // today or earlier.
+      minimum = today.add(const Duration(days: 1));
+    } else {
+      minimum = today;
+    }
     final wanted = end ? (_to ?? _from) : _from;
     final selected = await showDatePicker(
       context: context,
@@ -188,17 +236,43 @@ class _AvailabilityEntryDialogState extends State<AvailabilityEntryDialog> {
       lastDate: DateTime(2100),
     );
     if (selected == null) return;
+    final normalized = DateTime(selected.year, selected.month, selected.day);
+    if (!end &&
+        _kind == AvailabilityKind.extraDay &&
+        _extraDayHasBaselineHours(normalized)) {
+      _showError('An extra day can only be added on a date with no working hours.');
+      return;
+    }
     setState(() {
       _errorMessage = null;
       if (end) {
-        _to = DateTime(selected.year, selected.month, selected.day);
+        _to = normalized;
       } else {
-        _from = DateTime(selected.year, selected.month, selected.day);
+        _from = normalized;
+        // Item 3: extra day is always a single date. Item 2: keep an
+        // already-picked "to" from being left stranded before the new "from".
+        if (_kind == AvailabilityKind.extraDay ||
+            (_to != null && _to!.isBefore(_from))) {
+          _to = _from;
+        }
       }
     });
   }
 
+  // Item 3: EXTRA_DAY can only land on a date whose baseline (everything but
+  // other EXTRA_DAY rows, and excluding the entry being edited) resolves to
+  // no working hours - the same rule the backend's shadow check enforces,
+  // checked here up front so the UI never lets the date be picked at all.
+  bool _extraDayHasBaselineHours(DateTime date) {
+    final baseline = widget.availability
+        .where((a) => a.id != widget.initial?.id)
+        .where((a) => a.kind != AvailabilityKind.extraDay)
+        .toList();
+    return resolveAvailableWindows(date, baseline).isNotEmpty;
+  }
+
   Future<void> _pickTime(bool start) async {
+    if (_alreadyEnded) return;
     final selected = await showTimePicker(
       context: context,
       initialTime: start ? _start : _end,
@@ -209,6 +283,16 @@ class _AvailabilityEntryDialogState extends State<AvailabilityEntryDialog> {
       _showError(
         'Clinic hours are 7:00 AM - 12:00 AM; pick a time within that range.',
       );
+      return;
+    }
+    // Item 2: deny an end time that doesn't leave a valid window after the
+    // start time (and vice versa) at pick time, not just at submit.
+    if (start && _minutes(selected) + _minDurationMinutes > _minutes(_end)) {
+      _showError('Start time must leave at least 30 minutes before the end time.');
+      return;
+    }
+    if (!start && _minutes(selected) - _minutes(_start) < _minDurationMinutes) {
+      _showError('End time must be at least 30 minutes after the start time.');
       return;
     }
     setState(() {
@@ -229,7 +313,9 @@ class _AvailabilityEntryDialogState extends State<AvailabilityEntryDialog> {
 
     return AlertDialog(
       title: Text(
-        widget.initial == null ? 'Add availability' : 'Edit availability',
+        widget.initial == null
+            ? 'Add availability'
+            : (_alreadyEnded ? 'View availability' : 'Edit availability'),
       ),
       content: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 480),
@@ -238,6 +324,19 @@ class _AvailabilityEntryDialogState extends State<AvailabilityEntryDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (_splitMode) ...[
+                _infoBanner(
+                  icon: Icons.info_outline,
+                  message:
+                      'This entry already started, so what happened before today '
+                      "stays unchanged. Saving creates a new entry starting today "
+                      'with your changes.',
+                  bg: AppColors.bgLavender,
+                  border: AppColors.borderLav,
+                  color: AppColors.lavDark,
+                ),
+                const SizedBox(height: 16),
+              ],
               if (_errorMessage != null) ...[
                 Container(
                   width: double.infinity,
@@ -292,29 +391,35 @@ class _AvailabilityEntryDialogState extends State<AvailabilityEntryDialog> {
               if (needsBoundedRange) ...[
                 const SizedBox(height: 16),
                 _dateField(
-                  label: 'From',
+                  label: _kind == AvailabilityKind.extraDay ? 'Date' : 'From',
                   value: _iso(_from),
                   onTap: () => _pickDate(false),
+                  locked: _fromLockedForEditing || _alreadyEnded,
                 ),
-                const SizedBox(height: 10),
-                _dateField(
-                  label: 'To',
-                  value: _to == null ? 'Choose date' : _iso(_to!),
-                  onTap: () => _pickDate(true),
-                ),
+                if (_kind != AvailabilityKind.extraDay) ...[
+                  const SizedBox(height: 10),
+                  _dateField(
+                    label: 'To',
+                    value: _to == null ? 'Choose date' : _iso(_to!),
+                    onTap: () => _pickDate(true),
+                    locked: _alreadyEnded,
+                  ),
+                ],
               ] else ...[
                 const SizedBox(height: 16),
                 _dateField(
                   label: 'Effective from',
                   value: _iso(_from),
                   onTap: () => _pickDate(false),
+                  locked: _fromLockedForEditing || _alreadyEnded,
                 ),
                 const SizedBox(height: 10),
                 _dateField(
                   label: 'Effective to',
                   value: _to == null ? 'No end date (optional)' : _iso(_to!),
                   onTap: () => _pickDate(true),
-                  onClear: _to == null
+                  locked: _alreadyEnded,
+                  onClear: _to == null || _alreadyEnded
                       ? null
                       : () => setState(() {
                           _to = null;
@@ -331,6 +436,7 @@ class _AvailabilityEntryDialogState extends State<AvailabilityEntryDialog> {
                         'Start time',
                         _start,
                         () => _pickTime(true),
+                        enabled: !_alreadyEnded,
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -339,6 +445,7 @@ class _AvailabilityEntryDialogState extends State<AvailabilityEntryDialog> {
                         'End time',
                         _end,
                         () => _pickTime(false),
+                        enabled: !_alreadyEnded,
                       ),
                     ),
                   ],
@@ -353,12 +460,13 @@ class _AvailabilityEntryDialogState extends State<AvailabilityEntryDialog> {
           onPressed: () => Navigator.pop(context),
           child: const Text('Cancel'),
         ),
-        FilledButton(
-          // A fresh create has nothing to be "dirty" against - only an edit
-          // needs the check, to avoid saving a no-op change.
-          onPressed: (widget.initial == null || _isDirty) ? _save : null,
-          child: const Text('Save'),
-        ),
+        if (!_alreadyEnded)
+          FilledButton(
+            // A fresh create has nothing to be "dirty" against - only an edit
+            // needs the check, to avoid saving a no-op change.
+            onPressed: (widget.initial == null || _isDirty) ? _save : null,
+            child: const Text('Save'),
+          ),
       ],
     );
   }
@@ -370,8 +478,10 @@ class _AvailabilityEntryDialogState extends State<AvailabilityEntryDialog> {
   // on every open regardless of shrinkWrap.
   Widget _kindGrid() {
     final kinds = _availableKinds;
-    if (kinds.length == 1) {
-      return _kindTile(kinds.single, interactive: false);
+    // Item 6: the type can't be changed once editing an existing entry -
+    // show only the current kind, same as the single-kind (regular) case.
+    if (kinds.length == 1 || _isEditing) {
+      return _kindTile(_kind, interactive: false);
     }
     return Column(
       children: [
@@ -438,12 +548,19 @@ class _AvailabilityEntryDialogState extends State<AvailabilityEntryDialog> {
         if (_kind == AvailabilityKind.regular) {
           _day ??= AvailabilityDay.monday;
         }
+        // Item 3: extra day is always a single date.
+        if (_kind == AvailabilityKind.extraDay) {
+          _to = _from;
+        }
       }),
       child: tile,
     );
   }
 
   Widget _dayChips() {
+    // A split's new record keeps the same weekday as the original it
+    // continues from; only a fresh or not-yet-started slot may pick one.
+    final enabled = !_alreadyEnded && !_splitMode;
     return Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -452,10 +569,12 @@ class _AvailabilityEntryDialogState extends State<AvailabilityEntryDialog> {
         return ChoiceChip(
           label: Text(_dayLabel(day).substring(0, 3)),
           selected: active,
-          onSelected: (_) => setState(() {
-            _day = day;
-            _errorMessage = null;
-          }),
+          onSelected: !enabled
+              ? null
+              : (_) => setState(() {
+                  _day = day;
+                  _errorMessage = null;
+                }),
           selectedColor: AppColors.sage.withValues(alpha: 0.18),
           labelStyle: AppTypography.labelSmall(
             color: active ? AppColors.sageDark : AppColors.textMuted,
@@ -474,8 +593,9 @@ class _AvailabilityEntryDialogState extends State<AvailabilityEntryDialog> {
   Widget _dateField({
     required String label,
     required String value,
-    required VoidCallback onTap,
+    VoidCallback? onTap,
     VoidCallback? onClear,
+    bool locked = false,
   }) {
     return ListTile(
       contentPadding: EdgeInsets.zero,
@@ -484,8 +604,13 @@ class _AvailabilityEntryDialogState extends State<AvailabilityEntryDialog> {
         label,
         style: AppTypography.labelSmall(color: AppColors.textSub),
       ),
-      subtitle: Text(value, style: AppTypography.bodyMedium()),
-      onTap: onTap,
+      subtitle: Text(
+        value,
+        style: AppTypography.bodyMedium(
+          color: locked ? AppColors.textMuted : AppColors.text,
+        ),
+      ),
+      onTap: locked ? null : onTap,
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -497,13 +622,22 @@ class _AvailabilityEntryDialogState extends State<AvailabilityEntryDialog> {
               onPressed: onClear,
               icon: const Icon(Icons.close),
             ),
-          const Icon(Icons.calendar_today_outlined, size: 18),
+          Icon(
+            locked ? Icons.lock_outline : Icons.calendar_today_outlined,
+            size: 18,
+            color: locked ? AppColors.textMuted : null,
+          ),
         ],
       ),
     );
   }
 
-  Widget _timeField(String label, TimeOfDay value, VoidCallback onTap) {
+  Widget _timeField(
+    String label,
+    TimeOfDay value,
+    VoidCallback onTap, {
+    bool enabled = true,
+  }) {
     return ListTile(
       contentPadding: EdgeInsets.zero,
       dense: true,
@@ -511,13 +645,51 @@ class _AvailabilityEntryDialogState extends State<AvailabilityEntryDialog> {
         label,
         style: AppTypography.labelSmall(color: AppColors.textSub),
       ),
-      subtitle: Text(value.format(context), style: AppTypography.bodyMedium()),
-      onTap: onTap,
-      trailing: const Icon(Icons.schedule, size: 18),
+      subtitle: Text(
+        value.format(context),
+        style: AppTypography.bodyMedium(
+          color: enabled ? AppColors.text : AppColors.textMuted,
+        ),
+      ),
+      onTap: enabled ? onTap : null,
+      trailing: Icon(
+        enabled ? Icons.schedule : Icons.lock_outline,
+        size: 18,
+        color: enabled ? null : AppColors.textMuted,
+      ),
     );
   }
 
-  void _save() {
+  Widget _infoBanner({
+    required IconData icon,
+    required String message,
+    required Color bg,
+    required Color border,
+    required Color color,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: border),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(message, style: AppTypography.bodySmall(color: color)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _save() async {
+    if (_alreadyEnded) return;
     if (_errorMessage != null) {
       setState(() => _errorMessage = null);
     }
@@ -535,6 +707,10 @@ class _AvailabilityEntryDialogState extends State<AvailabilityEntryDialog> {
     }
     if (widget.initial == null && _from.isBefore(_todayOnly())) {
       _showError('Effective from must be today or later.');
+      return;
+    }
+    if (_kind == AvailabilityKind.extraDay && _extraDayHasBaselineHours(_from)) {
+      _showError('An extra day can only be added on a date with no working hours.');
       return;
     }
     if (_kind != AvailabilityKind.vacation) {
@@ -555,6 +731,17 @@ class _AvailabilityEntryDialogState extends State<AvailabilityEntryDialog> {
       }
     }
 
+    if (_kind == AvailabilityKind.vacation) {
+      final shadowedExtraDays = _vacationOverlappingExtraDayDates();
+      if (shadowedExtraDays.isNotEmpty) {
+        final confirmed = await _confirmVacationOverridesExtraDay(
+          shadowedExtraDays,
+        );
+        if (confirmed != true) return;
+      }
+    }
+    if (!mounted) return;
+
     Navigator.pop(
       context,
       AvailabilityDraft(
@@ -563,7 +750,56 @@ class _AvailabilityEntryDialogState extends State<AvailabilityEntryDialog> {
         start: _kind == AvailabilityKind.vacation ? null : _time(_start),
         end: _kind == AvailabilityKind.vacation ? null : _time(_end),
         from: _from,
-        to: _to,
+        to: _kind == AvailabilityKind.extraDay ? _from : _to,
+        isSplit: _splitMode,
+      ),
+    );
+  }
+
+  // VACATION always wins over EXTRA_DAY (backend priority: VACATION >
+  // MODIFIED > REGULAR, with EXTRA_DAY only ever filling what would
+  // otherwise be an empty day) - but the backend's shadow check skips
+  // VACATION entirely ("nothing can shadow it"), so it never warns that
+  // *this* vacation is about to silently void an existing extra day. That
+  // has to be caught here instead.
+  List<DateTime> _vacationOverlappingExtraDayDates() {
+    final to = _to;
+    if (to == null) return const [];
+    final dates =
+        widget.availability
+            .where((a) => a.kind == AvailabilityKind.extraDay)
+            .where((a) => a.id != widget.initial?.id)
+            .map((a) => a.effectiveFrom)
+            .where((date) => !date.isBefore(_from) && !date.isAfter(to))
+            .toList()
+          ..sort();
+    return dates;
+  }
+
+  Future<bool?> _confirmVacationOverridesExtraDay(List<DateTime> dates) {
+    final datesText = dates.length == 1
+        ? _iso(dates.first)
+        : '${_iso(dates.first)} through ${_iso(dates.last)} '
+              '(${dates.length} day(s))';
+    return showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('This also cancels an extra working day'),
+        content: Text(
+          'An extra working day is already scheduled on $datesText. Saving '
+          "this vacation takes priority, so that extra day won't be "
+          'available anymore.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Save anyway'),
+          ),
+        ],
       ),
     );
   }

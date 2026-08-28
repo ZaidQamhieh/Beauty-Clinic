@@ -600,6 +600,7 @@ class _BeautyClinicAppState extends State<BeautyClinicApp> {
         return DoctorAvailabilityScreen(
           key: const ValueKey('doctor_availability'),
           api: _availabilityApi,
+          appointmentApi: _appointmentApi,
         );
       case 'my_calendar':
         if (_activeRole == 'patient') {

@@ -133,13 +133,16 @@ class ExceptionsSection extends StatelessWidget {
             ),
             TextButton(
               onPressed: () => onEdit(item),
-              child: const Text('Edit'),
+              child: Text(item.hasEnded ? 'View' : 'Edit'),
             ),
-            TextButton(
-              onPressed: () => onDelete(item),
-              style: TextButton.styleFrom(foregroundColor: AppColors.roseDark),
-              child: const Text('Remove'),
-            ),
+            if (!item.hasEnded)
+              TextButton(
+                onPressed: () => onDelete(item),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.roseDark,
+                ),
+                child: const Text('Remove'),
+              ),
           ],
         ),
       ),

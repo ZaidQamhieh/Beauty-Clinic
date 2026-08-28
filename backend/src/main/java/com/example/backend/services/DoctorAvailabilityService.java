@@ -5,6 +5,7 @@ import com.example.backend.dtos.CreateDoctorAvailabilityRequest;
 import com.example.backend.dtos.DayAvailabilityStatus;
 import com.example.backend.dtos.DoctorAvailabilityDayStatus;
 import com.example.backend.dtos.DoctorAvailabilityResponse;
+import com.example.backend.dtos.SplitDoctorAvailabilityRequest;
 import com.example.backend.entities.ActivityAction;
 import com.example.backend.entities.AppointmentSession;
 import com.example.backend.entities.AppointmentSession.SessionStatus;
@@ -36,6 +37,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -121,14 +123,22 @@ public class DoctorAvailabilityService {
                 request.effectiveFrom());
         candidate.setEffectiveTo(request.effectiveTo());
 
-        List<LocalDate> affectedDates = datesCoveredBy(
+        List<LocalDate> newDates = datesCoveredBy(
                 request.kind(), request.dayOfWeek(), request.effectiveFrom(), request.effectiveTo());
+        // Dates the row covers today but wouldn't after this update (e.g. an
+        // effective-to date pulled backward) need checking too, or a booked
+        // appointment on a date being dropped would go unnoticed - the new
+        // request's own range never mentions a date it no longer covers.
+        List<LocalDate> droppedDates = datesCoveredBy(
+                availability.getKind(), availability.getDayOfWeek(),
+                availability.getEffectiveFrom(), availability.getEffectiveTo());
         List<DoctorAvailability> simulated = availabilities.findByDoctorUserId(doctorUserId).stream()
                 .filter(a -> !a.getId().equals(availabilityId))
                 .collect(Collectors.toCollection(ArrayList::new));
         simulated.add(candidate);
-        rejectIfBookedAppointmentsWouldBeOrphaned(doctorUserId, simulated, affectedDates);
-        checkShadowing(doctorUserId, availabilityId, request, affectedDates);
+        rejectIfBookedAppointmentsWouldBeOrphaned(
+                doctorUserId, simulated, unionDates(newDates, droppedDates));
+        checkShadowing(doctorUserId, availabilityId, request, newDates);
 
         availability.setKind(request.kind());
         availability.setDayOfWeek(request.dayOfWeek());
@@ -137,6 +147,116 @@ public class DoctorAvailabilityService {
         availability.setEffectiveFrom(request.effectiveFrom());
         availability.setEffectiveTo(request.effectiveTo());
         return DoctorAvailabilityResponse.of(availabilities.save(availability));
+    }
+
+    // Truncates an already-started window to end the day before splitDate, and
+    // optionally adds newSegment as a fresh row starting on splitDate - one
+    // atomic operation instead of an update-then-create pair, so the booked-
+    // appointment check below sees the two rows' combined end state rather
+    // than the moment in between where neither yet covers the future. Used
+    // both for editing an in-progress window (newSegment present) and for
+    // deleting only its future (newSegment null, history left untouched).
+    @Transactional
+    public List<DoctorAvailabilityResponse> split(
+            UUID doctorUserId, UUID availabilityId, SplitDoctorAvailabilityRequest request) {
+        DoctorAvailability availability = availabilities.findById(availabilityId)
+                .filter(a -> a.getDoctor().getUserId().equals(doctorUserId))
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "No such availability window"));
+
+        LocalDate splitDate = request.splitDate();
+        if (!splitDate.isAfter(availability.getEffectiveFrom())) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "splitDate must be after the window's effective-from date");
+        }
+        if (availability.getEffectiveTo() != null && splitDate.isAfter(availability.getEffectiveTo())) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "splitDate must not be after the window's effective-to date");
+        }
+
+        CreateDoctorAvailabilityRequest newSegment = request.newSegment();
+        if (newSegment != null && !newSegment.effectiveFrom().equals(splitDate)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "newSegment.effectiveFrom must equal splitDate");
+        }
+        if (newSegment != null) {
+            rejectRedundantOverlap(doctorUserId, availabilityId, newSegment);
+        }
+
+        LocalDate truncatedTo = splitDate.minusDays(1);
+        DoctorAvailability truncatedCandidate = new DoctorAvailability(
+                availability.getDoctor(), availability.getKind(), availability.getDayOfWeek(),
+                availability.getStartTime(), availability.getEndTime(), availability.getEffectiveFrom());
+        truncatedCandidate.setEffectiveTo(truncatedTo);
+
+        DoctorAvailability newCandidate = null;
+        if (newSegment != null) {
+            newCandidate = new DoctorAvailability(
+                    availability.getDoctor(), newSegment.kind(), newSegment.dayOfWeek(),
+                    newSegment.startTime(), newSegment.endTime(), newSegment.effectiveFrom());
+            newCandidate.setEffectiveTo(newSegment.effectiveTo());
+        }
+
+        List<DoctorAvailability> others = availabilities.findByDoctorUserId(doctorUserId).stream()
+                .filter(a -> !a.getId().equals(availabilityId))
+                .toList();
+        List<DoctorAvailability> simulated = new ArrayList<>(others);
+        simulated.add(truncatedCandidate);
+        if (newCandidate != null) {
+            simulated.add(newCandidate);
+        }
+
+        List<LocalDate> originalDates = datesCoveredBy(
+                availability.getKind(), availability.getDayOfWeek(),
+                availability.getEffectiveFrom(), availability.getEffectiveTo());
+        List<LocalDate> newSegmentDates = newSegment == null
+                ? List.of()
+                : datesCoveredBy(
+                        newSegment.kind(), newSegment.dayOfWeek(),
+                        newSegment.effectiveFrom(), newSegment.effectiveTo());
+        rejectIfBookedAppointmentsWouldBeOrphaned(
+                doctorUserId, simulated, unionDates(originalDates, newSegmentDates));
+
+        if (newSegment != null) {
+            checkShadowing(doctorUserId, availabilityId, newSegment, newSegmentDates);
+        } else {
+            // Dropping the future outright, the same near-term protection
+            // remove() gives a full deletion: no pulling a window that's
+            // about to start (or already has) out from under it.
+            ZonedDateTime nextStart = nextOccurrence(availability);
+            if (nextStart != null) {
+                ZonedDateTime cancellationCutoff = nextStart.minusHours(1);
+                if (!ZonedDateTime.now(clinic.zone()).isBefore(cancellationCutoff)) {
+                    throw new ResponseStatusException(
+                            HttpStatus.CONFLICT,
+                            "Availability can only be cancelled at least one hour before it starts");
+                }
+            }
+        }
+
+        availability.setEffectiveTo(truncatedTo);
+        DoctorAvailability savedTruncated = availabilities.save(availability);
+
+        List<DoctorAvailabilityResponse> result = new ArrayList<>();
+        result.add(DoctorAvailabilityResponse.of(savedTruncated));
+        if (newSegment != null) {
+            DoctorAvailability newRow = new DoctorAvailability(
+                    availability.getDoctor(), newSegment.kind(), newSegment.dayOfWeek(),
+                    newSegment.startTime(), newSegment.endTime(), newSegment.effectiveFrom());
+            newRow.setEffectiveTo(newSegment.effectiveTo());
+            DoctorAvailability savedNew = availabilities.save(newRow);
+            result.add(DoctorAvailabilityResponse.of(savedNew));
+            activityLogs.record(
+                    currentUser.id().orElse(null), null, ActivityAction.AVAILABILITY_ADDED,
+                    "doctor_availability", savedNew.getId());
+        } else {
+            activityLogs.record(
+                    currentUser.id().orElse(null), null, ActivityAction.AVAILABILITY_REMOVED,
+                    "doctor_availability", availabilityId);
+        }
+        return result;
     }
 
     @Transactional
@@ -346,6 +466,15 @@ public class DoctorAvailabilityService {
             }
         }
         return dates;
+    }
+
+    // Sorted, de-duplicated merge - rejectIfBookedAppointmentsWouldBeOrphaned
+    // takes the first/last entries as its date range, so this can't just be
+    // one list appended to the other.
+    private List<LocalDate> unionDates(List<LocalDate> first, List<LocalDate> second) {
+        Set<LocalDate> merged = new TreeSet<>(first);
+        merged.addAll(second);
+        return new ArrayList<>(merged);
     }
 
     private ZonedDateTime nextOccurrence(DoctorAvailability availability) {
