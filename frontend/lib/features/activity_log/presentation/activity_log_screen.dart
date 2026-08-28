@@ -14,6 +14,9 @@ import 'package:intl/intl.dart';
 
 const int _pageSize = 50;
 
+// Every filter control shares this height.
+const double _controlHeight = 40;
+
 // Column widths shared by header and rows.
 const List<double> _columns = [138, 104, 176, 196, 104];
 
@@ -29,7 +32,14 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
   late final ApiClient _api;
   final _search = TextEditingController();
   Timer? _searchDebounce;
-  int _loadGeneration = 0;
+
+  // Bumps on a filter change, voiding cache.
+  int _filterVersion = 0;
+
+  // Guards which in-flight fetch may paint.
+  int _viewRequest = 0;
+
+  final Map<int, List<ActivityEntry>> _pageCache = {};
 
   List<ActivityEntry> _entries = [];
   String? _action;
@@ -49,7 +59,7 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
   void initState() {
     super.initState();
     _api = ApiClient(widget.authSession);
-    _load();
+    unawaited(_showPage(0));
   }
 
   @override
@@ -60,54 +70,97 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
     super.dispose();
   }
 
-  Future<void> _load() async {
-    final generation = ++_loadGeneration;
+  Future<_ActivityPage?> _fetch(int page, int version) async {
+    final response = await _api.get<dynamic>(
+      '/api/activity-logs',
+      queryParameters: {
+        'page': page,
+        'size': _pageSize,
+        'sort': 'createdAt,${_newestFirst ? 'desc' : 'asc'}',
+        if (_action != null) 'action': _action,
+        if (_category != null) 'category': _category,
+        if (_range != null) 'from': _range!.start.toUtc().toIso8601String(),
+        if (_range != null) 'to': _rangeEnd(_range!),
+        if (_search.text.trim().isNotEmpty) 'search': _search.text.trim(),
+      },
+    );
+    if (version != _filterVersion) return null;
+    final payload = response.data as Map<String, dynamic>;
+    final content = (payload['content'] as List<dynamic>? ?? []);
+    final entries = content
+        .map((e) => ActivityEntry.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList();
+    return _ActivityPage(
+      entries: entries,
+      totalPages: (payload['totalPages'] as int?) ?? 1,
+      totalElements: (payload['totalElements'] as int?) ?? entries.length,
+    );
+  }
+
+  Future<void> _showPage(int page) async {
+    final version = _filterVersion;
+    final request = ++_viewRequest;
+    _page = page;
+    _trimCache(page);
+
+    final cached = _pageCache[page];
+    if (cached != null) {
+      setState(() {
+        _entries = cached;
+        _loading = false;
+        _error = null;
+        _forbidden = false;
+        _expanded = null;
+      });
+      unawaited(_prefetch(page + 1, version));
+      return;
+    }
+
     setState(() {
       _loading = true;
       _error = null;
       _forbidden = false;
+      _expanded = null;
     });
+
     try {
-      final response = await _api.get<dynamic>(
-        '/api/activity-logs',
-        queryParameters: {
-          'page': _page,
-          'size': _pageSize,
-          'sort': 'createdAt,${_newestFirst ? 'desc' : 'asc'}',
-          if (_action != null) 'action': _action,
-          if (_category != null) 'category': _category,
-          if (_range != null) 'from': _range!.start.toUtc().toIso8601String(),
-          if (_range != null) 'to': _rangeEnd(_range!),
-          if (_search.text.trim().isNotEmpty) 'search': _search.text.trim(),
-        },
-      );
-      final payload = response.data as Map<String, dynamic>;
-      final content = (payload['content'] as List<dynamic>? ?? []);
-      if (!mounted || generation != _loadGeneration) return;
+      final result = await _fetch(page, version);
+      if (!mounted || result == null || request != _viewRequest) return;
       setState(() {
-        _entries = content
-            .map(
-              (e) =>
-                  ActivityEntry.fromJson(Map<String, dynamic>.from(e as Map)),
-            )
-            .toList();
-        _totalPages = (payload['totalPages'] as int?) ?? 1;
-        _totalElements = (payload['totalElements'] as int?) ?? _entries.length;
-        _expanded = null;
+        _pageCache[page] = result.entries;
+        _entries = result.entries;
+        _totalPages = result.totalPages;
+        _totalElements = result.totalElements;
+        _loading = false;
       });
+      unawaited(_prefetch(page + 1, version));
     } on DioException catch (error) {
-      if (!mounted || generation != _loadGeneration) return;
+      if (!mounted || request != _viewRequest) return;
       setState(() {
+        _loading = false;
         _forbidden = error.response?.statusCode == 403;
         _error = _forbidden
             ? 'Only administrators can view the activity log.'
             : 'Could not reach the server.';
       });
-    } finally {
-      if (mounted && generation == _loadGeneration) {
-        setState(() => _loading = false);
-      }
     }
+  }
+
+  /// Warms the next page in advance.
+  Future<void> _prefetch(int page, int version) async {
+    if (page >= _totalPages || _pageCache.containsKey(page)) return;
+    try {
+      final result = await _fetch(page, version);
+      if (!mounted || result == null || version != _filterVersion) return;
+      _pageCache[page] = result.entries;
+    } on DioException catch (_) {
+      // A missed warm-up just loads on arrival.
+    }
+  }
+
+  /// Holds the current page and its neighbours.
+  void _trimCache(int page) {
+    _pageCache.removeWhere((cached, _) => (cached - page).abs() > 1);
   }
 
   /// Inclusive of the whole closing day.
@@ -124,8 +177,9 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
   }
 
   void _reload({bool resetPage = true}) {
-    if (resetPage) _page = 0;
-    _load();
+    _filterVersion++;
+    _pageCache.clear();
+    unawaited(_showPage(resetPage ? 0 : _page));
   }
 
   void _scheduleSearch() {
@@ -204,9 +258,11 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
         _categoryTabs(),
         SizedBox(
           width: 300,
+          height: _controlHeight,
           child: AppSearchField(
             controller: _search,
             hintText: 'Search actor, patient, or login identifier',
+            contentPadding: EdgeInsets.zero,
             onChanged: (_) => _scheduleSearch(),
             onSubmitted: (_) => _reload(),
             onClear: () {
@@ -244,6 +300,7 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
 
   Widget _categoryTabs() {
     return Container(
+      height: _controlHeight,
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
         color: AppColors.bgAlt,
@@ -252,6 +309,7 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _categoryTab('All', null),
           _categoryTab('Clinical', 'CLINICAL'),
@@ -271,7 +329,8 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
         _reload();
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
         decoration: BoxDecoration(
           color: isSelected ? AppColors.bgCard : Colors.transparent,
           borderRadius: BorderRadius.circular(9),
@@ -302,7 +361,7 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
       borderRadius: BorderRadius.circular(12),
       onTap: _pickRange,
       child: Container(
-        height: 40,
+        height: _controlHeight,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
           color: AppColors.bgCard,
@@ -666,12 +725,7 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
           const Spacer(),
           IconButton(
             tooltip: 'Previous page',
-            onPressed: _page == 0
-                ? null
-                : () {
-                    _page--;
-                    _load();
-                  },
+            onPressed: _page == 0 ? null : () => _showPage(_page - 1),
             icon: const Icon(Icons.chevron_left, size: 18),
           ),
           Text(
@@ -685,10 +739,7 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
             tooltip: 'Next page',
             onPressed: _page + 1 >= _totalPages
                 ? null
-                : () {
-                    _page++;
-                    _load();
-                  },
+                : () => _showPage(_page + 1),
             icon: const Icon(Icons.chevron_right, size: 18),
           ),
         ],
@@ -803,6 +854,18 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
       ),
     );
   }
+}
+
+class _ActivityPage {
+  const _ActivityPage({
+    required this.entries,
+    required this.totalPages,
+    required this.totalElements,
+  });
+
+  final List<ActivityEntry> entries;
+  final int totalPages;
+  final int totalElements;
 }
 
 class ActivityEntry {
