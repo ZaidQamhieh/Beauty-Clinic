@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
 import '../theme/app_typography.dart';
+import 'menu_anchor_host.dart';
 
 // Opens flush under the trigger.
 const _menuStyle = MenuStyle(
@@ -20,10 +21,11 @@ const _menuStyle = MenuStyle(
 );
 
 const double _itemHeight = 36;
-const double _menuGap = 4;
-const double _preferredMenuHeight = 300;
-const double _minMenuHeight = 132;
+
 const double _searchFieldHeight = 44;
+
+// Matches the other filter-bar controls.
+const double _triggerHeight = 40;
 
 // Long lists get a filter field.
 const int _searchThreshold = 12;
@@ -33,24 +35,6 @@ DropdownMenuItem<T>? _selectedOf<T>(List<DropdownMenuItem<T>> items, T? value) {
     if (item.value == value) return item;
   }
   return null;
-}
-
-/// Menu height that never covers the trigger.
-double _menuHeightFor(BuildContext context, GlobalKey anchorKey) {
-  final box = anchorKey.currentContext?.findRenderObject() as RenderBox?;
-  if (box == null || !box.hasSize) return _preferredMenuHeight;
-
-  final media = MediaQuery.of(context);
-  final top = box.localToGlobal(Offset.zero).dy;
-  final bottom = top + box.size.height;
-  final viewTop = media.padding.top;
-  final viewBottom =
-      media.size.height - media.viewInsets.bottom - media.padding.bottom;
-
-  final below = viewBottom - bottom - _menuGap * 2;
-  final above = top - viewTop - _menuGap * 2;
-  final room = math.max(below, above);
-  return math.max(_minMenuHeight, math.min(_preferredMenuHeight, room));
 }
 
 class _DropdownMenuBody<T> extends StatefulWidget {
@@ -198,34 +182,38 @@ class _DropdownMenuBodyState<T> extends State<_DropdownMenuBody<T>> {
       );
     }
 
-    return ListView.builder(
+    // Menu panel measures intrinsics; no ListView.
+    return SingleChildScrollView(
       controller: _scroll,
       primary: false,
-      shrinkWrap: true,
       padding: EdgeInsets.zero,
-      itemExtent: _itemHeight,
-      itemCount: _visible.length,
-      itemBuilder: (context, index) {
-        final item = _visible[index];
-        return MenuItemButton(
-          onPressed: () {
-            widget.menu.close();
-            widget.onChanged(item.value);
-          },
-          style: MenuItemButton.styleFrom(
-            minimumSize: const Size.fromHeight(_itemHeight),
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            textStyle: AppTypography.bodyMedium(),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-            backgroundColor: item.value == widget.value
-                ? AppColors.rosePale
-                : null,
-          ),
-          child: item.child,
-        );
-      },
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [for (final item in _visible) _option(item)],
+      ),
+    );
+  }
+
+  Widget _option(DropdownMenuItem<T> item) {
+    return SizedBox(
+      height: _itemHeight,
+      child: MenuItemButton(
+        onPressed: () {
+          widget.menu.close();
+          widget.onChanged(item.value);
+        },
+        style: MenuItemButton.styleFrom(
+          minimumSize: const Size.fromHeight(_itemHeight),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          textStyle: AppTypography.bodyMedium(),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          backgroundColor: item.value == widget.value
+              ? AppColors.rosePale
+              : null,
+        ),
+        child: item.child,
+      ),
     );
   }
 }
@@ -239,6 +227,7 @@ class AppDropdownField<T> extends FormField<T> {
     required ValueChanged<T?> onChanged,
     InputDecoration decoration = const InputDecoration(),
     String Function(T value)? labelOf,
+    String? hintText,
     super.validator,
   }) : super(
          builder: (field) {
@@ -248,6 +237,7 @@ class AppDropdownField<T> extends FormField<T> {
              decoration: decoration,
              errorText: field.errorText,
              labelOf: labelOf,
+             hintText: hintText,
              onChanged: (next) {
                field.didChange(next);
                onChanged(next);
@@ -265,6 +255,7 @@ class _DropdownFieldBody<T> extends StatefulWidget {
     required this.decoration,
     required this.errorText,
     required this.labelOf,
+    required this.hintText,
   });
 
   final T? value;
@@ -273,18 +264,22 @@ class _DropdownFieldBody<T> extends StatefulWidget {
   final InputDecoration decoration;
   final String? errorText;
   final String Function(T value)? labelOf;
+  final String? hintText;
 
   @override
   State<_DropdownFieldBody<T>> createState() => _DropdownFieldBodyState<T>();
 }
 
 class _DropdownFieldBodyState<T> extends State<_DropdownFieldBody<T>>
-    with _ClosesOnScroll {
+    with MenuAnchorHost {
   final MenuController _menu = MenuController();
   final GlobalKey _anchorKey = GlobalKey();
 
   @override
-  MenuController get menu => _menu;
+  MenuController get menuController => _menu;
+
+  @override
+  GlobalKey get menuAnchorKey => _anchorKey;
 
   @override
   Widget build(BuildContext context) {
@@ -293,10 +288,10 @@ class _DropdownFieldBodyState<T> extends State<_DropdownFieldBody<T>>
       builder: (context, constraints) {
         return MenuAnchor(
           controller: _menu,
-          alignmentOffset: const Offset(0, _menuGap),
+          alignmentOffset: const Offset(0, menuGap),
           consumeOutsideTap: true,
-          onOpen: () => setState(watchScroll),
-          onClose: () => setState(unwatchScroll),
+          onOpen: handleMenuOpen,
+          onClose: handleMenuClose,
           style: _menuStyle,
           menuChildren: [
             _DropdownMenuBody<T>(
@@ -305,7 +300,7 @@ class _DropdownFieldBodyState<T> extends State<_DropdownFieldBody<T>>
               menu: _menu,
               onChanged: widget.onChanged,
               labelOf: widget.labelOf,
-              maxHeight: _menuHeightFor(context, _anchorKey),
+              maxHeight: maxMenuHeight,
               width: constraints.maxWidth.isFinite
                   ? constraints.maxWidth
                   : null,
@@ -328,7 +323,10 @@ class _DropdownFieldBodyState<T> extends State<_DropdownFieldBody<T>>
               ),
               child:
                   selected?.child ??
-                  Text('', style: AppTypography.bodyMedium()),
+                  Text(
+                    widget.hintText ?? '',
+                    style: AppTypography.bodyMedium(color: AppColors.textMuted),
+                  ),
             ),
           ),
         );
@@ -360,22 +358,25 @@ class AppDropdown<T> extends StatefulWidget {
   State<AppDropdown<T>> createState() => _AppDropdownState<T>();
 }
 
-class _AppDropdownState<T> extends State<AppDropdown<T>> with _ClosesOnScroll {
+class _AppDropdownState<T> extends State<AppDropdown<T>> with MenuAnchorHost {
   final MenuController _menu = MenuController();
   final GlobalKey _anchorKey = GlobalKey();
 
   @override
-  MenuController get menu => _menu;
+  MenuController get menuController => _menu;
+
+  @override
+  GlobalKey get menuAnchorKey => _anchorKey;
 
   @override
   Widget build(BuildContext context) {
     final selected = _selectedOf(widget.items, widget.value);
     return MenuAnchor(
       controller: _menu,
-      alignmentOffset: const Offset(0, _menuGap),
+      alignmentOffset: const Offset(0, menuGap),
       consumeOutsideTap: true,
-      onOpen: () => setState(watchScroll),
-      onClose: () => setState(unwatchScroll),
+      onOpen: handleMenuOpen,
+      onClose: handleMenuClose,
       style: _menuStyle,
       menuChildren: [
         _DropdownMenuBody<T>(
@@ -384,26 +385,29 @@ class _AppDropdownState<T> extends State<AppDropdown<T>> with _ClosesOnScroll {
           menu: _menu,
           onChanged: widget.onChanged,
           labelOf: widget.labelOf,
-          maxHeight: _menuHeightFor(context, _anchorKey),
+          maxHeight: maxMenuHeight,
           minWidth: 180,
         ),
       ],
       builder: (context, controller, child) => InkWell(
         key: _anchorKey,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(12),
         onTap: () => _menu.isOpen ? _menu.close() : _menu.open(),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          height: _triggerHeight,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
             color: AppColors.bgCard,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(12),
             border: Border.all(color: AppColors.border),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               DefaultTextStyle(
-                style: AppTypography.bodyMedium(),
+                style: selected == null
+                    ? AppTypography.bodyMedium(color: AppColors.textMuted)
+                    : AppTypography.bodyMedium(),
                 child:
                     selected?.child ?? widget.hint ?? const SizedBox.shrink(),
               ),
@@ -420,32 +424,5 @@ class _AppDropdownState<T> extends State<AppDropdown<T>> with _ClosesOnScroll {
         ),
       ),
     );
-  }
-}
-
-/// Closes an open menu on scroll.
-mixin _ClosesOnScroll<W extends StatefulWidget> on State<W> {
-  ScrollPosition? _watched;
-
-  MenuController get menu;
-
-  void watchScroll() {
-    _watched = Scrollable.maybeOf(context)?.position;
-    _watched?.addListener(_close);
-  }
-
-  void unwatchScroll() {
-    _watched?.removeListener(_close);
-    _watched = null;
-  }
-
-  void _close() {
-    if (menu.isOpen) menu.close();
-  }
-
-  @override
-  void dispose() {
-    unwatchScroll();
-    super.dispose();
   }
 }

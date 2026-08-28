@@ -1638,6 +1638,7 @@ class _ProductAssignmentDialogState extends State<_ProductAssignmentDialog> {
             AppDropdownField<Product>(
               initialValue: _selectedProduct,
               decoration: const InputDecoration(labelText: 'Product'),
+              hintText: 'Choose a product',
               labelOf: (product) =>
                   '${product.brandLabel} ${product.typeLabel}',
               items: widget.catalog

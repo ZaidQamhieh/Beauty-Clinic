@@ -606,6 +606,7 @@ class _StaffFormDialogState extends State<_StaffFormDialog> {
   }) {
     return AppDropdownField<T>(
       initialValue: value,
+      hintText: 'Select ${label.toLowerCase()}',
       items: items
           .map(
             (entry) => DropdownMenuItem<T>(

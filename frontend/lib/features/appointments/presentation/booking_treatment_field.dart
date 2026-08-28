@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/widgets/menu_anchor_host.dart';
 import '../data/enum_label.dart';
 import '../data/treatment.dart';
 
@@ -24,13 +25,24 @@ class BookingTreatmentField extends StatefulWidget {
   State<BookingTreatmentField> createState() => _BookingTreatmentFieldState();
 }
 
-class _BookingTreatmentFieldState extends State<BookingTreatmentField> {
+class _BookingTreatmentFieldState extends State<BookingTreatmentField>
+    with MenuAnchorHost {
   late final TextEditingController _controller = TextEditingController(
     text: widget.selected?.label ?? '',
   );
 
   final MenuController _menu = MenuController();
+  final GlobalKey _anchorKey = GlobalKey();
   final FocusNode _focus = FocusNode();
+
+  @override
+  MenuController get menuController => _menu;
+
+  @override
+  GlobalKey get menuAnchorKey => _anchorKey;
+
+  @override
+  double get preferredMenuHeight => 320;
 
   /// Set while the field mirrors a selection.
   bool _syncing = false;
@@ -267,7 +279,7 @@ class _BookingTreatmentFieldState extends State<BookingTreatmentField> {
           _categoryBar(),
           const Divider(height: 1, color: AppColors.hairline),
           ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 260),
+            constraints: BoxConstraints(maxHeight: maxMenuHeight - 60),
             // Own scroll position, not the page's.
             child: SingleChildScrollView(
               primary: false,
@@ -305,10 +317,10 @@ class _BookingTreatmentFieldState extends State<BookingTreatmentField> {
         final width = constraints.maxWidth;
         return MenuAnchor(
           controller: _menu,
-          alignmentOffset: const Offset(0, 4),
-          // Repaints the chevron, which reads the menu.
-          onOpen: () => setState(() {}),
-          onClose: () => setState(() {}),
+          alignmentOffset: const Offset(0, menuGap),
+          consumeOutsideTap: true,
+          onOpen: handleMenuOpen,
+          onClose: handleMenuClose,
           style: MenuStyle(
             backgroundColor: const WidgetStatePropertyAll(AppColors.bgCard),
             surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
@@ -324,7 +336,8 @@ class _BookingTreatmentFieldState extends State<BookingTreatmentField> {
             ),
           ),
           menuChildren: [_menuPanel(width)],
-          builder: (context, controller, child) => _field(),
+          builder: (context, controller, child) =>
+              KeyedSubtree(key: _anchorKey, child: _field()),
         );
       },
     );
