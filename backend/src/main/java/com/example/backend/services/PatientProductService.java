@@ -65,13 +65,14 @@ public class PatientProductService {
                     HttpStatus.CONFLICT, "This product is already in this patient's current routine");
         }
 
-        PatientProduct patientProduct = new PatientProduct(patient, product, request.source());
+        UUID actorId = currentUser.requireId();
+        PatientProduct patientProduct = new PatientProduct(patient, product, request.source(), actorId);
         patientProduct.setStartedOn(request.startedOn());
 
         PatientProduct saved = patientProducts.save(patientProduct);
 
         activityLogs.record(
-                currentUser.id().orElse(null), patientUserId, ActivityAction.PATIENT_PRODUCT_ADDED,
+                actorId, patientUserId, ActivityAction.PATIENT_PRODUCT_ADDED,
                 "patient_product", saved.getId());
 
         return PatientProductResponse.of(saved);

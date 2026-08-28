@@ -20,7 +20,7 @@ import org.hibernate.annotations.SoftDelete;
 import java.time.LocalDate;
 import java.util.UUID;
 
-// What the patient uses now, not what was prescribed. discontinuedOn keeps it current.
+// What the patient uses now, not prescriptions.
 @Entity
 @Table(name = "patient_product")
 @SoftDelete
@@ -52,10 +52,16 @@ public class PatientProduct {
     @Column(name = "discontinued_on")
     private LocalDate discontinuedOn;
 
-    public PatientProduct(PatientProfile patient, Product product, ProductSource source) {
+    // Who put the product on the list.
+    @NotNull
+    @Column(name = "added_by_user_id", nullable = false, updatable = false)
+    private UUID addedByUserId;
+
+    public PatientProduct(PatientProfile patient, Product product, ProductSource source, UUID addedByUserId) {
         this.patient = patient;
         this.product = product;
         this.source = source;
+        this.addedByUserId = addedByUserId;
     }
 
     public enum ProductSource {
