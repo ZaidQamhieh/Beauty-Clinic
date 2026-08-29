@@ -4,8 +4,10 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:beauty_clinic_app/auth/auth_session.dart';
+import 'package:beauty_clinic_app/auth/role.dart';
 import 'package:beauty_clinic_app/auth/token_pair.dart';
 import 'package:beauty_clinic_app/auth/token_store.dart';
+import 'package:beauty_clinic_app/network/api_client.dart';
 import 'package:dio/dio.dart';
 
 AuthSession testSession(
@@ -117,4 +119,41 @@ class MemoryTokenStore implements TokenStore {
     value = tokens;
     onWrite?.call(tokens);
   }
+}
+
+ResponseBody jsonListResponse(int statusCode, List<dynamic> body) {
+  return ResponseBody.fromString(
+    jsonEncode(body),
+    statusCode,
+    headers: {
+      Headers.contentTypeHeader: [Headers.jsonContentType],
+    },
+  );
+}
+
+class AuthSessionHarness {
+  AuthSessionHarness(this.session, this.client);
+
+  final AuthSession session;
+  final ApiClient client;
+
+  void dispose() {
+    client.close();
+    session.dispose();
+  }
+}
+
+AuthSessionHarness adminHarness(QueueAdapter adapter, {Role role = Role.admin}) {
+  final session = testSession(
+    QueueAdapter(const []),
+    MemoryTokenStore()
+      ..value = TokenPair(
+        accessToken: 'access-token',
+        refreshToken: 'refresh-token',
+        expiresAt: DateTime.utc(2026, 8, 11, 13),
+        role: role,
+      ),
+    DateTime.utc(2026, 8, 11, 12),
+  );
+  return AuthSessionHarness(session, ApiClient(session, dio: testDio(adapter)));
 }
