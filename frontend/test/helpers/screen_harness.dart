@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'auth_test_fakes.dart';
 
-// Screens paint wide; the test font overflows where real metrics do not.
+// The test font overflows where real metrics do not.
 void relaxLayout(WidgetTester tester) {
   final previous = FlutterError.onError;
   FlutterError.onError = (details) {
