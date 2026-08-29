@@ -65,10 +65,7 @@ void main() {
 
     final bound = await pumpScreen(tester, adapter, screen);
 
-    expect(
-      find.text('The activity log is admin only'),
-      findsOneWidget,
-    );
+    expect(find.text('The activity log is admin only'), findsOneWidget);
 
     bound.dispose();
     await settle(tester);
