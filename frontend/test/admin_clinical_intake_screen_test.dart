@@ -57,7 +57,10 @@ void main() {
       screen,
     );
 
-    expect(find.textContaining('Unable to load clinical records'), findsOneWidget);
+    expect(
+      find.textContaining('Unable to load clinical records'),
+      findsOneWidget,
+    );
     expect(find.text('Try Again'), findsOneWidget);
 
     bound.dispose();

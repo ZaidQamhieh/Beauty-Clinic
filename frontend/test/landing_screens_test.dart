@@ -22,7 +22,9 @@ void main() {
       relaxLayout(tester);
       var booked = 0;
       await tester.pumpWidget(
-        wrapScreen(LandingScreen(onBookClick: () => booked++, onViewDoctor: (_) {})),
+        wrapScreen(
+          LandingScreen(onBookClick: () => booked++, onViewDoctor: (_) {}),
+        ),
       );
       await settle(tester);
 

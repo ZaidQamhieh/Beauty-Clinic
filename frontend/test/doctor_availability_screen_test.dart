@@ -45,7 +45,9 @@ void main() {
   }
 
   ResponseBody broken(RequestOptions request) {
-    return jsonResponse(500, const {'detail': 'The schedule could not be read.'});
+    return jsonResponse(500, const {
+      'detail': 'The schedule could not be read.',
+    });
   }
 
   Widget screen(AuthSessionHarness b) => DoctorAvailabilityScreen(
