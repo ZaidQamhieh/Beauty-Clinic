@@ -58,7 +58,10 @@ void main() {
   test('session stores and validates role', () async {
     final store = MemoryTokenStore();
     final adapter = QueueAdapter([
-      (_) => jsonResponse(200, tokenResponse('access-1', 'refresh-1', role: 'ADMIN')),
+      (_) => jsonResponse(
+        200,
+        tokenResponse('access-1', 'refresh-1', role: 'ADMIN'),
+      ),
     ]);
     final session = testSession(adapter, store, now);
     addTearDown(session.dispose);

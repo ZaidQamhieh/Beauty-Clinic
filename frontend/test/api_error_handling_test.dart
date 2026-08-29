@@ -38,9 +38,7 @@ void main() {
     addTearDown(session.dispose);
 
     final adapter = QueueAdapter([
-      (_) => jsonResponse(401, {
-        'detail': 'Token expired',
-      }),
+      (_) => jsonResponse(401, {'detail': 'Token expired'}),
     ]);
 
     final client = ApiClient(session, dio: testDio(adapter));
@@ -58,9 +56,7 @@ void main() {
     addTearDown(session.dispose);
 
     final adapter = QueueAdapter([
-      (_) => jsonResponse(403, {
-        'detail': 'Insufficient permissions',
-      }),
+      (_) => jsonResponse(403, {'detail': 'Insufficient permissions'}),
     ]);
 
     final client = ApiClient(session, dio: testDio(adapter));
@@ -78,9 +74,7 @@ void main() {
     addTearDown(session.dispose);
 
     final adapter = QueueAdapter([
-      (_) => jsonResponse(404, {
-        'detail': 'Resource not found',
-      }),
+      (_) => jsonResponse(404, {'detail': 'Resource not found'}),
     ]);
 
     final client = ApiClient(session, dio: testDio(adapter));
@@ -98,9 +92,7 @@ void main() {
     addTearDown(session.dispose);
 
     final adapter = QueueAdapter([
-      (_) => jsonResponse(422, {
-        'detail': 'Invalid email format',
-      }),
+      (_) => jsonResponse(422, {'detail': 'Invalid email format'}),
     ]);
 
     final client = ApiClient(session, dio: testDio(adapter));
@@ -118,9 +110,7 @@ void main() {
     addTearDown(session.dispose);
 
     final adapter = QueueAdapter([
-      (_) => jsonResponse(500, {
-        'detail': 'Internal server error',
-      }),
+      (_) => jsonResponse(500, {'detail': 'Internal server error'}),
     ]);
 
     final client = ApiClient(session, dio: testDio(adapter));
@@ -148,7 +138,10 @@ void main() {
     addTearDown(client.close);
 
     try {
-      await client.post<dynamic>('/api/register', data: {'email': 'taken@example.com'});
+      await client.post<dynamic>(
+        '/api/register',
+        data: {'email': 'taken@example.com'},
+      );
       fail('Should throw DioException');
     } on DioException catch (e) {
       expect(e.response?.statusCode, 400);

@@ -35,11 +35,8 @@ void main() {
         home: Scaffold(
           body: Builder(
             builder: (context) => ElevatedButton(
-              onPressed: () => showErrorDialog(
-                context,
-                'Test error',
-                title: 'Error',
-              ),
+              onPressed: () =>
+                  showErrorDialog(context, 'Test error', title: 'Error'),
               child: const Text('Show Error'),
             ),
           ),
@@ -73,11 +70,8 @@ void main() {
         home: Scaffold(
           body: Builder(
             builder: (context) => ElevatedButton(
-              onPressed: () => showApiErrorDialog(
-                context,
-                error,
-                'Default error',
-              ),
+              onPressed: () =>
+                  showApiErrorDialog(context, error, 'Default error'),
               child: const Text('Show Error'),
             ),
           ),
@@ -105,11 +99,8 @@ void main() {
         home: Scaffold(
           body: Builder(
             builder: (context) => ElevatedButton(
-              onPressed: () => showApiErrorDialog(
-                context,
-                error,
-                'Fallback error message',
-              ),
+              onPressed: () =>
+                  showApiErrorDialog(context, error, 'Fallback error message'),
               child: const Text('Show Error'),
             ),
           ),

@@ -143,7 +143,10 @@ class AuthSessionHarness {
   }
 }
 
-AuthSessionHarness adminHarness(QueueAdapter adapter, {Role role = Role.admin}) {
+AuthSessionHarness adminHarness(
+  QueueAdapter adapter, {
+  Role role = Role.admin,
+}) {
   final session = testSession(
     QueueAdapter(const []),
     MemoryTokenStore()

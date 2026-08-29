@@ -103,7 +103,9 @@ void main() {
     bound.dispose();
   });
 
-  testWidgets('a loaded routine renders the header and the product', (tester) async {
+  testWidgets('a loaded routine renders the header and the product', (
+    tester,
+  ) async {
     // Future.wait races, so answer by path.
     ResponseBody byPath(RequestOptions request) {
       if (request.path == '/api/products') {

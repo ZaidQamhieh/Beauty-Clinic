@@ -67,7 +67,9 @@ void main() {
     await openScreen(tester, adapter);
     await fillForm(tester, email: 'not-an-email');
 
-    await tester.tap(find.widgetWithText(FilledButton, 'Create patient account'));
+    await tester.tap(
+      find.widgetWithText(FilledButton, 'Create patient account'),
+    );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
@@ -80,7 +82,9 @@ void main() {
     await openScreen(tester, adapter);
     await fillForm(tester, confirm: 'DifferentPass123');
 
-    await tester.tap(find.widgetWithText(FilledButton, 'Create patient account'));
+    await tester.tap(
+      find.widgetWithText(FilledButton, 'Create patient account'),
+    );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
@@ -97,7 +101,9 @@ void main() {
     await openScreen(tester, adapter);
     await fillForm(tester);
 
-    await tester.tap(find.widgetWithText(FilledButton, 'Create patient account'));
+    await tester.tap(
+      find.widgetWithText(FilledButton, 'Create patient account'),
+    );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
@@ -112,7 +118,9 @@ void main() {
     await openScreen(tester, adapter);
     await fillForm(tester);
 
-    await tester.tap(find.widgetWithText(FilledButton, 'Create patient account'));
+    await tester.tap(
+      find.widgetWithText(FilledButton, 'Create patient account'),
+    );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 

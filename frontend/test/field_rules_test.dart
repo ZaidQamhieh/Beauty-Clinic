@@ -9,18 +9,9 @@ void main() {
     });
 
     test('returns error for empty text', () {
-      expect(
-        FieldRules.requiredText('', 'Field'),
-        'Field is required.',
-      );
-      expect(
-        FieldRules.requiredText('   ', 'Field'),
-        'Field is required.',
-      );
-      expect(
-        FieldRules.requiredText(null, 'Field'),
-        'Field is required.',
-      );
+      expect(FieldRules.requiredText('', 'Field'), 'Field is required.');
+      expect(FieldRules.requiredText('   ', 'Field'), 'Field is required.');
+      expect(FieldRules.requiredText(null, 'Field'), 'Field is required.');
     });
   });
 
@@ -33,33 +24,18 @@ void main() {
     });
 
     test('rejects empty names', () {
-      expect(
-        FieldRules.personName('', 'Name'),
-        'Name is required.',
-      );
-      expect(
-        FieldRules.personName(null, 'Name'),
-        'Name is required.',
-      );
+      expect(FieldRules.personName('', 'Name'), 'Name is required.');
+      expect(FieldRules.personName(null, 'Name'), 'Name is required.');
     });
 
     test('rejects short names', () {
-      expect(
-        FieldRules.personName('J', 'Name'),
-        'Name is too short.',
-      );
-      expect(
-        FieldRules.personName('A', 'Name'),
-        'Name is too short.',
-      );
+      expect(FieldRules.personName('J', 'Name'), 'Name is too short.');
+      expect(FieldRules.personName('A', 'Name'), 'Name is too short.');
     });
 
     test('rejects long names', () {
       final longName = 'A' * 101;
-      expect(
-        FieldRules.personName(longName, 'Name'),
-        'Name is too long.',
-      );
+      expect(FieldRules.personName(longName, 'Name'), 'Name is too long.');
     });
 
     test('rejects names with digits', () {
@@ -85,37 +61,19 @@ void main() {
     });
 
     test('rejects empty email', () {
-      expect(
-        FieldRules.email(''),
-        'Email is required.',
-      );
-      expect(
-        FieldRules.email(null),
-        'Email is required.',
-      );
+      expect(FieldRules.email(''), 'Email is required.');
+      expect(FieldRules.email(null), 'Email is required.');
     });
 
     test('rejects invalid email format', () {
-      expect(
-        FieldRules.email('not-an-email'),
-        'Enter a valid email address.',
-      );
-      expect(
-        FieldRules.email('user@'),
-        'Enter a valid email address.',
-      );
-      expect(
-        FieldRules.email('@example.com'),
-        'Enter a valid email address.',
-      );
+      expect(FieldRules.email('not-an-email'), 'Enter a valid email address.');
+      expect(FieldRules.email('user@'), 'Enter a valid email address.');
+      expect(FieldRules.email('@example.com'), 'Enter a valid email address.');
     });
 
     test('rejects very long emails', () {
       final longEmail = '${'a' * 255}@example.com';
-      expect(
-        FieldRules.email(longEmail),
-        'Email is too long.',
-      );
+      expect(FieldRules.email(longEmail), 'Email is too long.');
     });
   });
 
@@ -126,14 +84,8 @@ void main() {
     });
 
     test('rejects empty phone', () {
-      expect(
-        FieldRules.phoneDigits(''),
-        'Phone number is required.',
-      );
-      expect(
-        FieldRules.phoneDigits(null),
-        'Phone number is required.',
-      );
+      expect(FieldRules.phoneDigits(''), 'Phone number is required.');
+      expect(FieldRules.phoneDigits(null), 'Phone number is required.');
     });
 
     test('rejects non-digit input', () {
@@ -155,14 +107,8 @@ void main() {
     });
 
     test('rejects repeated digits', () {
-      expect(
-        FieldRules.phoneDigits('1111111'),
-        'Enter a real phone number.',
-      );
-      expect(
-        FieldRules.phoneDigits('5555555'),
-        'Enter a real phone number.',
-      );
+      expect(FieldRules.phoneDigits('1111111'), 'Enter a real phone number.');
+      expect(FieldRules.phoneDigits('5555555'), 'Enter a real phone number.');
     });
 
     test('accepts custom length', () {
@@ -186,21 +132,12 @@ void main() {
     });
 
     test('rejects empty when required', () {
-      expect(
-        FieldRules.httpUrl('', required: true),
-        'Address is required.',
-      );
+      expect(FieldRules.httpUrl('', required: true), 'Address is required.');
     });
 
     test('rejects invalid URLs', () {
-      expect(
-        FieldRules.httpUrl('not a url'),
-        'Enter a full web address.',
-      );
-      expect(
-        FieldRules.httpUrl('example.com'),
-        'Enter a full web address.',
-      );
+      expect(FieldRules.httpUrl('not a url'), 'Enter a full web address.');
+      expect(FieldRules.httpUrl('example.com'), 'Enter a full web address.');
     });
 
     test('rejects non-http schemes', () {
@@ -276,10 +213,7 @@ void main() {
     });
 
     test('rejects empty identifiers', () {
-      expect(
-        FieldRules.identifierKey('', 'Key'),
-        'Key is required.',
-      );
+      expect(FieldRules.identifierKey('', 'Key'), 'Key is required.');
     });
 
     test('rejects long identifiers', () {
@@ -291,33 +225,21 @@ void main() {
     });
 
     test('rejects identifiers starting with digit', () {
-      expect(
-        FieldRules.identifierKey('123field', 'Key'),
-        isNotNull,
-      );
+      expect(FieldRules.identifierKey('123field', 'Key'), isNotNull);
     });
 
     test('rejects identifiers with invalid characters', () {
-      expect(
-        FieldRules.identifierKey('field-name', 'Key'),
-        isNotNull,
-      );
+      expect(FieldRules.identifierKey('field-name', 'Key'), isNotNull);
     });
   });
 
   group('FieldRules.password', () {
     test('accepts strong passwords', () {
-      expect(
-        FieldRules.password('StrongPass123!'),
-        isNull,
-      );
+      expect(FieldRules.password('StrongPass123!'), isNull);
     });
 
     test('rejects short passwords', () {
-      expect(
-        FieldRules.password('Short1!'),
-        isNotNull,
-      );
+      expect(FieldRules.password('Short1!'), isNotNull);
     });
 
     test('rejects password matching email', () {
@@ -328,10 +250,7 @@ void main() {
     });
 
     test('rejects password matching name', () {
-      expect(
-        FieldRules.password('JohnDoe123!', firstName: 'John'),
-        isNotNull,
-      );
+      expect(FieldRules.password('JohnDoe123!', firstName: 'John'), isNotNull);
     });
   });
 
@@ -342,10 +261,7 @@ void main() {
     });
 
     test('rejects null date when required', () {
-      expect(
-        FieldRules.dateOfBirth(null, minAge: 18),
-        isNotNull,
-      );
+      expect(FieldRules.dateOfBirth(null, minAge: 18), isNotNull);
     });
 
     test('rejects dates in the future', () {
@@ -358,10 +274,7 @@ void main() {
 
     test('rejects underage dates', () {
       final tooYoung = DateTime(2024, 8, 29);
-      expect(
-        FieldRules.dateOfBirth(tooYoung, minAge: 18),
-        isNotNull,
-      );
+      expect(FieldRules.dateOfBirth(tooYoung, minAge: 18), isNotNull);
     });
   });
 
@@ -379,17 +292,11 @@ void main() {
     });
 
     test('rejects non-numeric experience', () {
-      expect(
-        FieldRules.yearsOfExperience('ten'),
-        isNotNull,
-      );
+      expect(FieldRules.yearsOfExperience('ten'), isNotNull);
     });
 
     test('rejects negative experience', () {
-      expect(
-        FieldRules.yearsOfExperience('-5'),
-        isNotNull,
-      );
+      expect(FieldRules.yearsOfExperience('-5'), isNotNull);
     });
   });
 }
