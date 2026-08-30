@@ -585,11 +585,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         _readCell('First name', _firstNameController.text),
         _readCell('Last name', _lastNameController.text),
         _readCell('Phone number', _composedPhone),
-        if (_hasPhoto)
-          _readCell(
-            'Profile picture',
-            _imageUrlController.text.trim().isEmpty ? 'Not set' : 'Set',
-          ),
+        // Intentionally hidden: keep the profile-picture logic untouched,
+        // but do not show the visible "Profile picture" label/value in the read-only view.
       ],
     ];
   }
@@ -754,16 +751,16 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       return ProfileAvatar(
         radius: 44,
         color: _accent,
+        role: widget.role,
+        gender: _selectedGender ?? _serverProfile?.gender,
         imageUrl: _imageUrlController.text,
       );
     }
-    return CircleAvatar(
+    return ProfileAvatar(
       radius: 44,
-      backgroundColor: _accent.withValues(alpha: .18),
-      child: Text(
-        initials,
-        style: AppTypography.displayTitle(color: _accentDark),
-      ),
+      color: _accent,
+      role: widget.role,
+      gender: _selectedGender ?? _serverProfile?.gender,
     );
   }
 

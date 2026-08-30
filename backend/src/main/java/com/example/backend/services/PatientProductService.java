@@ -85,10 +85,19 @@ public class PatientProductService {
                 .filter(p -> p.getPatient().getUserId().equals(patientUserId))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No such product in this patient's routine"));
 
-        patientProduct.setDiscontinuedOn(LocalDate.now(clinic.zone()));
+        UUID actorId = currentUser.id().orElse(null);
+        LocalDate discontinuedOn = LocalDate.now(clinic.zone());
+        if (patientProduct.getStartedOn() != null) {
+            discontinuedOn = discontinuedOn.isBefore(patientProduct.getStartedOn())
+                    ? patientProduct.getStartedOn()
+                    : discontinuedOn;
+        }
+
+        patientProduct.setDiscontinuedOn(discontinuedOn);
+        patientProduct.setDiscontinuedByUserId(actorId);
 
         activityLogs.record(
-                currentUser.id().orElse(null), patientUserId,
+                actorId, patientUserId,
                 ActivityAction.PATIENT_PRODUCT_DISCONTINUED,
                 "patient_product", patientProductId);
 

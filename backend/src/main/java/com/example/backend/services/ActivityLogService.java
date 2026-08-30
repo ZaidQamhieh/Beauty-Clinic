@@ -148,9 +148,15 @@ public class ActivityLogService {
     }
 
     @Transactional(readOnly = true)
-    public Page<ActivityLog> clinicalHistory(UUID patientUserId, Pageable pageable) {
-        return activityLogs.findByPatientUserIdAndActionOrderByCreatedAtDescIdDesc(
-                patientUserId, ActivityAction.CLINICAL_PROFILE_UPDATED, pageable);
+        public Page<ActivityLog> clinicalHistory(UUID patientUserId, Pageable pageable) {
+        return activityLogs.findByPatientUserIdAndActionInOrderByCreatedAtDescIdDesc(
+            patientUserId,
+            List.of(
+                ActivityAction.CLINICAL_PROFILE_UPDATED,
+                ActivityAction.PATIENT_PRODUCT_ADDED,
+                ActivityAction.PATIENT_PRODUCT_DISCONTINUED
+            ),
+            pageable);
     }
 
     // Page doesn't round-trip through the Redis ObjectMapper.

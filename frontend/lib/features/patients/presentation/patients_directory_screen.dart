@@ -78,13 +78,23 @@ class _PatientsDirectoryScreenState extends State<PatientsDirectoryScreen> {
     );
   }
 
+  bool _patientHasClinicForm(Map<String, dynamic> patient) {
+    if (patient['hasClinicForm'] == true) return true;
+    final skinType = patient['skinType'];
+    return skinType != null && skinType.toString().trim().isNotEmpty;
+  }
+
+  bool _patientHasProductRecords(Map<String, dynamic> patient) {
+    return patient['hasProductRecords'] == true;
+  }
+
   List<Map<String, dynamic>> get _filteredPatients {
     return _patients.where((p) {
-      final skinType = p['skinType']?.toString().trim();
-      final hasCompleted = skinType != null && skinType.isNotEmpty;
+      final hasClinicForm = _patientHasClinicForm(p);
+      final hasProductRecords = _patientHasProductRecords(p);
 
-      if (_selectedFilter == 'COMPLETED' && !hasCompleted) return false;
-      if (_selectedFilter == 'PENDING' && hasCompleted) return false;
+      if (_selectedFilter == 'CLINIC_FORM' && !hasClinicForm) return false;
+      if (_selectedFilter == 'PRODUCT' && !hasProductRecords) return false;
       return true;
     }).toList();
   }
@@ -227,14 +237,14 @@ class _PatientsDirectoryScreenState extends State<PatientsDirectoryScreen> {
           spacing: 8,
           runSpacing: 8,
           children: [
-            _buildFilterChip('ALL', 'All Patients (${_patients.length})'),
+            _buildFilterChip('ALL', 'All (${_patients.length})'),
             _buildFilterChip(
-              'COMPLETED',
-              'Intake Complete (${_patients.where((p) => (p['skinType'] ?? '').toString().isNotEmpty).length})',
+              'CLINIC_FORM',
+              'Clinic Form (${_patients.where(_patientHasClinicForm).length})',
             ),
             _buildFilterChip(
-              'PENDING',
-              'Intake Pending (${_patients.where((p) => (p['skinType'] ?? '').toString().isEmpty).length})',
+              'PRODUCT',
+              'Product (${_patients.where(_patientHasProductRecords).length})',
             ),
           ],
         ),
@@ -295,8 +305,9 @@ class _PatientsDirectoryScreenState extends State<PatientsDirectoryScreen> {
         : '$firstName $lastName';
     final email = patient['email']?.toString() ?? 'No email';
     final phone = patient['phone']?.toString() ?? 'No phone';
-    final skinType = patient['skinType']?.toString();
-    final hasCompletedIntake = skinType != null && skinType.isNotEmpty;
+    final hasClinicForm = _patientHasClinicForm(patient);
+    final hasProductRecords = _patientHasProductRecords(patient);
+    final intakeStatus = hasClinicForm ? 'Intake Complete' : 'Intake Pending';
 
     final initials =
         (firstName.isNotEmpty ? firstName[0] : '') +
@@ -380,14 +391,13 @@ class _PatientsDirectoryScreenState extends State<PatientsDirectoryScreen> {
                 spacing: 6,
                 runSpacing: 4,
                 children: [
-                  // Form Status Badge
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8,
                       vertical: 3,
                     ),
                     decoration: BoxDecoration(
-                      color: hasCompletedIntake
+                      color: hasClinicForm
                           ? AppColors.bgSage
                           : AppColors.bgRose,
                       borderRadius: BorderRadius.circular(8),
@@ -396,21 +406,19 @@ class _PatientsDirectoryScreenState extends State<PatientsDirectoryScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          hasCompletedIntake
+                          hasClinicForm
                               ? Icons.check_circle_outline
                               : Icons.pending_actions,
                           size: 12,
-                          color: hasCompletedIntake
+                          color: hasClinicForm
                               ? AppColors.sageDark
                               : AppColors.rose,
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          hasCompletedIntake
-                              ? 'Intake Complete'
-                              : 'Intake Pending',
+                          intakeStatus,
                           style: AppTypography.labelSmall(
-                            color: hasCompletedIntake
+                            color: hasClinicForm
                                 ? AppColors.sageDark
                                 : AppColors.roseDark,
                           ).copyWith(fontSize: 10),
@@ -418,8 +426,7 @@ class _PatientsDirectoryScreenState extends State<PatientsDirectoryScreen> {
                       ],
                     ),
                   ),
-                  // Skin Type Badge
-                  if (skinType != null && skinType.isNotEmpty)
+                  if (hasProductRecords)
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,
@@ -429,11 +436,22 @@ class _PatientsDirectoryScreenState extends State<PatientsDirectoryScreen> {
                         color: AppColors.bgLavender,
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Text(
-                        'Skin: $skinType',
-                        style: AppTypography.labelSmall(
-                          color: AppColors.lavDark,
-                        ).copyWith(fontSize: 10),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.inventory_2_outlined,
+                            size: 12,
+                            color: AppColors.lavDark,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Products',
+                            style: AppTypography.labelSmall(
+                              color: AppColors.lavDark,
+                            ).copyWith(fontSize: 10),
+                          ),
+                        ],
                       ),
                     ),
                 ],

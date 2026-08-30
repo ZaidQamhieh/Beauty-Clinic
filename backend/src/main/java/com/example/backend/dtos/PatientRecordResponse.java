@@ -27,9 +27,15 @@ public record PatientRecordResponse(
         SmokingStatus smokingStatus,
         List<Allergy> allergies,
         List<Medication> medications,
-        List<ChronicCondition> chronicConditions
+        List<ChronicCondition> chronicConditions,
+        boolean hasClinicForm,
+        boolean hasProductRecords
 ) {
     public static PatientRecordResponse of(PatientProfile profile) {
+        return of(profile, false, false);
+    }
+
+    public static PatientRecordResponse of(PatientProfile profile, boolean hasClinicForm, boolean hasProductRecords) {
         var user = profile.getUser();
         return new PatientRecordResponse(
                 profile.getUserId(),
@@ -45,7 +51,9 @@ public record PatientRecordResponse(
                 profile.getSmokingStatus(),
                 profile.getAllergies(),
                 profile.getMedications(),
-                profile.getChronicConditions()
+                profile.getChronicConditions(),
+                hasClinicForm,
+                hasProductRecords
         );
     }
 }

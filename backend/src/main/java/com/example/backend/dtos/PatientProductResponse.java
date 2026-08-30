@@ -11,22 +11,28 @@ import java.util.UUID;
 public record PatientProductResponse(
         UUID id,
         UUID productId,
+        String name,
         ProductBrand brand,
         ProductType productType,
         ProductSource source,
         LocalDate startedOn,
-        LocalDate discontinuedOn
+        LocalDate discontinuedOn,
+        UUID addedByUserId,
+        UUID discontinuedByUserId
 ) {
     public static PatientProductResponse of(PatientProduct patientProduct) {
         var product = patientProduct.getProduct();
         return new PatientProductResponse(
                 patientProduct.getId(),
                 product.getId(),
+                product.getName(),
                 product.getBrand(),
                 product.getProductType(),
                 patientProduct.getSource(),
                 patientProduct.getStartedOn(),
-                patientProduct.getDiscontinuedOn()
+                patientProduct.getDiscontinuedOn(),
+                patientProduct.getAddedByUserId(),
+                patientProduct.getDiscontinuedByUserId()
         );
     }
 }

@@ -48,7 +48,7 @@ void main() {
     });
   }
 
-  testWidgets('the receptionist dashboard offers to check a patient in', (
+  testWidgets('the receptionist dashboard offers a full appointments view', (
     tester,
   ) async {
     final bound = await pumpScreen(
@@ -59,11 +59,11 @@ void main() {
         onViewPatient: (_) {},
         onViewDoctor: (_) {},
         apiClient: b.client,
-        onCheckInPatient: () {},
+        onViewAppointments: () {},
       ),
     );
 
-    expect(find.text('Check in patient'), findsWidgets);
+    expect(find.text('View All Appointments'), findsWidgets);
 
     bound.dispose();
     await settle(tester);
@@ -82,5 +82,26 @@ void main() {
 
     bound.dispose();
     await settle(tester);
+  });
+
+  testWidgets('the receptionist dashboard tolerates a missing api client', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: DashboardScreen(
+          activeRole: 'receptionist',
+          onViewPatient: (_) {},
+          onViewDoctor: (_) {},
+          apiClient: null,
+          onBookAppointment: () {},
+          onViewAppointments: () {},
+          onViewDoctors: () {},
+        ),
+      ),
+    );
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Today at a glance'), findsOneWidget);
   });
 }

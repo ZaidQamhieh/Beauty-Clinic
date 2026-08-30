@@ -12,6 +12,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 public interface ActivityLogRepository
@@ -20,6 +21,9 @@ public interface ActivityLogRepository
     // Id settles rows sharing a timestamp.
     Page<ActivityLog> findByPatientUserIdAndActionOrderByCreatedAtDescIdDesc(
             UUID patientUserId, ActivityAction action, Pageable pageable);
+
+    Page<ActivityLog> findByPatientUserIdAndActionInOrderByCreatedAtDescIdDesc(
+            UUID patientUserId, List<ActivityAction> actions, Pageable pageable);
 
     long countByAction(ActivityAction action);
 

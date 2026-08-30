@@ -222,7 +222,7 @@ class _PatientProductsScreenState extends State<PatientProductsScreen> {
       children: [
         _chip('All products', _catalogue.length, _Shelf.everything),
         _chip('Prescribed', _prescribed.length, _Shelf.prescribed),
-        _chip('Stopped', _stopped.length, _Shelf.stopped),
+        _chip('Stopped using', _stopped.length, _Shelf.stopped),
       ],
     );
   }
