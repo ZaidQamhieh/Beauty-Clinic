@@ -118,9 +118,9 @@ class DoctorControllerTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void listDoctorsRejectsUnauthenticated() throws Exception {
+    void listDoctorsAllowsUnauthenticatedLandingPageAccess() throws Exception {
         mockMvc.perform(get("/api/doctors"))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isOk());
     }
 
     @Test
