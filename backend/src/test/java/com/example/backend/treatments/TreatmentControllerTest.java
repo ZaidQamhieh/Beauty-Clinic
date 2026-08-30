@@ -41,9 +41,11 @@ class TreatmentControllerTest extends AbstractIntegrationTest {
     @Autowired
     private PasswordEncoder passwordEncoder;
     @Test
-    void unauthenticatedCannotListTreatments() throws Exception {
+    void unauthenticatedCanListTreatments() throws Exception {
         mockMvc.perform(get("/api/treatments"))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$[0].treatmentName").isNotEmpty());
     }
 
     @Test
