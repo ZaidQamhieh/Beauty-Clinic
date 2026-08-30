@@ -1317,10 +1317,7 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
     );
   }
 
-  // A visit spanning several doctors only shows the one currently in scope
-  // (a doctor's own view, or whichever doctor staff filtered to) - not
-  // every session on it, which would surface another doctor's sessions
-  // just because they happen to share this visit.
+  // Scoped by _effectiveDoctorId - see its own doc comment for why.
   List<AppointmentSession> _visibleSessions(Appointment appointment) {
     final doctorId = _effectiveDoctorId;
     if (doctorId == null) return appointment.sessions;
