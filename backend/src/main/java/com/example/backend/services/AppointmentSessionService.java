@@ -246,10 +246,30 @@ public class AppointmentSessionService {
             cancellation.assertCancellable(appointment.getScheduledAt());
 
             AppointmentSession session = require(appointmentId, sessionId);
+            assertAssignedDoctor(session);
 
             return transition(session, SessionStatus.CANCELLED);
         } finally {
             correlation.end();
+        }
+    }
+
+    // A doctor cancelling the whole visit would silently cancel another
+    // doctor's sessions too if the visit spans more than one practitioner -
+    // that's not theirs to decide, so the whole-visit cancel is blocked
+    // whenever it isn't entirely the calling doctor's own. They still have
+    // cancel(appointmentId, sessionId) above for their own sessions in it;
+    // non-doctor staff and the patient themselves are unrestricted here.
+    public void assertOwnsWholeVisit(Appointment appointment) {
+        if (!currentUser.hasRole(com.example.backend.security.Role.DOCTOR)) {
+            return;
+        }
+        UUID doctorId = currentUser.requireId();
+        boolean sharedWithAnotherDoctor = sessions.findByAppointmentId(appointment.getId()).stream()
+                .anyMatch(s -> !s.getPractitioner().getUserId().equals(doctorId));
+        if (sharedWithAnotherDoctor) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "This visit includes another doctor's sessions - cancel your own sessions individually instead");
         }
     }
 
@@ -281,6 +301,7 @@ public class AppointmentSessionService {
         AppointmentSession session = require(appointmentId, sessionId);
         assertAssignedDoctor(session);
         assertStarted(session);
+        assertWithinAttendanceWindow(session);
 
         return transition(session, SessionStatus.COMPLETED);
     }
@@ -310,6 +331,18 @@ public class AppointmentSessionService {
         }
     }
 
+    // Upper bound only: attendance has to be recorded close to when it actually
+    // happened, not resurrected weeks later. markNoShow has no such ceiling -
+    // there's no "too late" to notice a patient never showed up.
+    private void assertWithinAttendanceWindow(AppointmentSession session) {
+        Instant windowEnd = session.getEndTime().plus(clinic.attendanceWindow());
+        if (clock.instant().isAfter(windowEnd)) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "The window to mark that treatment attended has closed");
+        }
+    }
+
     private void assertAssignedDoctor(AppointmentSession session) {
         if (currentUser.hasRole(com.example.backend.security.Role.DOCTOR)
                 && !session.getPractitioner().getUserId().equals(currentUser.requireId())) {
@@ -325,7 +358,13 @@ public class AppointmentSessionService {
     }
 
     private AppointmentSessionResponse transition(AppointmentSession session, SessionStatus to) {
-        if (session.getStatus() != SessionStatus.PLANNED) {
+        // The one exception to "must be PLANNED first": a session the no-show
+        // sweep already flagged can still be corrected if the doctor marks it
+        // attended within the normal window - assertStarted/
+        // assertWithinAttendanceWindow in markAttended already gate that.
+        boolean correctingNoShow =
+                to == SessionStatus.COMPLETED && session.getStatus() == SessionStatus.NO_SHOW;
+        if (session.getStatus() != SessionStatus.PLANNED && !correctingNoShow) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Session is not planned");
         }
 

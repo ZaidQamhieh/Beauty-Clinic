@@ -19,7 +19,10 @@ class SessionRecordApi {
         .toList();
   }
 
-  Future<void> create({
+  /// Returns the saved record, so a caller can update its own state from
+  /// it directly instead of re-fetching everything just to see what it
+  /// itself just wrote.
+  Future<SessionRecord> create({
     required String patientId,
     required String sessionId,
     String? note,
@@ -27,7 +30,7 @@ class SessionRecordApi {
     String? followUpDate,
     List<String> prescribedProductIds = const [],
   }) async {
-    await _client.post<Map<String, dynamic>>(
+    final response = await _client.post<Map<String, dynamic>>(
       '/api/patients/$patientId/session-records',
       data: {
         'sessionId': sessionId,
@@ -37,9 +40,12 @@ class SessionRecordApi {
         'prescribedProductIds': prescribedProductIds,
       },
     );
+    return SessionRecord.fromJson(response.data!);
   }
 
-  Future<void> amend({
+  /// Returns the new record this amendment created - amending never edits
+  /// the original row in place, it appends a correction that supersedes it.
+  Future<SessionRecord> amend({
     required String patientId,
     required String recordId,
     String? note,
@@ -47,7 +53,7 @@ class SessionRecordApi {
     String? followUpDate,
     List<String> prescribedProductIds = const [],
   }) async {
-    await _client.put<Map<String, dynamic>>(
+    final response = await _client.put<Map<String, dynamic>>(
       '/api/patients/$patientId/session-records/$recordId/amend',
       data: {
         'note': note,
@@ -56,5 +62,6 @@ class SessionRecordApi {
         'prescribedProductIds': prescribedProductIds,
       },
     );
+    return SessionRecord.fromJson(response.data!);
   }
 }

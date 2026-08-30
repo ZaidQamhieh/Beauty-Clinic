@@ -264,6 +264,7 @@ public class AppointmentService {
     private void cancelVisit(Appointment appointment) {
         assertBooked(appointment);
         cancellation.assertCancellable(appointment.getScheduledAt());
+        sessionService.assertOwnsWholeVisit(appointment);
 
         appointment.cancel();
         sessionService.cancelEveryPlannedIn(appointment);

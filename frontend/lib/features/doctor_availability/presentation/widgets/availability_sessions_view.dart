@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -154,10 +155,63 @@ class AvailabilitySessionsView extends StatefulWidget {
     this.primaryLabel,
     this.apiClient,
     this.appointmentApi,
+    this.preloadedAppointments,
+    this.restrictToPractitionerId,
+    this.preloadedAvailability,
+    this.onSessionSelected,
+    this.showCancelledSessions = false,
+    this.canTapSession,
+    this.fetchAvailabilityKey,
   });
 
   final Future<List<Appointment>> Function(DateTime date) fetchSessions;
   final Future<List<DoctorAvailability>> Function()? fetchAvailability;
+
+  /// When given, sessions for the selected day are filtered out of this
+  /// already-loaded list instead of calling [fetchSessions] - the caller
+  /// owns one shared fetch (e.g. a clinic-wide appointment list) that both
+  /// a list view and this calendar view render from, rather than each
+  /// making its own request. [fetchSessions] is still required (it's used
+  /// as a fallback impossible to reach while this is set) so existing
+  /// callers are unaffected.
+  final List<Appointment>? preloadedAppointments;
+
+  /// Narrows [preloadedAppointments] to one practitioner's own sessions -
+  /// relevant since one appointment can span sessions with different
+  /// doctors. Ignored when [preloadedAppointments] is null.
+  final String? restrictToPractitionerId;
+
+  /// Same idea as [preloadedAppointments] but for [fetchAvailability]: an
+  /// already-loaded availability list, used instead of calling
+  /// [fetchAvailability]. Needed because [fetchAvailability] is only ever
+  /// invoked once, in initState - a caller whose own data arrives after
+  /// that point (a sibling fetch still in flight) would otherwise leave the
+  /// availability shading permanently empty.
+  final List<DoctorAvailability>? preloadedAvailability;
+
+  /// Re-invokes [fetchAvailability] whenever this changes between rebuilds
+  /// (compared with `!=`), without remounting the widget - so a caller
+  /// whose [fetchAvailability] closure now points at a different
+  /// practitioner (staff switching which doctor's calendar they're
+  /// viewing, say) gets that doctor's hours instead of the previous one's,
+  /// while everything else - which day is selected, in particular - stays
+  /// exactly as it was. Ignored when [preloadedAvailability] is set.
+  final Object? fetchAvailabilityKey;
+
+  /// When set, tapping a session calls this with its appointment id and its
+  /// own session id instead of the built-in view/complete-record dialog
+  /// flow - for a caller that shows appointment details in its own panel
+  /// (e.g. a shared list+detail layout) rather than have this view manage
+  /// dialogs itself. The session id lets that panel highlight the specific
+  /// session tapped among its siblings on the same visit.
+  final void Function(String appointmentId, String sessionId)?
+  onSessionSelected;
+
+  /// A cancelled session is dropped entirely by default (it was never a
+  /// real commitment on the calendar) - set true to show it anyway, colored
+  /// distinctly, for a view that wants the full history of a slot rather
+  /// than just what's currently booked.
+  final bool showCancelledSessions;
 
   /// The bold label shown on each session block. Defaults to the patient's
   /// name (for staff/doctor views); a patient's own calendar passes the
@@ -167,13 +221,21 @@ class AvailabilitySessionsView extends StatefulWidget {
 
   /// [apiClient] alone makes each session block tappable to view its
   /// existing record, or learn it doesn't have one yet (the admin
-  /// doctor-detail view - it can look, not record). Providing
-  /// [appointmentApi] too upgrades that into the doctor's own full "Mark
-  /// attended & record" / "Add session record" / "View session record"
-  /// action, the same one used in ClinicAppointmentsScreen. Omit both to
-  /// leave sessions entirely inert (a patient's own calendar).
+  /// doctor-detail view, and a patient's own calendar - both can look, not
+  /// record). Providing [appointmentApi] too upgrades that into the
+  /// doctor's own full "Mark attended & record" / "Add session record" /
+  /// "View session record" action, the same one used in
+  /// ClinicAppointmentsScreen. Omit both to leave sessions entirely inert.
   final ApiClient? apiClient;
   final AppointmentApi? appointmentApi;
+
+  /// Restricts which sessions actually respond to a tap - e.g. a patient's
+  /// calendar only wants completed sessions clickable (to see the doctor's
+  /// notes or learn none were added), not booked/cancelled/no-show ones
+  /// that could never have a record. Null (the default) taps every session,
+  /// which is what a doctor's own calendar needs (marking a still-planned
+  /// session attended happens by tapping it).
+  final bool Function(AppointmentSession session)? canTapSession;
 
   @override
   State<AvailabilitySessionsView> createState() =>
@@ -194,18 +256,36 @@ class _ScheduledSession {
   final String patientUserId;
 }
 
+/// A session assigned to one of [columnCount] equal-width side-by-side
+/// columns within its overlap cluster (column 0 through columnCount - 1) -
+/// how two sessions sharing a slot (e.g. a cancelled one and its
+/// replacement) end up next to each other instead of stacked.
+class _PlacedSession {
+  const _PlacedSession(this.session, this.column, this.columnCount);
+
+  final _ScheduledSession session;
+  final int column;
+  final int columnCount;
+}
+
 class _AvailabilitySessionsViewState extends State<AvailabilitySessionsView> {
   late DateTime _selectedDate;
   late Future<List<_ScheduledSession>> _sessionsFuture;
-  late final Future<List<DoctorAvailability>> _availabilityFuture;
+  late Future<List<DoctorAvailability>> _availabilityFuture;
   Map<String, SessionRecord> _recordsBySession = {};
+  // Older versions per session, newest first, current one excluded - lets
+  // the record dialog offer a "previous versions" list.
+  Map<String, List<SessionRecord>> _recordHistoryBySession = {};
 
   bool get _canRecordSessions =>
       widget.apiClient != null && widget.appointmentApi != null;
 
   // apiClient alone is enough to load and view existing records; only the
   // write actions (mark attended, add, edit) additionally need appointmentApi.
-  bool get _canViewRecords => widget.apiClient != null;
+  // onSessionSelected hands tapping off entirely, so it makes a session
+  // tappable on its own too.
+  bool get _canViewRecords =>
+      widget.apiClient != null || widget.onSessionSelected != null;
 
   @override
   void initState() {
@@ -213,17 +293,27 @@ class _AvailabilitySessionsViewState extends State<AvailabilitySessionsView> {
     final now = DateTime.now();
     _selectedDate = DateTime(now.year, now.month, now.day);
     _sessionsFuture = _loadSessions();
-    _availabilityFuture =
-        widget.fetchAvailability?.call() ??
-        Future.value(const <DoctorAvailability>[]);
+    _availabilityFuture = widget.preloadedAvailability != null
+        ? Future.value(widget.preloadedAvailability!)
+        : (widget.fetchAvailability?.call() ??
+              Future.value(const <DoctorAvailability>[]));
   }
 
   Future<List<_ScheduledSession>> _loadSessions() async {
-    final appointments = await widget.fetchSessions(_selectedDate);
+    final preloaded = widget.preloadedAppointments;
+    final appointments = preloaded ?? await widget.fetchSessions(_selectedDate);
     final scheduled = <_ScheduledSession>[];
     for (final appointment in appointments) {
       for (final session in appointment.sessions) {
-        if (session.status == 'CANCELLED') continue;
+        if (session.status == 'CANCELLED' && !widget.showCancelledSessions) {
+          continue;
+        }
+        if (preloaded != null && !_isOnSelectedDay(session)) continue;
+        if (preloaded != null &&
+            widget.restrictToPractitionerId != null &&
+            session.practitionerUserId != widget.restrictToPractitionerId) {
+          continue;
+        }
         scheduled.add(
           _ScheduledSession(
             primaryLabel:
@@ -245,6 +335,64 @@ class _AvailabilitySessionsViewState extends State<AvailabilitySessionsView> {
     return scheduled;
   }
 
+  bool _isOnSelectedDay(AppointmentSession session) {
+    final local = session.startTime.toLocal();
+    return local.year == _selectedDate.year &&
+        local.month == _selectedDate.month &&
+        local.day == _selectedDate.day;
+  }
+
+  @override
+  void didUpdateWidget(covariant AvailabilitySessionsView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    // Only the preloaded path needs this: fetchSessions is re-invoked fresh
+    // on every day change already, but a preloaded list is only re-read when
+    // its content actually changed. Compared by value, not identity - a
+    // caller like ClinicAppointmentsScreen recomputes this list (a fresh
+    // List instance, same Appointment objects inside) on every one of its
+    // own rebuilds, including ones with nothing to do with appointment data
+    // at all (a parent layout resizing during an unrelated animation, say).
+    // Reloading - and flashing the loading skeleton - on every such rebuild
+    // would turn any of those into a visible glitch for no reason.
+    //
+    // restrictToPractitionerId is checked separately, not folded into the
+    // content comparison above: staff switching which doctor they're
+    // filtered to changes nothing about preloadedAppointments itself (same
+    // clinic-wide list either way) - only which of its sessions this view
+    // should keep. Missing that would leave the previous doctor's sessions
+    // on screen after picking a different one.
+    if (widget.preloadedAppointments != null &&
+        (!listEquals(
+              widget.preloadedAppointments,
+              oldWidget.preloadedAppointments,
+            ) ||
+            widget.restrictToPractitionerId !=
+                oldWidget.restrictToPractitionerId)) {
+      setState(() {
+        _sessionsFuture = _loadSessions();
+      });
+    }
+
+    if (widget.preloadedAvailability != null &&
+        !listEquals(
+          widget.preloadedAvailability,
+          oldWidget.preloadedAvailability,
+        )) {
+      setState(() {
+        _availabilityFuture = Future.value(widget.preloadedAvailability!);
+      });
+    }
+
+    if (widget.preloadedAvailability == null &&
+        widget.fetchAvailability != null &&
+        widget.fetchAvailabilityKey != oldWidget.fetchAvailabilityKey) {
+      setState(() {
+        _availabilityFuture = widget.fetchAvailability!();
+      });
+    }
+  }
+
   Future<void> _loadRecords(List<_ScheduledSession> scheduled) async {
     final apiClient = widget.apiClient;
     if (apiClient == null) return;
@@ -260,26 +408,63 @@ class _AvailabilitySessionsViewState extends State<AvailabilitySessionsView> {
       }),
     );
     if (!mounted) return;
+    final history = SessionRecord.historyBySession(
+      lists.expand((items) => items),
+    );
     setState(() {
       _recordsBySession = {
-        for (final record in lists.expand((items) => items))
-          record.sessionId: record,
+        for (final entry in history.entries) entry.key: entry.value.first,
+      };
+      _recordHistoryBySession = {
+        for (final entry in history.entries)
+          entry.key: entry.value.skip(1).toList(),
       };
     });
   }
 
+  // Patches one session's record locally instead of re-fetching every
+  // patient's whole history just to display what this call itself already
+  // returned - instant on screen instead of waiting on a full reload.
+  void _applySavedRecord(SessionRecord record) {
+    setState(() {
+      final previous = _recordsBySession[record.sessionId];
+      if (previous != null) {
+        _recordHistoryBySession = {
+          ..._recordHistoryBySession,
+          record.sessionId: [
+            previous,
+            ...?_recordHistoryBySession[record.sessionId],
+          ],
+        };
+      }
+      _recordsBySession = {..._recordsBySession, record.sessionId: record};
+    });
+  }
+
   Future<void> _onSessionTap(_ScheduledSession scheduled) async {
+    final onSessionSelected = widget.onSessionSelected;
+    if (onSessionSelected != null) {
+      onSessionSelected(scheduled.appointmentId, scheduled.session.id);
+      return;
+    }
+
     final apiClient = widget.apiClient;
     if (apiClient == null) return;
     final record = _recordsBySession[scheduled.session.id];
 
     final appointmentApi = widget.appointmentApi;
     if (appointmentApi == null) {
-      // Read-only viewer (the admin doctor-detail view): look, don't record.
+      // Read-only viewer (the admin doctor-detail view, and a patient's own
+      // calendar): look, don't record.
       if (record == null) {
         showNoSessionRecordDialog(context);
       } else {
-        showSessionRecordViewDialog(context: context, record: record);
+        showSessionRecordViewDialog(
+          context: context,
+          record: record,
+          previousVersions:
+              _recordHistoryBySession[scheduled.session.id] ?? const [],
+        );
       }
       return;
     }
@@ -293,7 +478,10 @@ class _AvailabilitySessionsViewState extends State<AvailabilitySessionsView> {
         patientUserId: scheduled.patientUserId,
         session: scheduled.session,
       );
-      if (saved) {
+      // The session itself moved from PLANNED to COMPLETED, which the
+      // timeline needs to redraw - a full reload is warranted here, unlike
+      // a pure content edit below.
+      if (saved != null) {
         setState(() {
           _sessionsFuture = _loadSessions();
         });
@@ -305,6 +493,8 @@ class _AvailabilitySessionsViewState extends State<AvailabilitySessionsView> {
       context: context,
       record: record,
       canEdit: true,
+      previousVersions:
+          _recordHistoryBySession[scheduled.session.id] ?? const [],
       onEdit: () async {
         final saved = await editSessionRecord(
           context: context,
@@ -313,11 +503,9 @@ class _AvailabilitySessionsViewState extends State<AvailabilitySessionsView> {
           session: scheduled.session,
           patientUserId: scheduled.patientUserId,
         );
-        if (saved) {
-          setState(() {
-            _sessionsFuture = _loadSessions();
-          });
-        }
+        // Nothing about the session itself changed - just the note - so
+        // patch it in directly instead of a full reload.
+        if (saved != null) _applySavedRecord(saved);
       },
     );
   }
@@ -386,9 +574,12 @@ class _AvailabilitySessionsViewState extends State<AvailabilitySessionsView> {
                   date: _selectedDate,
                   sessions: sessionsSnapshot.data ?? const [],
                   availability: availabilitySnapshot.data ?? const [],
-                  showAvailability: widget.fetchAvailability != null,
+                  showAvailability:
+                      widget.fetchAvailability != null ||
+                      widget.preloadedAvailability != null,
                   recordsBySession: _recordsBySession,
                   onSessionTap: _canViewRecords ? _onSessionTap : null,
+                  canTapSession: widget.canTapSession,
                   readOnly: !_canRecordSessions,
                 );
               },
@@ -487,6 +678,7 @@ class _DayTimelineView extends StatelessWidget {
     required this.showAvailability,
     required this.recordsBySession,
     required this.onSessionTap,
+    this.canTapSession,
     required this.readOnly,
   });
 
@@ -505,6 +697,10 @@ class _DayTimelineView extends StatelessWidget {
   /// there at all).
   final void Function(_ScheduledSession scheduled)? onSessionTap;
 
+  /// Further restricts which sessions [onSessionTap] applies to. Null means
+  /// every session is tappable.
+  final bool Function(AppointmentSession session)? canTapSession;
+
   /// True when tapping can only ever view a record or learn there isn't one
   /// yet (the admin doctor-detail view) - false enables the doctor's own
   /// "Mark attended & record"/"Add session record" actions too.
@@ -517,8 +713,13 @@ class _DayTimelineView extends StatelessWidget {
   int get _totalMinutes => (_endHour - _startHour) * 60;
   double get _totalHeight => (_endHour - _startHour) * _hourHeight;
 
-  Color get _availableColor => AppColors.white;
-  Color get _unavailableColor => AppColors.textMuted.withValues(alpha: 0.10);
+  // A plain, clearly-open surface for available time - it has to read as
+  // distinct from every session color below, so it deliberately stays out
+  // of the sage/lavender/rose family those use.
+  Color get _availableColor => AppColors.bgCard;
+  // Bumped up from a near-invisible 10% so "closed" hours are actually
+  // legible as their own state, not just an absence of white.
+  Color get _unavailableColor => AppColors.textMuted.withValues(alpha: 0.16);
 
   @override
   Widget build(BuildContext context) {
@@ -537,8 +738,6 @@ class _DayTimelineView extends StatelessWidget {
       available = const [];
       unavailable = const [];
     }
-    final appointmentGroups = _appointmentGroups();
-
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -549,28 +748,24 @@ class _DayTimelineView extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 12,
+            runSpacing: 8,
             children: [
               Text(
                 sessions.isEmpty
-                    ? 'No sessions booked for this day'
-                    : '${sessions.length} session${sessions.length == 1 ? '' : 's'} booked',
+                    ? 'No sessions this day'
+                    : '${sessions.length} session${sessions.length == 1 ? '' : 's'} this day',
                 style: AppTypography.labelLarge(),
               ),
-              const Spacer(),
-              if (showAvailability) ...[
-                _legendDot(_availableColor, 'Available'),
-                const SizedBox(width: 12),
-              ],
-              _legendDot(AppColors.rose, 'Booked'),
-              if (showAvailability) ...[
-                const SizedBox(width: 12),
+              if (showAvailability) _legendDot(_availableColor, 'Available'),
+              _legendDot(_sessionColors('PLANNED').accent, 'Planned'),
+              _legendDot(_sessionColors('COMPLETED').accent, 'Completed'),
+              _legendDot(_sessionColors('CANCELLED').accent, 'Cancelled'),
+              _legendDot(_sessionColors('NO_SHOW').accent, 'No show'),
+              if (showAvailability)
                 _legendDot(_unavailableColor, 'Unavailable'),
-              ],
-              if (appointmentGroups.isNotEmpty) ...[
-                const SizedBox(width: 12),
-                _legendOutline(AppColors.lavDark, 'Visit'),
-              ],
             ],
           ),
           const SizedBox(height: 16),
@@ -582,18 +777,21 @@ class _DayTimelineView extends StatelessWidget {
                 _hourLabels(),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Stack(
-                    children: [
-                      for (final segment in available)
-                        _shadedSegment(segment, _availableColor),
-                      for (final segment in unavailable)
-                        _shadedSegment(segment, _unavailableColor),
-                      IgnorePointer(child: _hourGridLines()),
-                      for (final group in appointmentGroups)
-                        _appointmentGroupBox(group),
-                      for (final scheduled in sessions)
-                        _sessionBlock(scheduled),
-                    ],
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final width = constraints.maxWidth;
+                      return Stack(
+                        children: [
+                          for (final segment in available)
+                            _shadedSegment(segment, _availableColor),
+                          for (final segment in unavailable)
+                            _shadedSegment(segment, _unavailableColor),
+                          IgnorePointer(child: _hourGridLines()),
+                          for (final placed in _placeOverlapping(sessions))
+                            _sessionBlock(placed, width),
+                        ],
+                      );
+                    },
                   ),
                 ),
               ],
@@ -602,6 +800,94 @@ class _DayTimelineView extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  // A booked session and, say, the cancelled one it replaced can land in the
+  // exact same slot; drawing both full-width would hide one under the other.
+  // Overlapping sessions are clustered into connected groups, then packed
+  // into as many side-by-side columns as the group actually needs (a greedy
+  // interval-scheduling packing - the same idea used for calendar-app event
+  // layout), so every one of them stays visible and tappable.
+  List<_PlacedSession> _placeOverlapping(List<_ScheduledSession> input) {
+    final clusters = <List<_ScheduledSession>>[];
+    for (final scheduled in input) {
+      final overlapping = <List<_ScheduledSession>>[];
+      for (final cluster in clusters) {
+        if (cluster.any((member) => _timesOverlap(member, scheduled))) {
+          overlapping.add(cluster);
+        }
+      }
+      if (overlapping.isEmpty) {
+        clusters.add([scheduled]);
+      } else {
+        final target = overlapping.first;
+        target.add(scheduled);
+        for (final other in overlapping.skip(1)) {
+          target.addAll(other);
+          clusters.remove(other);
+        }
+      }
+    }
+
+    final placed = <_PlacedSession>[];
+    for (final cluster in clusters) {
+      final sorted = [...cluster]
+        ..sort((a, b) => a.session.startTime.compareTo(b.session.startTime));
+      final columnEnds = <int>[];
+      final columnOf = <_ScheduledSession, int>{};
+      for (final scheduled in sorted) {
+        final start = _minutesOf(scheduled.session.startTime);
+        var column = -1;
+        for (var i = 0; i < columnEnds.length; i++) {
+          if (columnEnds[i] <= start) {
+            column = i;
+            break;
+          }
+        }
+        if (column == -1) {
+          column = columnEnds.length;
+          columnEnds.add(0);
+        }
+        columnEnds[column] = _minutesOf(scheduled.session.endTime);
+        columnOf[scheduled] = column;
+      }
+      for (final scheduled in sorted) {
+        placed.add(
+          _PlacedSession(scheduled, columnOf[scheduled]!, columnEnds.length),
+        );
+      }
+    }
+    return placed;
+  }
+
+  bool _timesOverlap(_ScheduledSession a, _ScheduledSession b) {
+    final aStart = _minutesOf(a.session.startTime);
+    final aEnd = _minutesOf(a.session.endTime);
+    final bStart = _minutesOf(b.session.startTime);
+    final bEnd = _minutesOf(b.session.endTime);
+    return aStart < bEnd && bStart < aEnd;
+  }
+
+  int _minutesOf(DateTime time) {
+    final local = ClinicTime.at(time);
+    return local.hour * 60 + local.minute;
+  }
+
+  // Mirrors ClinicAppointmentsScreen's palette, so a session reads the same
+  // color whether it's seen in the list or the calendar. Four genuinely
+  // distinct statuses get four distinct hues, rather than folding no-show
+  // into cancelled - they mean different things (one is a deliberate
+  // cancellation, the other is a patient who never turned up).
+  ({Color accent, Color background}) _sessionColors(String status) {
+    return switch (status) {
+      'COMPLETED' => (
+        accent: AppColors.lavDark,
+        background: AppColors.bgLavender,
+      ),
+      'CANCELLED' => (accent: AppColors.roseDark, background: AppColors.bgRose),
+      'NO_SHOW' => (accent: AppColors.gold, background: AppColors.goldPale),
+      _ => (accent: AppColors.sageDark, background: AppColors.bgSage),
+    };
   }
 
   Widget _legendDot(Color color, String label) {
@@ -615,24 +901,6 @@ class _DayTimelineView extends StatelessWidget {
             color: color,
             shape: BoxShape.circle,
             border: Border.all(color: AppColors.border),
-          ),
-        ),
-        const SizedBox(width: 6),
-        Text(label, style: AppTypography.bodySmall()),
-      ],
-    );
-  }
-
-  Widget _legendOutline(Color color, String label) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 10,
-          height: 10,
-          decoration: BoxDecoration(
-            border: Border.all(color: color, width: 1.5),
-            borderRadius: BorderRadius.circular(3),
           ),
         ),
         const SizedBox(width: 6),
@@ -686,67 +954,8 @@ class _DayTimelineView extends StatelessWidget {
     );
   }
 
-  /// Groups sessions that belong to the same visit (appointment), so a
-  /// multi-treatment booking can be outlined as one whole - only visits
-  /// with more than one session get a box; a lone session is already fully
-  /// represented by its own block.
-  List<List<_ScheduledSession>> _appointmentGroups() {
-    final byAppointmentId = <String, List<_ScheduledSession>>{};
-    for (final scheduled in sessions) {
-      byAppointmentId
-          .putIfAbsent(scheduled.session.appointmentId, () => [])
-          .add(scheduled);
-    }
-    return byAppointmentId.values.where((group) => group.length > 1).toList();
-  }
-
-  Widget _appointmentGroupBox(List<_ScheduledSession> group) {
-    final displayStart = _startHour * 60;
-    final starts = group.map((scheduled) {
-      final start = ClinicTime.at(scheduled.session.startTime);
-      return (start.hour * 60 + start.minute) - displayStart;
-    });
-    final ends = group.map((scheduled) {
-      final end = ClinicTime.at(scheduled.session.endTime);
-      return (end.hour * 60 + end.minute) - displayStart;
-    });
-    final start = starts
-        .reduce((a, b) => a < b ? a : b)
-        .clamp(0, _totalMinutes);
-    final end = ends.reduce((a, b) => a > b ? a : b).clamp(0, _totalMinutes);
-    if (end <= start) {
-      return const SizedBox.shrink();
-    }
-
-    // A little breathing room around the sessions it contains, so the frame
-    // doesn't sit flush against their edges.
-    const verticalPadding = 4.0;
-    const horizontalPadding = 2.0;
-    final top = (start / 60.0 * _hourHeight - verticalPadding).clamp(
-      0.0,
-      _totalHeight,
-    );
-    final bottom = (end / 60.0 * _hourHeight + verticalPadding).clamp(
-      0.0,
-      _totalHeight,
-    );
-
-    return Positioned(
-      top: top,
-      left: horizontalPadding,
-      right: horizontalPadding,
-      height: bottom - top,
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppColors.lav.withValues(alpha: 0.10),
-          border: Border.all(color: AppColors.lavDark, width: 1.5),
-          borderRadius: BorderRadius.circular(12),
-        ),
-      ),
-    );
-  }
-
-  Widget _sessionBlock(_ScheduledSession scheduled) {
+  Widget _sessionBlock(_PlacedSession placed, double totalWidth) {
+    final scheduled = placed.session;
     final session = scheduled.session;
     final displayStart = _startHour * 60;
     final localStart = ClinicTime.at(session.startTime);
@@ -760,19 +969,29 @@ class _DayTimelineView extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    // Softer rose; sage still reads open.
-    final isPast = session.status == 'COMPLETED' || session.status == 'NO_SHOW';
-    final accent = isPast ? AppColors.roseLight : AppColors.rose;
-    final background = isPast ? AppColors.rosePale : AppColors.bgRose;
+    final colors = _sessionColors(session.status);
+    final accent = colors.accent;
+    final background = colors.background;
 
     final blockHeight = (clampedEnd - clampedStart) / 60.0 * _hourHeight;
 
-    final tappable = onSessionTap != null;
+    final tappable =
+        onSessionTap != null && (canTapSession?.call(session) ?? true);
+
+    // Only sessions that actually overlap another one get squeezed into a
+    // narrower column with a small gap between them; a lone session in its
+    // slot keeps the exact same full-width look as before.
+    const outerPadding = 4.0;
+    const columnGap = 3.0;
+    final gap = placed.columnCount > 1 ? columnGap : 0.0;
+    final columnWidth = (totalWidth - outerPadding * 2) / placed.columnCount;
+    final left = outerPadding + placed.column * columnWidth;
+    final blockWidth = columnWidth - gap;
 
     return Positioned(
       top: clampedStart / 60.0 * _hourHeight,
-      left: 4,
-      right: 4,
+      left: left,
+      width: blockWidth,
       height: blockHeight,
       child: ClipRect(
         child: Material(
@@ -908,8 +1127,10 @@ class DayHoursBar extends StatelessWidget {
 
   int get _totalMinutes => (endHour - startHour) * 60;
 
-  Color get _availableColor => AppColors.white;
-  Color get _unavailableColor => AppColors.textMuted.withValues(alpha: 0.14);
+  // Matches _DayTimelineView's palette so "available"/"unavailable" reads
+  // the same wherever it's shown.
+  Color get _availableColor => AppColors.bgCard;
+  Color get _unavailableColor => AppColors.textMuted.withValues(alpha: 0.16);
   Color get _bookedColor => AppColors.rose;
 
   @override

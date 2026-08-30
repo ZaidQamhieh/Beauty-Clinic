@@ -103,8 +103,13 @@ class ChangedRulesTest {
     }
 
     private AppointmentSession plannedSessionStartingAt(Instant startTime) {
+        return plannedSession(startTime, startTime.plus(Duration.ofMinutes(30)));
+    }
+
+    private AppointmentSession plannedSession(Instant startTime, Instant endTime) {
         AppointmentSession session = mock(AppointmentSession.class, RETURNS_DEEP_STUBS);
         when(session.getStartTime()).thenReturn(startTime);
+        when(session.getEndTime()).thenReturn(endTime);
         when(session.getStatus()).thenReturn(SessionStatus.PLANNED);
         return session;
     }
@@ -181,6 +186,73 @@ class ChangedRulesTest {
         assertThatThrownBy(() -> sessionServiceWith(session).markAttended(UUID.randomUUID(), UUID.randomUUID()))
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("not planned");
+    }
+
+    // ─── the attendance window closes an hour after the session ends ──────────
+
+    @Test
+    void aSessionJustInsideTheAttendanceWindowIsMarkable() {
+        Instant end = Instant.now().minus(Duration.ofMinutes(59));
+        AppointmentSession session = plannedSession(end.minus(Duration.ofMinutes(30)), end);
+
+        assertThatCode(() -> sessionServiceWith(session).markAttended(UUID.randomUUID(), UUID.randomUUID()))
+                .doesNotThrowAnyException();
+
+        verify(session).setStatus(SessionStatus.COMPLETED);
+    }
+
+    @Test
+    void aSessionPastTheAttendanceWindowCannotBeMarkedAttended() {
+        Instant end = Instant.now().minus(Duration.ofMinutes(61));
+        AppointmentSession session = plannedSession(end.minus(Duration.ofMinutes(30)), end);
+
+        assertThatThrownBy(() -> sessionServiceWith(session).markAttended(UUID.randomUUID(), UUID.randomUUID()))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("window to mark that treatment attended has closed");
+
+        verify(session, never()).setStatus(any());
+    }
+
+    // No ceiling here: there's no "too late" to notice a patient never showed up.
+    @Test
+    void markNoShowHasNoAttendanceWindowCeiling() {
+        Instant end = Instant.now().minus(Duration.ofDays(30));
+        AppointmentSession session = plannedSession(end.minus(Duration.ofMinutes(30)), end);
+
+        assertThatCode(() -> sessionServiceWith(session).markNoShow(UUID.randomUUID(), UUID.randomUUID()))
+                .doesNotThrowAnyException();
+
+        verify(session).setStatus(SessionStatus.NO_SHOW);
+    }
+
+    // The no-show sweep can produce a false positive - a doctor who marks
+    // attendance after the treatment finishes should still be able to
+    // correct it, as long as it's still within the normal attendance window.
+    @Test
+    void markAttendedCanCorrectANoShowWithinTheWindow() {
+        Instant end = Instant.now().minus(Duration.ofMinutes(10));
+        AppointmentSession session = plannedSession(end.minus(Duration.ofMinutes(30)), end);
+        when(session.getStatus()).thenReturn(SessionStatus.NO_SHOW);
+
+        assertThatCode(() -> sessionServiceWith(session).markAttended(UUID.randomUUID(), UUID.randomUUID()))
+                .doesNotThrowAnyException();
+
+        verify(session).setStatus(SessionStatus.COMPLETED);
+    }
+
+    // The correction is specific to no-show - a cancelled session still
+    // cannot be resurrected by marking it attended.
+    @Test
+    void markAttendedCannotCorrectACancelledSession() {
+        Instant end = Instant.now().minus(Duration.ofMinutes(10));
+        AppointmentSession session = plannedSession(end.minus(Duration.ofMinutes(30)), end);
+        when(session.getStatus()).thenReturn(SessionStatus.CANCELLED);
+
+        assertThatThrownBy(() -> sessionServiceWith(session).markAttended(UUID.randomUUID(), UUID.randomUUID()))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("not planned");
+
+        verify(session, never()).setStatus(any());
     }
 
     // ─── F-03: the lockout ladder is clamped and success clears the strikes ───
@@ -529,7 +601,7 @@ class ChangedRulesTest {
             tariff.put(treatment, new Tariff(new BigDecimal("100.00"), 30));
         }
 
-        return new ClinicProperties("UTC", "ILS", tariff, 180, 15, 10, 60);
+        return new ClinicProperties("UTC", "ILS", tariff, 180, 15, 10, 60, 60);
     }
 
     // Keeps the unused-import check honest: PatientProfile is referenced by the service under test.

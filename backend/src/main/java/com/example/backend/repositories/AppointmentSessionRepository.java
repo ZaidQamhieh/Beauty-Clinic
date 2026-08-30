@@ -147,6 +147,16 @@ public interface AppointmentSessionRepository extends JpaRepository<AppointmentS
             @Param("to") Instant to
     );
 
+    // Feeds the no-show sweep: still PLANNED after the same attendance
+    // window that would let a doctor mark it attended has closed.
+    @EntityGraph(attributePaths = {"appointment", "appointment.patient"})
+    @Query("""
+            select s from AppointmentSession s
+            where s.status = com.example.backend.entities.AppointmentSession.SessionStatus.PLANNED
+              and s.endTime < :cutoff
+            """)
+    List<AppointmentSession> findPlannedEndedBefore(@Param("cutoff") Instant cutoff);
+
     @EntityGraph(attributePaths = {"appointment", "appointment.patient", "appointment.patient.user", "practitioner", "practitioner.user"})
     @Query("""
             select s from AppointmentSession s
