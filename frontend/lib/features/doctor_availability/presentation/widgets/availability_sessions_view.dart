@@ -984,8 +984,7 @@ class _DayTimelineView extends StatelessWidget {
     const outerPadding = 4.0;
     const columnGap = 3.0;
     final gap = placed.columnCount > 1 ? columnGap : 0.0;
-    final columnWidth =
-        (totalWidth - outerPadding * 2) / placed.columnCount;
+    final columnWidth = (totalWidth - outerPadding * 2) / placed.columnCount;
     final left = outerPadding + placed.column * columnWidth;
     final blockWidth = columnWidth - gap;
 

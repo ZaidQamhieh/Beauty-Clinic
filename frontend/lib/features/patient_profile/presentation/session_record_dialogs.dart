@@ -215,9 +215,7 @@ class _PreviousVersionsListState extends State<_PreviousVersionsList> {
                 child: Text(
                   '${version.createdAt.toLocal().toIso8601String().split('T').first}'
                   '${version.authorName == null ? '' : ' · ${version.authorName}'}',
-                  style: const TextStyle(
-                    decoration: TextDecoration.underline,
-                  ),
+                  style: const TextStyle(decoration: TextDecoration.underline),
                 ),
               ),
             ),

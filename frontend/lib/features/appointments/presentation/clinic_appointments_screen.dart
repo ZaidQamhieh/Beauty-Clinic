@@ -207,7 +207,9 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
     final recordLists = await Future.wait(
       patientIds.map((patientId) async {
         try {
-          return await SessionRecordApi(widget.apiClient).listForPatient(patientId);
+          return await SessionRecordApi(
+            widget.apiClient,
+          ).listForPatient(patientId);
         } catch (_) {
           return const <SessionRecord>[];
         }
@@ -621,7 +623,11 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
     return null;
   }
 
-  void _selectCalendarSession(String appointmentId, String sessionId, bool wide) {
+  void _selectCalendarSession(
+    String appointmentId,
+    String sessionId,
+    bool wide,
+  ) {
     for (final appointment in _appointments) {
       if (appointment.id == appointmentId) {
         _selectAppointment(appointment, wide, sessionId: sessionId);
@@ -735,9 +741,7 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
         showCheckmark: false,
         selectedColor: AppColors.rose,
         backgroundColor: AppColors.bgCard,
-        side: BorderSide(
-          color: selected ? AppColors.rose : AppColors.border,
-        ),
+        side: BorderSide(color: selected ? AppColors.rose : AppColors.border),
         labelStyle: AppTypography.labelMedium(
           color: selected ? Colors.white : AppColors.textSub,
         ),
@@ -932,10 +936,7 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
         ),
         PopupMenuItem<String>(
           value: 'pick',
-          child: _doctorOption(
-            active ? label : 'Pick a date…',
-            active,
-          ),
+          child: _doctorOption(active ? label : 'Pick a date…', active),
         ),
       ],
       child: Container(
@@ -1310,7 +1311,9 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
       // A short viewport (a laptop screen, a zoomed-in browser) can make
       // even the capped 3-session preview taller than the panel - scrolling
       // is the fallback for that, not the norm.
-      child: SingleChildScrollView(child: _buildDetailBody(appointment, boxed: true)),
+      child: SingleChildScrollView(
+        child: _buildDetailBody(appointment, boxed: true),
+      ),
     );
   }
 
@@ -1445,7 +1448,7 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
           Tooltip(
             message: sharedVisit
                 ? "This visit includes another doctor's sessions - it isn't "
-                    "yours alone to reschedule. Cancel your own sessions above."
+                      "yours alone to reschedule. Cancel your own sessions above."
                 : '',
             child: FilledButton.icon(
               onPressed: modifiable
@@ -1456,7 +1459,10 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
               label: Text(upcoming ? 'Reschedule' : 'Book follow-up'),
               style: FilledButton.styleFrom(
                 backgroundColor: AppColors.rose,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
               ),
             ),
           ),
@@ -1567,7 +1573,9 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
           }
         },
         icon: Icon(
-          record != null ? Icons.visibility_outlined : Icons.check_circle_outline,
+          record != null
+              ? Icons.visibility_outlined
+              : Icons.check_circle_outline,
           size: 16,
         ),
         label: Text(record != null ? 'View record' : 'Mark attended'),

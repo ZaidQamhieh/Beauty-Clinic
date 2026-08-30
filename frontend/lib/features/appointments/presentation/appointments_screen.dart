@@ -759,7 +759,9 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
           padding: const EdgeInsets.all(18),
           child: SingleChildScrollView(
             controller: controller,
-            child: _buildCalendarSessionsPanelBody(_selectedCalendarAppointment),
+            child: _buildCalendarSessionsPanelBody(
+              _selectedCalendarAppointment,
+            ),
           ),
         ),
       ),
@@ -865,7 +867,9 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
               Flexible(
                 child: FilledButton(
                   onPressed: cancellable ? () => _reschedule(visit) : null,
-                  style: FilledButton.styleFrom(backgroundColor: AppColors.rose),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.rose,
+                  ),
                   child: const Text(
                     'Reschedule',
                     overflow: TextOverflow.ellipsis,

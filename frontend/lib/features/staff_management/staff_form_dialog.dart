@@ -279,7 +279,9 @@ class _StaffFormDialogState extends State<_StaffFormDialog> {
                           ? Icons.visibility_off_outlined
                           : Icons.visibility_outlined,
                     ),
-                    tooltip: _passwordVisible ? 'Hide password' : 'Show password',
+                    tooltip: _passwordVisible
+                        ? 'Hide password'
+                        : 'Show password',
                     onPressed: () =>
                         setState(() => _passwordVisible = !_passwordVisible),
                   ),
