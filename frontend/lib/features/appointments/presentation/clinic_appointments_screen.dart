@@ -266,24 +266,37 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
   }
 
   List<Appointment> get _visibleAppointments {
-    final sorted = _appointments.where((appointment) {
-      final scheduled = appointment.scheduledAt.toLocal();
-      final matchesStatus = _matchesStatus(appointment);
-      final matchesDate =
-          _dateFilter == null ||
-          (scheduled.year == _dateFilter!.year &&
-              scheduled.month == _dateFilter!.month &&
-              scheduled.day == _dateFilter!.day);
-      final matchesDoctor =
-          _doctorFilter == null ||
-          appointment.sessions.any(
-            (session) => session.practitionerUserId == _doctorFilter,
-          );
-      return matchesStatus &&
-          matchesDate &&
-          matchesDoctor &&
-          _matchesQuery(appointment);
-    }).toList();
+    final sorted = _appointments
+        .map((appointment) {
+          final doctorSessions = _doctorFilter == null
+              ? appointment.sessions
+              : appointment.sessions
+                    .where(
+                      (session) => session.practitionerUserId == _doctorFilter,
+                    )
+                    .toList();
+          if (_doctorFilter != null && doctorSessions.isEmpty) return null;
+          final statusSessions = _statusFilter == 'NO_SHOW'
+              ? doctorSessions
+                    .where((session) => session.status == 'NO_SHOW')
+                    .toList()
+              : doctorSessions;
+          if (_statusFilter == 'NO_SHOW' && statusSessions.isEmpty) {
+            return null;
+          }
+          final scoped = appointment.copyWith(sessions: statusSessions);
+          final scheduled = appointment.scheduledAt.toLocal();
+          final matchesDate =
+              _dateFilter == null ||
+              (scheduled.year == _dateFilter!.year &&
+                  scheduled.month == _dateFilter!.month &&
+                  scheduled.day == _dateFilter!.day);
+          return matchesDate && _matchesStatus(scoped) && _matchesQuery(scoped)
+              ? scoped
+              : null;
+        })
+        .whereType<Appointment>()
+        .toList();
     sorted.sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
     return sorted;
   }
@@ -469,7 +482,13 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          const statuses = ['ALL', 'BOOKED', 'CANCELLED', 'FINISHED'];
+          const statuses = [
+            'ALL',
+            'BOOKED',
+            'CANCELLED',
+            'FINISHED',
+            'NO_SHOW',
+          ];
           if (constraints.maxWidth < 720) {
             return Wrap(
               spacing: 10,
@@ -708,6 +727,7 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
       'BOOKED' => 'Booked',
       'CANCELLED' => 'Cancelled',
       'FINISHED' => 'Finished',
+      'NO_SHOW' => 'No-show',
       _ => 'All statuses',
     };
   }
@@ -720,6 +740,11 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
         appointment.sessions.isNotEmpty &&
             appointment.sessions.every(
               (session) => session.status == 'COMPLETED',
+            ),
+      'NO_SHOW' =>
+        appointment.sessions.isNotEmpty &&
+            appointment.sessions.every(
+              (session) => session.status == 'NO_SHOW',
             ),
       _ => true,
     };
@@ -1027,7 +1052,12 @@ class _ClinicAppointmentsScreenState extends State<ClinicAppointmentsScreen> {
       ),
       child: Row(
         children: [
-          const Icon(Icons.spa_outlined, size: 16, color: AppColors.rose),
+          TreatmentIcons.avatar(
+            session.treatmentName,
+            size: 30,
+            backgroundColor: AppColors.bgRose,
+            iconColor: AppColors.rose,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Column(

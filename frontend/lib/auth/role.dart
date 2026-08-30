@@ -12,8 +12,12 @@ enum Role {
 
   /// Returns null for an unrecognised role, which callers reject rather than guess at.
   static Role? tryParse(String? value) {
+    final normalized = (value ?? '').trim();
+    if (normalized.isEmpty) return null;
+
     for (final role in Role.values) {
-      if (role.wireName == value) {
+      if (role.wireName == normalized ||
+          role.wireName.toLowerCase() == normalized.toLowerCase()) {
         return role;
       }
     }

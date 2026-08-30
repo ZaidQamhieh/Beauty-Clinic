@@ -80,11 +80,11 @@ class _PatientsDirectoryScreenState extends State<PatientsDirectoryScreen> {
 
   List<Map<String, dynamic>> get _filteredPatients {
     return _patients.where((p) {
-      final skinType = p['skinType']?.toString().trim();
-      final hasCompleted = skinType != null && skinType.isNotEmpty;
+      final hasClinicForm = p['hasClinicForm'] == true;
+      final hasProductRecords = p['hasProductRecords'] == true;
 
-      if (_selectedFilter == 'COMPLETED' && !hasCompleted) return false;
-      if (_selectedFilter == 'PENDING' && hasCompleted) return false;
+      if (_selectedFilter == 'CLINIC_FORM' && !hasClinicForm) return false;
+      if (_selectedFilter == 'PRODUCT' && !hasProductRecords) return false;
       return true;
     }).toList();
   }
@@ -227,14 +227,14 @@ class _PatientsDirectoryScreenState extends State<PatientsDirectoryScreen> {
           spacing: 8,
           runSpacing: 8,
           children: [
-            _buildFilterChip('ALL', 'All Patients (${_patients.length})'),
+            _buildFilterChip('ALL', 'All (${_patients.length})'),
             _buildFilterChip(
-              'COMPLETED',
-              'Intake Complete (${_patients.where((p) => (p['skinType'] ?? '').toString().isNotEmpty).length})',
+              'CLINIC_FORM',
+              'Clinic Form (${_patients.where((p) => p['hasClinicForm'] == true).length})',
             ),
             _buildFilterChip(
-              'PENDING',
-              'Intake Pending (${_patients.where((p) => (p['skinType'] ?? '').toString().isEmpty).length})',
+              'PRODUCT',
+              'Product (${_patients.where((p) => p['hasProductRecords'] == true).length})',
             ),
           ],
         ),
@@ -295,8 +295,8 @@ class _PatientsDirectoryScreenState extends State<PatientsDirectoryScreen> {
         : '$firstName $lastName';
     final email = patient['email']?.toString() ?? 'No email';
     final phone = patient['phone']?.toString() ?? 'No phone';
-    final skinType = patient['skinType']?.toString();
-    final hasCompletedIntake = skinType != null && skinType.isNotEmpty;
+    final hasClinicForm = patient['hasClinicForm'] == true;
+    final hasProductRecords = patient['hasProductRecords'] == true;
 
     final initials =
         (firstName.isNotEmpty ? firstName[0] : '') +
@@ -380,14 +380,14 @@ class _PatientsDirectoryScreenState extends State<PatientsDirectoryScreen> {
                 spacing: 6,
                 runSpacing: 4,
                 children: [
-                  // Form Status Badge
+                  // Record Status Badge
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8,
                       vertical: 3,
                     ),
                     decoration: BoxDecoration(
-                      color: hasCompletedIntake
+                      color: hasClinicForm || hasProductRecords
                           ? AppColors.bgSage
                           : AppColors.bgRose,
                       borderRadius: BorderRadius.circular(8),
@@ -396,21 +396,21 @@ class _PatientsDirectoryScreenState extends State<PatientsDirectoryScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          hasCompletedIntake
+                          hasClinicForm || hasProductRecords
                               ? Icons.check_circle_outline
                               : Icons.pending_actions,
                           size: 12,
-                          color: hasCompletedIntake
+                          color: hasClinicForm || hasProductRecords
                               ? AppColors.sageDark
                               : AppColors.rose,
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          hasCompletedIntake
-                              ? 'Intake Complete'
-                              : 'Intake Pending',
+                          hasClinicForm || hasProductRecords
+                              ? 'Records Available'
+                              : 'No records',
                           style: AppTypography.labelSmall(
-                            color: hasCompletedIntake
+                            color: hasClinicForm || hasProductRecords
                                 ? AppColors.sageDark
                                 : AppColors.roseDark,
                           ).copyWith(fontSize: 10),
@@ -418,24 +418,6 @@ class _PatientsDirectoryScreenState extends State<PatientsDirectoryScreen> {
                       ],
                     ),
                   ),
-                  // Skin Type Badge
-                  if (skinType != null && skinType.isNotEmpty)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.bgLavender,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        'Skin: $skinType',
-                        style: AppTypography.labelSmall(
-                          color: AppColors.lavDark,
-                        ).copyWith(fontSize: 10),
-                      ),
-                    ),
                 ],
               ),
 

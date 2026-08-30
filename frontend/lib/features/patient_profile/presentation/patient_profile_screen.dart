@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:beauty_clinic_app/auth/role.dart';
 import 'package:beauty_clinic_app/core/widgets/profile_avatar.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -503,6 +504,7 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
     final pending = PatientProductRecord(
       id: 'pending-${DateTime.now().microsecondsSinceEpoch}',
       productId: selection.product.id,
+      name: selection.product.name,
       brand: selection.product.brand,
       productType: selection.product.productType,
       source: selection.source,
@@ -561,6 +563,7 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
     final stopped = PatientProductRecord(
       id: item.id,
       productId: item.productId,
+      name: item.name,
       brand: item.brand,
       productType: item.productType,
       source: item.source,
@@ -576,7 +579,7 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
     } catch (error) {
       if (!mounted) return;
       setState(() => _replaceProduct(item.id, item));
-      showApiErrorDialog(context, error, 'Could not discontinue product.');
+      showApiErrorDialog(context, error, 'Could not stop product.');
     }
   }
 
@@ -744,6 +747,8 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
         ProfileAvatar(
           radius: 15,
           color: AppColors.rose,
+          role: Role.patient,
+          gender: _patientData?['gender']?.toString(),
           imageUrl: _patientData?['imageUrl']?.toString(),
         ),
         const SizedBox(width: 10),
@@ -909,6 +914,8 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
           ProfileAvatar(
             radius: 36,
             color: AppColors.rose,
+            role: Role.patient,
+            gender: _patientData?['gender']?.toString(),
             imageUrl: _patientData?['imageUrl']?.toString(),
           ),
           const SizedBox(width: 20),
@@ -1440,7 +1447,7 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
     if (widget.canManageProducts || widget.canChooseOwnProducts) {
       return TextButton(
         onPressed: () => _discontinuePatientProduct(item),
-        child: const Text('Discontinue'),
+        child: const Text('Stop using'),
       );
     }
     return null;

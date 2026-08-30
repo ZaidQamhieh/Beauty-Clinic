@@ -11,14 +11,16 @@ public record DoctorResponse(
         UUID userId,
         String fullName,
         List<Specialization> specializations,
-        Integer yearsOfExperience
+        Integer yearsOfExperience,
+        String imageUrl
 ) {
     public static DoctorResponse of(DoctorProfile doctor) {
         return new DoctorResponse(
                 doctor.getUserId(),
                 doctor.getUser().fullName(),
                 doctor.getSpecializations(),
-                doctor.getYearsOfExperience()
+                doctor.getYearsOfExperience(),
+                doctor.getUser().getImageUrl()
         );
     }
 }

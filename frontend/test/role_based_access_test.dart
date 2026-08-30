@@ -1,6 +1,8 @@
 import 'package:beauty_clinic_app/auth/auth_session.dart';
 import 'package:beauty_clinic_app/auth/role.dart';
 import 'package:beauty_clinic_app/auth/token_pair.dart';
+import 'package:beauty_clinic_app/core/widgets/profile_avatar.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers/auth_test_fakes.dart';
@@ -18,6 +20,32 @@ void main() {
     expect(token.role, Role.patient);
     expect(token.role == Role.patient, isTrue);
     expect(token.role == Role.admin, isFalse);
+  });
+
+  test('role parsing accepts lowercase UI values', () {
+    expect(Role.tryParse('patient'), Role.patient);
+    expect(Role.tryParse('doctor'), Role.doctor);
+    expect(Role.tryParse('receptionist'), Role.receptionist);
+    expect(Role.tryParse('admin'), Role.admin);
+  });
+
+  test('avatar fallback always uses a person silhouette', () {
+    expect(
+      ProfileAvatar.fallbackIconFor(Role.patient, 'male'),
+      Icons.person_rounded,
+    );
+    expect(
+      ProfileAvatar.fallbackIconFor(Role.patient, 'female'),
+      Icons.person_rounded,
+    );
+    expect(
+      ProfileAvatar.fallbackIconFor(Role.doctor, 'female'),
+      Icons.person_rounded,
+    );
+    expect(
+      ProfileAvatar.fallbackIconFor(Role.admin, null),
+      Icons.person_rounded,
+    );
   });
 
   test('admin role identified correctly', () {

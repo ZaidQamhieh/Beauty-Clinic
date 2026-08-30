@@ -57,6 +57,9 @@ public class PatientProduct {
     @Column(name = "added_by_user_id", nullable = false, updatable = false)
     private UUID addedByUserId;
 
+    @Column(name = "discontinued_by_user_id")
+    private UUID discontinuedByUserId;
+
     public PatientProduct(PatientProfile patient, Product product, ProductSource source, UUID addedByUserId) {
         this.patient = patient;
         this.product = product;

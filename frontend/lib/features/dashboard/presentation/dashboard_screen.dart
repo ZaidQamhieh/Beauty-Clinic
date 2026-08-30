@@ -19,6 +19,7 @@ class DashboardScreen extends StatefulWidget {
   final ApiClient? apiClient;
   final VoidCallback? onBookAppointment;
   final VoidCallback? onCheckInPatient;
+  final VoidCallback? onViewAppointments;
   final VoidCallback? onViewDoctors;
 
   const DashboardScreen({
@@ -29,6 +30,7 @@ class DashboardScreen extends StatefulWidget {
     this.apiClient,
     this.onBookAppointment,
     this.onCheckInPatient,
+    this.onViewAppointments,
     this.onViewDoctors,
   });
 
@@ -1029,9 +1031,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
               title: "Today's schedule",
               icon: Icons.spa_outlined,
               action: FilledButton.icon(
-                onPressed: widget.onCheckInPatient,
-                icon: const Icon(Icons.how_to_reg_outlined, size: 17),
-                label: const Text('Check in patient'),
+                onPressed:
+                    widget.onViewAppointments ??
+                    widget.onCheckInPatient ??
+                    () {},
+                icon: const Icon(Icons.event_note_outlined, size: 17),
+                label: const Text('View All Appointments'),
                 style: FilledButton.styleFrom(
                   backgroundColor: AppColors.rose,
                   padding: const EdgeInsets.symmetric(
@@ -1229,19 +1234,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
             ),
-            Container(
-              width: 34,
-              height: 34,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: AppColors.bgCard,
-                borderRadius: BorderRadius.circular(9),
-              ),
-              child: const Icon(
-                Icons.spa_outlined,
-                color: AppColors.rose,
-                size: 17,
-              ),
+            TreatmentIcons.avatar(
+              treatment,
+              size: 34,
+              backgroundColor: AppColors.bgCard,
+              iconColor: AppColors.rose,
             ),
             const SizedBox(width: 12),
             Expanded(

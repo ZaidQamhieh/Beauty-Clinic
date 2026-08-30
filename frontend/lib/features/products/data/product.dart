@@ -101,30 +101,44 @@ class PatientProductRecord {
   const PatientProductRecord({
     required this.id,
     required this.productId,
+    required this.name,
     required this.brand,
     required this.productType,
     required this.source,
     this.startedOn,
     this.discontinuedOn,
+    this.addedByUserId,
+    this.discontinuedByUserId,
   });
 
   final String id;
   final String productId;
+  final String name;
   final String brand;
   final String productType;
   final String source;
   final String? startedOn;
   final String? discontinuedOn;
+  final String? addedByUserId;
+  final String? discontinuedByUserId;
 
   factory PatientProductRecord.fromJson(Map<String, dynamic> json) {
+    final productName = (json['name'] ?? json['productName'] ?? '').toString();
+    final productBrand = (json['brand'] ?? json['productBrand'] ?? '')
+        .toString();
+    final productType = (json['productType'] ?? json['type'] ?? '').toString();
+
     return PatientProductRecord(
       id: json['id'].toString(),
-      productId: json['productId'].toString(),
-      brand: json['brand'].toString(),
-      productType: json['productType'].toString(),
-      source: json['source'].toString(),
+      productId: json['productId']?.toString() ?? '',
+      name: productName.isNotEmpty ? productName : 'Product',
+      brand: productBrand.isNotEmpty ? productBrand : 'Unknown',
+      productType: productType.isNotEmpty ? productType : 'PRODUCT',
+      source: json['source']?.toString() ?? 'PRESCRIBED',
       startedOn: json['startedOn']?.toString(),
       discontinuedOn: json['discontinuedOn']?.toString(),
+      addedByUserId: json['addedByUserId']?.toString(),
+      discontinuedByUserId: json['discontinuedByUserId']?.toString(),
     );
   }
 }

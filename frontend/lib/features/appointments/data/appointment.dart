@@ -1,4 +1,53 @@
+import 'package:flutter/material.dart';
+
 import 'enum_label.dart';
+
+class TreatmentIcons {
+  static const Map<String, IconData> _iconByTreatment = {
+    'HYDRAFACIAL': Icons.water_drop_rounded,
+    'CHEMICAL_PEEL': Icons.auto_fix_high_rounded,
+    'MICRONEEDLING': Icons.face_retouching_natural_rounded,
+    'DERMAPLANING': Icons.cleaning_services_rounded,
+    'LASER_HAIR_REMOVAL': Icons.flash_on_rounded,
+    'LASER_RESURFACING': Icons.flash_on_rounded,
+    'IPL_PHOTOFACIAL': Icons.bolt_rounded,
+    'BOTOX': Icons.vaccines_rounded,
+    'DERMAL_FILLER': Icons.opacity_rounded,
+    'BODY_CONTOURING': Icons.fitness_center_rounded,
+    'MESOTHERAPY': Icons.healing_rounded,
+    'CONSULTATION': Icons.event_available_rounded,
+  };
+
+  static IconData iconFor(
+    String? treatmentName, {
+    IconData fallback = Icons.medical_services_outlined,
+  }) {
+    final normalized = (treatmentName ?? '')
+        .trim()
+        .toUpperCase()
+        .replaceAll(RegExp(r'[^A-Z0-9]+'), '_')
+        .replaceAll(RegExp(r'_+'), '_')
+        .replaceAll(RegExp(r'^_|_$'), '');
+    return _iconByTreatment[normalized] ?? fallback;
+  }
+
+  static Widget avatar(
+    String? treatmentName, {
+    double size = 34,
+    Color backgroundColor = const Color(0xFFF9E9F3),
+    Color iconColor = const Color(0xFFAD3B8D),
+    IconData fallback = Icons.medical_services_outlined,
+  }) {
+    final icon = iconFor(treatmentName, fallback: fallback);
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(color: backgroundColor, shape: BoxShape.circle),
+      child: Icon(icon, size: size * 0.52, color: iconColor),
+    );
+  }
+}
 
 /// One treatment within a visit.
 class AppointmentSession {

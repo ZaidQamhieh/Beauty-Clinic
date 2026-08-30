@@ -48,7 +48,7 @@ void main() {
     });
   }
 
-  testWidgets('the receptionist dashboard offers to check a patient in', (
+  testWidgets('the receptionist dashboard offers a full appointments view', (
     tester,
   ) async {
     final bound = await pumpScreen(
@@ -59,11 +59,11 @@ void main() {
         onViewPatient: (_) {},
         onViewDoctor: (_) {},
         apiClient: b.client,
-        onCheckInPatient: () {},
+        onViewAppointments: () {},
       ),
     );
 
-    expect(find.text('Check in patient'), findsWidgets);
+    expect(find.text('View All Appointments'), findsWidgets);
 
     bound.dispose();
     await settle(tester);
