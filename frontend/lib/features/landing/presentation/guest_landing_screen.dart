@@ -3,13 +3,22 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/floating_petals.dart';
 import '../../../core/widgets/yasmine_logo.dart';
+import '../../appointments/data/doctor_api.dart';
+import '../../appointments/data/treatment_api.dart';
 import 'landing_screen.dart';
 
 // Public landing page shown before sign-in.
 class GuestLandingScreen extends StatelessWidget {
-  const GuestLandingScreen({super.key, required this.onLogin});
+  const GuestLandingScreen({
+    super.key,
+    required this.onLogin,
+    this.treatmentApi,
+    this.doctorApi,
+  });
 
   final VoidCallback onLogin;
+  final TreatmentApi? treatmentApi;
+  final DoctorApi? doctorApi;
 
   @override
   Widget build(BuildContext context) {
@@ -18,7 +27,12 @@ class GuestLandingScreen extends StatelessWidget {
       body: Stack(
         children: [
           const FloatingPetals(),
-          LandingScreen(onBookClick: onLogin, onViewDoctor: (_) => onLogin()),
+          LandingScreen(
+            onBookClick: onLogin,
+            onViewDoctor: (_) => onLogin(),
+            treatmentApi: treatmentApi,
+            doctorApi: doctorApi,
+          ),
         ],
       ),
     );

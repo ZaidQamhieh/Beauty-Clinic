@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:beauty_clinic_app/auth/role.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
@@ -185,7 +186,13 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
       ),
       child: Row(
         children: [
-          ProfileAvatar(radius: 27, color: AppColors.rose, imageUrl: imageUrl),
+          ProfileAvatar(
+            radius: 27,
+            color: AppColors.rose,
+            role: Role.patient,
+            gender: _patient?['gender']?.toString(),
+            imageUrl: imageUrl,
+          ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(

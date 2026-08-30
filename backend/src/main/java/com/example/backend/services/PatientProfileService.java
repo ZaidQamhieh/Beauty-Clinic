@@ -6,9 +6,11 @@ import com.example.backend.dtos.PatientDetailsRequest;
 import com.example.backend.dtos.PatientDetailResponse;
 import com.example.backend.dtos.PatientRecordResponse;
 import com.example.backend.entities.PatientFormResponse;
+import com.example.backend.entities.PatientProduct;
 import com.example.backend.entities.PatientProfile;
 import com.example.backend.entities.UserAccount;
 import com.example.backend.repositories.PatientFormResponseRepository;
+import com.example.backend.repositories.PatientProductRepository;
 import com.example.backend.repositories.PatientProfileRepository;
 import com.example.backend.repositories.UserAccountRepository;
 import com.example.backend.security.CurrentUser;
@@ -19,6 +21,7 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,7 +42,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 @Service
-@RequiredArgsConstructor
 public class PatientProfileService {
 
     private final PatientProfileRepository patients;
@@ -48,6 +50,37 @@ public class PatientProfileService {
     private final CurrentUser currentUser;
     private final ActivityLogService activityLogs;
     private final PatientFormResponseRepository formResponses;
+    private final PatientProductRepository patientProducts;
+
+    @Autowired
+    public PatientProfileService(
+            PatientProfileRepository patients,
+            UserAccountRepository users,
+            PasswordEncoder passwordEncoder,
+            CurrentUser currentUser,
+            ActivityLogService activityLogs,
+            PatientFormResponseRepository formResponses,
+            PatientProductRepository patientProducts
+    ) {
+        this.patients = patients;
+        this.users = users;
+        this.passwordEncoder = passwordEncoder;
+        this.currentUser = currentUser;
+        this.activityLogs = activityLogs;
+        this.formResponses = formResponses;
+        this.patientProducts = patientProducts;
+    }
+
+    public PatientProfileService(
+            PatientProfileRepository patients,
+            UserAccountRepository users,
+            PasswordEncoder passwordEncoder,
+            CurrentUser currentUser,
+            ActivityLogService activityLogs,
+            PatientFormResponseRepository formResponses
+    ) {
+        this(patients, users, passwordEncoder, currentUser, activityLogs, formResponses, null);
+    }
     // Jackson 2 kept for Hibernate JsonNode.
     private final ObjectMapper objectMapper = new ObjectMapper()
             .registerModule(new JavaTimeModule());
@@ -111,11 +144,23 @@ public class PatientProfileService {
         String needle = term == null ? "" : term;
 
         if (currentUser.hasRole(Role.ADMIN)) {
-            return patients.search(needle, pageable).map(PatientRecordResponse::of);
+            return patients.search(needle, pageable).map(profile ->
+                    PatientRecordResponse.of(
+                            profile,
+                            formResponses.findById(new PatientFormResponse.Id(profile.getUserId(), DynamicFormService.CLINICAL_INTAKE)).isPresent(),
+                            patientProducts != null && patientProducts.existsByPatientUserId(profile.getUserId())
+                    )
+            );
         }
 
         return patients.searchTreatedBy(needle, currentUser.requireId(), pageable)
-                .map(PatientRecordResponse::of);
+                .map(profile ->
+                        PatientRecordResponse.of(
+                                profile,
+                                formResponses.findById(new PatientFormResponse.Id(profile.getUserId(), DynamicFormService.CLINICAL_INTAKE)).isPresent(),
+                                patientProducts != null && patientProducts.existsByPatientUserId(profile.getUserId())
+                        )
+                );
     }
 
     @Cacheable(value = "patientData", key = "'detail:' + #userId")
@@ -267,11 +312,21 @@ public class PatientProfileService {
 
         var actorsById = users.findAllById(actorIds).stream()
                 .collect(Collectors.toMap(UserAccount::getId, UserAccount::fullName));
+        var productsByRecordId = patientProducts == null
+            ? Map.<UUID, PatientProduct>of()
+            : patientProducts.findAllById(logs.stream()
+                .filter(log -> log.getAction() == ActivityAction.PATIENT_PRODUCT_ADDED
+                    || log.getAction() == ActivityAction.PATIENT_PRODUCT_DISCONTINUED)
+                .map(ActivityLog::getEntityId)
+                .filter(Objects::nonNull)
+                .toList()).stream()
+            .collect(Collectors.toMap(PatientProduct::getId, product -> product));
 
         var dto = logs.stream()
                 .map(log -> ClinicalHistoryResponse.of(
                         log,
-                        actorsById.getOrDefault(log.getUserId(), "Unknown")
+                actorsById.getOrDefault(log.getUserId(), "Unknown"),
+                productsByRecordId.get(log.getEntityId())
                 ))
                 .toList();
 

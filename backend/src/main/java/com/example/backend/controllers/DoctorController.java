@@ -37,8 +37,8 @@ public class DoctorController {
     private final DoctorService doctors;
     private final DoctorAvailabilityService availability;
 
+    // The landing page reads the doctor directory before sign-in.
     @GetMapping
-    @Authenticated
     public List<DoctorResponse> list() {
         return doctors.list();
     }

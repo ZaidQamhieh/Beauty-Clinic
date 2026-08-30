@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:beauty_clinic_app/auth/role.dart';
 import 'package:beauty_clinic_app/core/widgets/profile_avatar.dart';
 
 import '../../../../core/theme/app_colors.dart';
@@ -170,6 +171,8 @@ class _DoctorProfileScreenState extends State<DoctorProfileScreen>
             child: ProfileAvatar(
               imageUrl: account.imageUrl,
               color: AppColors.rose,
+              role: Role.doctor,
+              gender: account.gender,
               radius: 40,
             ),
           ),

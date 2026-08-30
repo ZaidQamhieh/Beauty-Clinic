@@ -21,8 +21,16 @@ const double _controlHeight = 40;
 const List<double> _columns = [138, 104, 176, 196, 104];
 
 class ActivityLogScreen extends StatefulWidget {
-  const ActivityLogScreen({super.key, required this.authSession});
+  const ActivityLogScreen({
+    super.key,
+    required this.authSession,
+    this.apiClient,
+  });
+
   final AuthSession authSession;
+
+  // Injected by tests; otherwise the screen owns one.
+  final ApiClient? apiClient;
 
   @override
   State<ActivityLogScreen> createState() => _ActivityLogScreenState();
@@ -30,6 +38,7 @@ class ActivityLogScreen extends StatefulWidget {
 
 class _ActivityLogScreenState extends State<ActivityLogScreen> {
   late final ApiClient _api;
+  late final bool _ownsApi;
   final _search = TextEditingController();
   Timer? _searchDebounce;
 
@@ -58,7 +67,8 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
   @override
   void initState() {
     super.initState();
-    _api = ApiClient(widget.authSession);
+    _ownsApi = widget.apiClient == null;
+    _api = widget.apiClient ?? ApiClient(widget.authSession);
     unawaited(_showPage(0));
   }
 
@@ -66,7 +76,9 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
   void dispose() {
     _search.dispose();
     _searchDebounce?.cancel();
-    _api.close();
+    if (_ownsApi) {
+      _api.close();
+    }
     super.dispose();
   }
 

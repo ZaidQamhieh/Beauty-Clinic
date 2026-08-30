@@ -19,9 +19,8 @@ public class TreatmentController {
 
     private final TreatmentCatalogService treatments;
 
-    // Any signed-in user; prices are the public tariff.
+    // The landing page reads the treatment names before sign-in.
     @GetMapping
-    @Authenticated
     public List<TreatmentResponse> list() {
         return treatments.list();
     }

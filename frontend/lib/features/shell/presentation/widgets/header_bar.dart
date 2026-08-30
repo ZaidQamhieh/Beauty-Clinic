@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:beauty_clinic_app/auth/role.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/widgets/profile_avatar.dart';
@@ -12,6 +13,7 @@ class HeaderBar extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback? onProfileTap;
   final String? userName;
   final String? userImageUrl;
+  final String? userGender;
   final bool isMobile;
 
   const HeaderBar({
@@ -22,6 +24,7 @@ class HeaderBar extends StatelessWidget implements PreferredSizeWidget {
     this.onProfileTap,
     this.userName,
     this.userImageUrl,
+    this.userGender,
     this.isMobile = false,
   });
 
@@ -185,6 +188,8 @@ class HeaderBar extends StatelessWidget implements PreferredSizeWidget {
               child: ProfileAvatar(
                 radius: 14,
                 color: AppColors.lavDark,
+                role: Role.tryParse(activeRole),
+                gender: userGender,
                 imageUrl: userImageUrl,
               ),
             ),

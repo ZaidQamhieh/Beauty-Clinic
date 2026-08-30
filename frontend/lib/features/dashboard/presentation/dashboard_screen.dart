@@ -19,6 +19,7 @@ class DashboardScreen extends StatefulWidget {
   final ApiClient? apiClient;
   final VoidCallback? onBookAppointment;
   final VoidCallback? onCheckInPatient;
+  final VoidCallback? onViewAppointments;
   final VoidCallback? onViewDoctors;
 
   const DashboardScreen({
@@ -29,6 +30,7 @@ class DashboardScreen extends StatefulWidget {
     this.apiClient,
     this.onBookAppointment,
     this.onCheckInPatient,
+    this.onViewAppointments,
     this.onViewDoctors,
   });
 
@@ -80,7 +82,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<List<Appointment>> _loadReceptionAppointments() async {
-    final response = await widget.apiClient!.get<Map<String, dynamic>>(
+    final apiClient = widget.apiClient;
+    if (apiClient == null) {
+      return const <Appointment>[];
+    }
+
+    final response = await apiClient.get<Map<String, dynamic>>(
       '/api/appointments/all',
       queryParameters: {'page': 0, 'size': 100},
     );
@@ -88,7 +95,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<int> _loadReceptionDoctorCount() async {
-    final response = await widget.apiClient!.get<List<dynamic>>('/api/doctors');
+    final apiClient = widget.apiClient;
+    if (apiClient == null) {
+      return 0;
+    }
+
+    final response = await apiClient.get<List<dynamic>>('/api/doctors');
     return response.data?.length ?? 0;
   }
 
@@ -1029,9 +1041,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
               title: "Today's schedule",
               icon: Icons.spa_outlined,
               action: FilledButton.icon(
-                onPressed: widget.onCheckInPatient,
-                icon: const Icon(Icons.how_to_reg_outlined, size: 17),
-                label: const Text('Check in patient'),
+                onPressed:
+                    widget.onViewAppointments ??
+                    widget.onCheckInPatient ??
+                    () {},
+                icon: const Icon(Icons.event_note_outlined, size: 17),
+                label: const Text('View All Appointments'),
                 style: FilledButton.styleFrom(
                   backgroundColor: AppColors.rose,
                   padding: const EdgeInsets.symmetric(
@@ -1043,39 +1058,42 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        for (final status in const [
-                          'ALL',
-                          'BOOKED',
-                          'CANCELLED',
-                        ])
-                          Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: ChoiceChip(
-                              label: Text(
-                                status == 'ALL'
-                                    ? 'All statuses'
-                                    : status == 'BOOKED'
-                                    ? 'Confirmed'
-                                    : 'Cancelled',
-                              ),
-                              selected: _receptionStatusFilter == status,
-                              onSelected: (_) => setState(
-                                () => _receptionStatusFilter = status,
-                              ),
-                              selectedColor: AppColors.rose,
-                              checkmarkColor: Colors.white,
-                              labelStyle: AppTypography.labelMedium(
-                                color: _receptionStatusFilter == status
-                                    ? Colors.white
-                                    : AppColors.textSub,
+                  Material(
+                    color: Colors.transparent,
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          for (final status in const [
+                            'ALL',
+                            'BOOKED',
+                            'CANCELLED',
+                          ])
+                            Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: ChoiceChip(
+                                label: Text(
+                                  status == 'ALL'
+                                      ? 'All statuses'
+                                      : status == 'BOOKED'
+                                      ? 'Confirmed'
+                                      : 'Cancelled',
+                                ),
+                                selected: _receptionStatusFilter == status,
+                                onSelected: (_) => setState(
+                                  () => _receptionStatusFilter = status,
+                                ),
+                                selectedColor: AppColors.rose,
+                                checkmarkColor: Colors.white,
+                                labelStyle: AppTypography.labelMedium(
+                                  color: _receptionStatusFilter == status
+                                      ? Colors.white
+                                      : AppColors.textSub,
+                                ),
                               ),
                             ),
-                          ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 14),
@@ -1229,19 +1247,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
             ),
-            Container(
-              width: 34,
-              height: 34,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: AppColors.bgCard,
-                borderRadius: BorderRadius.circular(9),
-              ),
-              child: const Icon(
-                Icons.spa_outlined,
-                color: AppColors.rose,
-                size: 17,
-              ),
+            TreatmentIcons.avatar(
+              treatment,
+              size: 34,
+              backgroundColor: AppColors.bgCard,
+              iconColor: AppColors.rose,
             ),
             const SizedBox(width: 12),
             Expanded(

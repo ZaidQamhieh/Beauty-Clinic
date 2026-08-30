@@ -73,6 +73,7 @@ class _BeautyClinicAppState extends State<BeautyClinicApp> {
   late final ChatApi _chatApi;
   String? _userName;
   String? _userImageUrl;
+  String? _userGender;
   String? _selectedDoctorId;
 
   // Guards re-fetching on later session events.
@@ -114,10 +115,11 @@ class _BeautyClinicAppState extends State<BeautyClinicApp> {
     if (!mounted) return;
     if (!_session.isAuthenticated) {
       // Backend sign-out leaves no name behind.
-      if (_userName != null || _userImageUrl != null) {
+      if (_userName != null || _userImageUrl != null || _userGender != null) {
         setState(() {
           _userName = null;
           _userImageUrl = null;
+          _userGender = null;
         });
       }
       _selectedDoctorId = null;
@@ -149,6 +151,7 @@ class _BeautyClinicAppState extends State<BeautyClinicApp> {
       setState(() {
         _userName = '${profile.firstName} ${profile.lastName}'.trim();
         _userImageUrl = profile.imageUrl;
+        _userGender = profile.gender;
       });
     } catch (_) {
       // Keep the header usable if this fails.
@@ -209,6 +212,8 @@ class _BeautyClinicAppState extends State<BeautyClinicApp> {
             key: state.pageKey,
             child: GuestLandingScreen(
               onLogin: () => _router.go(AppRoutes.login),
+              treatmentApi: _treatmentApi,
+              doctorApi: _doctorApi,
             ),
           ),
         ),
@@ -311,6 +316,7 @@ class _BeautyClinicAppState extends State<BeautyClinicApp> {
       onProfileTap: () => context.go(AppRoutes.pathFor('my_profile')),
       userName: _userName,
       userImageUrl: _userImageUrl,
+      userGender: _userGender,
       // Booking lives in chat, not the header.
       onLogout: _logout,
       child: _withChat(
@@ -430,6 +436,7 @@ class _BeautyClinicAppState extends State<BeautyClinicApp> {
           onBookAppointment: _activeRole == 'receptionist'
               ? () => _onViewChanged('appointments')
               : _openBookingModal,
+          onViewAppointments: () => _onViewChanged('appointments'),
           onCheckInPatient: () => _onViewChanged('appointments'),
           onViewDoctors: () => _onViewChanged('doctors'),
         );
@@ -544,7 +551,9 @@ class _BeautyClinicAppState extends State<BeautyClinicApp> {
       case 'clinical_forms':
         return AdminClinicalIntakeScreen(
           api: _clinicalApi,
-          title: _activeRole == 'doctor' ? 'Patient Forms History' : null,
+          title: _activeRole == 'doctor'
+              ? 'Patient History & Activity Log'
+              : null,
           subtitle: _activeRole == 'doctor'
               ? 'Review the latest patient form revisions and clinical activity.'
               : null,
@@ -648,6 +657,8 @@ class _BeautyClinicAppState extends State<BeautyClinicApp> {
           key: const ValueKey('landing'),
           onBookClick: _openBookingModal,
           onViewDoctor: _onViewDoctor,
+          treatmentApi: _treatmentApi,
+          doctorApi: _doctorApi,
         );
     }
   }

@@ -1,42 +1,93 @@
 import 'package:flutter/material.dart';
 
+import '../../auth/role.dart';
+
 class ProfileAvatar extends StatelessWidget {
   const ProfileAvatar({
     super.key,
     required this.color,
+    this.role,
+    this.gender,
     this.imageUrl,
     this.radius = 38,
   });
 
   final Color color;
+  final Role? role;
+  final String? gender;
   final String? imageUrl;
   final double radius;
 
+  static IconData fallbackIconFor(Role? role, String? gender) {
+    return Icons.person_rounded;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final normalizedGender = gender?.trim().toUpperCase();
     final url = imageUrl?.trim();
-    final fallback = Icon(Icons.person, size: radius * 1.1, color: color);
+    final hasValidUrl = url != null && url.isNotEmpty;
+    final genderIcon = switch (normalizedGender) {
+      'MALE' => Icons.face_6_rounded,
+      'FEMALE' => Icons.face_3_rounded,
+      _ => Icons.person_rounded,
+    };
 
-    return CircleAvatar(
-      radius: radius,
-      backgroundColor: color.withValues(alpha: .18),
-      child: url == null || url.isEmpty
-          ? fallback
-          : ClipOval(
-              child: Image.network(
-                url,
-                width: radius * 2,
-                height: radius * 2,
-                fit: BoxFit.cover,
-                filterQuality: FilterQuality.high,
-                isAntiAlias: true,
-                errorBuilder: (_, _, _) => SizedBox(
-                  width: radius * 2,
-                  height: radius * 2,
-                  child: Center(child: fallback),
+    final avatarContent = hasValidUrl
+        ? Image.network(
+            url,
+            width: radius * 2,
+            height: radius * 2,
+            fit: BoxFit.cover,
+            filterQuality: FilterQuality.high,
+            isAntiAlias: true,
+            errorBuilder: (_, _, _) =>
+                Icon(genderIcon, size: radius * 1.2, color: color),
+          )
+        : Icon(genderIcon, size: radius * 1.2, color: color);
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          width: radius * 2,
+          height: radius * 2,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: color.withValues(alpha: 0.12),
+            border: Border.all(color: color.withValues(alpha: 0.3), width: 1.5),
+          ),
+          child: ClipOval(child: Center(child: avatarContent)),
+        ),
+        if (role == Role.doctor)
+          Positioned(
+            right: 0,
+            bottom: 0,
+            child: Container(
+              padding: EdgeInsets.all(radius * 0.12),
+              decoration: BoxDecoration(
+                color: color,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Theme.of(context).scaffoldBackgroundColor,
+                  width: 2,
                 ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.15),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Icon(
+                Icons.medical_services_rounded,
+                size: radius * 0.35,
+                color: Colors.white,
               ),
             ),
+          ),
+      ],
     );
   }
 }

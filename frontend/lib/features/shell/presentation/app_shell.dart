@@ -18,6 +18,7 @@ class AppShell extends StatefulWidget {
   final VoidCallback? onProfileTap;
   final String? userName;
   final String? userImageUrl;
+  final String? userGender;
 
   const AppShell({
     super.key,
@@ -30,6 +31,7 @@ class AppShell extends StatefulWidget {
     this.onProfileTap,
     this.userName,
     this.userImageUrl,
+    this.userGender,
   });
 
   @override
@@ -53,6 +55,7 @@ class _AppShellState extends State<AppShell> {
         onProfileTap: widget.onProfileTap,
         userName: widget.userName,
         userImageUrl: widget.userImageUrl,
+        userGender: widget.userGender,
         isMobile: isMobile,
       ),
       drawer: isMobile ? _buildDrawer(context) : null,
@@ -249,7 +252,7 @@ class _AppShellState extends State<AppShell> {
           {'id': 'patients', 'label': 'Patients', 'icon': Icons.people_outline},
           {
             'id': 'clinical_forms',
-            'label': 'Patient Forms History',
+            'label': 'Patient History',
             'icon': Icons.assignment_outlined,
           },
           {
@@ -337,7 +340,7 @@ class _AppShellState extends State<AppShell> {
           },
           {
             'id': 'clinical_forms',
-            'label': 'Patient Forms History',
+            'label': 'Patient History',
             'icon': Icons.assignment_outlined,
           },
           {

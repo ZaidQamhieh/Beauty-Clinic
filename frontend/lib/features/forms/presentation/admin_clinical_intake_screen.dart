@@ -137,7 +137,7 @@ class _AdminClinicalIntakeScreenState extends State<AdminClinicalIntakeScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  widget.title ?? 'Patient Forms History & Activity Log',
+                  widget.title ?? 'Patient History & Activity Log',
                   style: AppTypography.displaySubtitle(
                     color: AppColors.text,
                   ).copyWith(fontSize: 20),
@@ -193,12 +193,11 @@ class _AdminClinicalIntakeScreenState extends State<AdminClinicalIntakeScreen> {
                 _scheduleSearch();
               },
               decoration: const InputDecoration(
-                hintText: 'Search patients by name, email, or skin type...',
+                hintText: 'Search patients by name or email...',
                 // Prevents the theme's fill from doubling up.
                 filled: false,
                 border: InputBorder.none,
                 enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
                 contentPadding: EdgeInsets.symmetric(vertical: 12),
               ),
             ),
@@ -574,7 +573,9 @@ class _ClinicalHistoryState extends State<_ClinicalHistory> {
             child: Text('Unable to load change history: ${snapshot.error}'),
           );
         }
-        final records = snapshot.data ?? const [];
+        final records = (snapshot.data ?? const [])
+            .where(_hasHistoryDetails)
+            .toList();
         if (records.isEmpty) {
           return Container(
             padding: const EdgeInsets.all(24),
@@ -589,12 +590,12 @@ class _ClinicalHistoryState extends State<_ClinicalHistory> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'No saved clinic-form revisions yet.',
+                  'No patient history records yet.',
                   style: AppTypography.bodySmall(color: AppColors.textMuted),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Revisions will appear here automatically when the patient or clinician saves changes.',
+                  'Clinic forms, products, and routine changes will appear here automatically.',
                   style: AppTypography.labelSmall(color: AppColors.textMuted),
                   textAlign: TextAlign.center,
                 ),
@@ -612,6 +613,22 @@ class _ClinicalHistoryState extends State<_ClinicalHistory> {
               record['changedAt']?.toString() ?? '',
             );
             final actorName = record['actorName']?.toString() ?? 'System';
+            final action =
+                record['action']?.toString() ?? 'CLINICAL_PROFILE_UPDATED';
+            final isProduct = action.startsWith('PATIENT_PRODUCT_');
+            final stopped = action == 'PATIENT_PRODUCT_DISCONTINUED';
+            final productName = record['productName']?.toString();
+            final productBrand = record['productBrand']?.toString();
+            final productType = record['productType']?.toString();
+            final productDetails = [
+              if (productName != null && productName.isNotEmpty) productName,
+              if (productBrand != null && productBrand.isNotEmpty) productBrand,
+              if (productType != null && productType.isNotEmpty) productType,
+            ].join(' · ');
+            final detail = isProduct
+                ? [if (productDetails.isNotEmpty) productDetails].join(' · ')
+                : 'Clinic form revision';
+            final hasFormValues = _hasHistoryDetails(record);
 
             return Material(
               color: AppColors.bgAlt,
@@ -630,24 +647,30 @@ class _ClinicalHistoryState extends State<_ClinicalHistory> {
                     color: AppColors.bgRose,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(
-                    Icons.edit_document,
+                  child: Icon(
+                    isProduct ? Icons.spa_outlined : Icons.edit_document,
                     color: AppColors.rose,
                     size: 18,
                   ),
                 ),
                 title: Text(
-                  'Clinic Form Updated',
+                  isProduct
+                      ? (stopped
+                            ? 'Stopped using product'
+                            : 'Product added to routine')
+                      : 'Clinic Form Updated',
                   style: AppTypography.labelLarge(),
                 ),
                 subtitle: Text(
-                  'by $actorName • ${changedAt == null ? 'Unknown date' : DateFormat.yMMMd().add_jm().format(changedAt.toLocal())}',
+                  '$detail · by $actorName · ${changedAt == null ? 'Unknown date' : DateFormat.yMMMd().add_jm().format(changedAt.toLocal())}',
                   style: AppTypography.bodySmall(color: AppColors.textMuted),
                 ),
                 trailing: ElevatedButton.icon(
-                  onPressed: () => _showValues(context, record),
+                  onPressed: hasFormValues || isProduct
+                      ? () => _showValues(context, record)
+                      : null,
                   icon: const Icon(Icons.compare_arrows, size: 14),
-                  label: const Text('Inspect Diff'),
+                  label: const Text('Inspect Difference'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.bgRose,
                     foregroundColor: AppColors.rose,
@@ -659,7 +682,9 @@ class _ClinicalHistoryState extends State<_ClinicalHistory> {
                     textStyle: AppTypography.labelSmall(),
                   ),
                 ),
-                onTap: () => _showValues(context, record),
+                onTap: hasFormValues || isProduct
+                    ? () => _showValues(context, record)
+                    : null,
               ),
             );
           },
@@ -671,6 +696,11 @@ class _ClinicalHistoryState extends State<_ClinicalHistory> {
   void _showValues(BuildContext context, Map<String, dynamic> record) {
     final changedAt = DateTime.tryParse(record['changedAt']?.toString() ?? '');
     final actorName = record['actorName']?.toString() ?? 'Unknown';
+    final action = record['action']?.toString() ?? '';
+    if (action.startsWith('PATIENT_PRODUCT_')) {
+      _showProductDetails(context, record, changedAt, actorName);
+      return;
+    }
     final prevRaw = record['previousValues'];
     final newRaw = record['newValues'];
 
@@ -714,7 +744,7 @@ class _ClinicalHistoryState extends State<_ClinicalHistory> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Clinic Form Revision Diff',
+                          'Clinic Form Revision Difference',
                           style: AppTypography.displaySubtitle(),
                         ),
                         const SizedBox(height: 2),
@@ -929,6 +959,76 @@ class _ClinicalHistoryState extends State<_ClinicalHistory> {
         ),
       ),
     );
+  }
+
+  void _showProductDetails(
+    BuildContext context,
+    Map<String, dynamic> record,
+    DateTime? changedAt,
+    String actorName,
+  ) {
+    final stopped =
+        record['action']?.toString() == 'PATIENT_PRODUCT_DISCONTINUED';
+    final productName = record['productName']?.toString() ?? 'Product';
+    final brand = record['productBrand']?.toString() ?? 'Unknown brand';
+    final type = record['productType']?.toString() ?? 'PRODUCT';
+    final source = record['source']?.toString();
+
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(
+          stopped ? 'Stopped using product' : 'Product added to routine',
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(productName, style: AppTypography.displaySubtitle()),
+            const SizedBox(height: 6),
+            Text(
+              '${_humanizeEnum(brand)} · ${_humanizeEnum(type)}',
+              style: AppTypography.bodyMedium(color: AppColors.textSub),
+            ),
+            const SizedBox(height: 16),
+            if (source != null && source.isNotEmpty)
+              _productHistoryDetail('Source', _humanizeEnum(source)),
+            const SizedBox(height: 8),
+            Text(
+              '${stopped ? 'Stopped by' : 'Added by'}: $actorName',
+              style: AppTypography.bodySmall(color: AppColors.textMuted),
+            ),
+            if (changedAt != null)
+              Text(
+                DateFormat.yMMMd().add_jm().format(changedAt.toLocal()),
+                style: AppTypography.bodySmall(color: AppColors.textMuted),
+              ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _productHistoryDetail(String label, String? value) {
+    if (value == null || value.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Text('$label: $value', style: AppTypography.bodySmall()),
+    );
+  }
+
+  static bool _hasHistoryDetails(Map<String, dynamic> record) {
+    if (record['action']?.toString().startsWith('PATIENT_PRODUCT_') == true) {
+      return true;
+    }
+    return _extractFormValues(record['previousValues']).isNotEmpty ||
+        _extractFormValues(record['newValues']).isNotEmpty;
   }
 
   static Map<String, dynamic> _extractFormValues(dynamic raw) {
