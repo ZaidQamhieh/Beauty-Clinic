@@ -61,10 +61,8 @@ class SecurityConfig {
                         "/api/auth/register",
                         "/api/auth/login",
                         "/api/auth/refresh",
-                        "/api/auth/logout",
-                        "/api/treatments"
+                        "/api/auth/logout"
                 ).permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/doctors").permitAll()
                 // Deployment probes cannot carry a token.
                 .requestMatchers("/actuator/health").permitAll()
                 .anyRequest().authenticated()
