@@ -15,7 +15,7 @@ import 'helpers/auth_test_fakes.dart';
 
 void main() {
   test(
-    'History status stays pending while another session in the same visit is still planned',
+    'History status stays planned while another session in the same visit is still planned',
     () {
       final appointment = Appointment(
         id: 'appt-1',
@@ -54,7 +54,7 @@ void main() {
         ],
       );
 
-      expect(HistoryCard.historyStatus(appointment), 'Pending');
+      expect(HistoryCard.historyStatus(appointment), 'Planned');
     },
   );
 

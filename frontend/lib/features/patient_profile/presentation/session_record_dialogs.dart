@@ -29,8 +29,11 @@ class SessionRecordInput {
   final List<String> prescribedProductIds;
 }
 
-/// Marks session attended, then saves record.
-Future<bool> completeSessionWithRecord({
+/// Marks session attended, then saves record. Returns the saved record on
+/// success (null if cancelled or the save failed) so the caller can patch
+/// its own state with it directly rather than re-fetching to find out what
+/// it just wrote.
+Future<SessionRecord?> completeSessionWithRecord({
   required BuildContext context,
   required ApiClient apiClient,
   required AppointmentApi appointmentApi,
@@ -40,16 +43,16 @@ Future<bool> completeSessionWithRecord({
 }) async {
   try {
     final products = await ProductApi(apiClient).list();
-    if (!context.mounted) return false;
+    if (!context.mounted) return null;
     final input = await showDialog<SessionRecordInput>(
       context: context,
       builder: (_) => SessionRecordDialog(session: session, catalog: products),
     );
-    if (input == null) return false;
+    if (input == null) return null;
     if (session.isPlanned) {
       await appointmentApi.markAttended(appointmentId, session.id);
     }
-    await SessionRecordApi(apiClient).create(
+    final saved = await SessionRecordApi(apiClient).create(
       patientId: patientUserId,
       sessionId: session.id,
       note: input.note,
@@ -62,17 +65,20 @@ Future<bool> completeSessionWithRecord({
         const SnackBar(content: Text('Session completed and record saved.')),
       );
     }
-    return true;
+    return saved;
   } catch (_) {
     if (context.mounted) {
       showErrorDialog(context, 'Could not complete the session.');
     }
-    return false;
+    return null;
   }
 }
 
-/// Edits an existing session record.
-Future<bool> editSessionRecord({
+/// Edits an existing session record - really appends a correction, since
+/// amend() never overwrites in place. Returns the new record on success
+/// (null if cancelled or the save failed) so the caller can patch its own
+/// state with it directly instead of re-fetching just to see its own edit.
+Future<SessionRecord?> editSessionRecord({
   required BuildContext context,
   required ApiClient apiClient,
   required SessionRecord record,
@@ -81,7 +87,7 @@ Future<bool> editSessionRecord({
 }) async {
   try {
     final products = await ProductApi(apiClient).list();
-    if (!context.mounted) return false;
+    if (!context.mounted) return null;
     final input = await showDialog<SessionRecordInput>(
       context: context,
       builder: (_) => SessionRecordDialog(
@@ -90,8 +96,8 @@ Future<bool> editSessionRecord({
         initial: record,
       ),
     );
-    if (input == null) return false;
-    await SessionRecordApi(apiClient).amend(
+    if (input == null) return null;
+    return await SessionRecordApi(apiClient).amend(
       patientId: patientUserId,
       recordId: record.id,
       note: input.note,
@@ -99,21 +105,24 @@ Future<bool> editSessionRecord({
       followUpDate: input.followUpDate,
       prescribedProductIds: input.prescribedProductIds,
     );
-    return true;
   } catch (_) {
     if (context.mounted) {
       showErrorDialog(context, 'Could not edit the session record.');
     }
-    return false;
+    return null;
   }
 }
 
-/// Shows a record, editable when permitted.
+/// Shows a record, editable when permitted. [previousVersions] - older
+/// versions of the same session's record, newest first, excluding [record]
+/// itself - render as a collapsed "Previous versions" list a viewer can
+/// open one at a time; omit or leave empty when there's no history to show.
 void showSessionRecordViewDialog({
   required BuildContext context,
   required SessionRecord record,
   bool canEdit = false,
   VoidCallback? onEdit,
+  List<SessionRecord> previousVersions = const [],
 }) {
   showDialog<void>(
     context: context,
@@ -136,6 +145,10 @@ void showSessionRecordViewDialog({
             if (record.followUpDate != null)
               Text('Follow-up: ${record.followUpDate}'),
             Text('Prescribed products: ${record.prescribedProductIds.length}'),
+            if (previousVersions.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              _PreviousVersionsList(versions: previousVersions),
+            ],
           ],
         ),
       ),
@@ -155,6 +168,62 @@ void showSessionRecordViewDialog({
       ],
     ),
   );
+}
+
+/// Collapsed by default so the current record stays the focus; expands to
+/// one row per older version, each opening its own read-only view dialog
+/// (never editable - only the current record can be corrected further).
+class _PreviousVersionsList extends StatefulWidget {
+  const _PreviousVersionsList({required this.versions});
+
+  final List<SessionRecord> versions;
+
+  @override
+  State<_PreviousVersionsList> createState() => _PreviousVersionsListState();
+}
+
+class _PreviousVersionsListState extends State<_PreviousVersionsList> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        InkWell(
+          onTap: () => setState(() => _expanded = !_expanded),
+          child: Row(
+            children: [
+              Icon(_expanded ? Icons.expand_less : Icons.expand_more, size: 18),
+              const SizedBox(width: 4),
+              Text(
+                'Previous versions (${widget.versions.length})',
+                style: AppTypography.labelMedium(),
+              ),
+            ],
+          ),
+        ),
+        if (_expanded)
+          for (final version in widget.versions)
+            Padding(
+              padding: const EdgeInsets.only(top: 6, left: 22),
+              child: InkWell(
+                onTap: () => showSessionRecordViewDialog(
+                  context: context,
+                  record: version,
+                ),
+                child: Text(
+                  '${version.createdAt.toLocal().toIso8601String().split('T').first}'
+                  '${version.authorName == null ? '' : ' · ${version.authorName}'}',
+                  style: const TextStyle(
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
+              ),
+            ),
+      ],
+    );
+  }
 }
 
 /// Placeholder when a viewer cannot record.

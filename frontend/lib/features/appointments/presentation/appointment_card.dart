@@ -109,13 +109,18 @@ class HistoryCard extends StatelessWidget {
     super.key,
     required this.appointment,
     this.recordsBySession = const {},
+    this.recordHistoryBySession = const {},
     this.productNamesById = const {},
   });
 
   final Appointment appointment;
 
-  /// The doctor's record per treatment.
+  /// The doctor's current record per treatment.
   final Map<String, SessionRecord> recordsBySession;
+
+  /// Older, superseded versions per treatment, newest first - lets a
+  /// patient see a note was corrected and what it said before.
+  final Map<String, List<SessionRecord>> recordHistoryBySession;
 
   /// Names for products the record prescribes.
   final Map<String, String> productNamesById;
@@ -154,6 +159,7 @@ class HistoryCard extends StatelessWidget {
       builder: (dialogContext) => TreatmentNotesDialog(
         appointment: appointment,
         recordsBySession: recordsBySession,
+        recordHistoryBySession: recordHistoryBySession,
         productNamesById: productNamesById,
       ),
     );
@@ -164,17 +170,17 @@ class HistoryCard extends StatelessWidget {
     if (!appointment.isBooked) return 'Cancelled';
 
     final sessions = appointment.sessions;
-    if (sessions.isEmpty) return 'Pending';
+    if (sessions.isEmpty) return 'Planned';
     if (sessions.every((s) => s.status == 'COMPLETED')) return 'Completed';
     if (sessions.every((s) => s.status == 'CANCELLED')) return 'Cancelled';
     if (sessions.every((s) => s.status == 'NO_SHOW')) return 'Missed';
 
-    // Any planned treatment keeps the visit pending.
+    // Any planned treatment keeps the visit planned, not yet completed.
     final hasPlanned = sessions.any((s) => s.isPlanned);
     if (sessions.any((s) => s.status == 'COMPLETED') && !hasPlanned) {
       return 'Completed';
     }
-    return 'Pending';
+    return 'Planned';
   }
 }
 
@@ -187,10 +193,16 @@ class TreatmentRecordPanel extends StatelessWidget {
     super.key,
     required this.record,
     this.productNamesById = const {},
+    this.previousVersions = const [],
   });
 
   final SessionRecord record;
   final Map<String, String> productNamesById;
+
+  /// Older, superseded versions of this same record, newest first - a note
+  /// the doctor corrected still leaves what it said before visible, not
+  /// just what it says now.
+  final List<SessionRecord> previousVersions;
 
   @override
   Widget build(BuildContext context) {
@@ -247,6 +259,52 @@ class TreatmentRecordPanel extends StatelessWidget {
           if (record.followUpDate != null)
             _line('Follow-up: ${record.followUpDate}'),
           if (products.isNotEmpty) _line('Prescribed: ${products.join(', ')}'),
+          if (previousVersions.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              'Previously:',
+              style: AppTypography.labelSmall(color: AppColors.textMuted),
+            ),
+            for (final version in previousVersions)
+              GestureDetector(
+                onTap: () => _showPreviousVersion(context, version),
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    BookingFormat.dayWithYear(version.createdAt),
+                    style: AppTypography.bodySmall(
+                      color: AppColors.textMuted,
+                    ).copyWith(decoration: TextDecoration.underline),
+                  ),
+                ),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  void _showPreviousVersion(BuildContext context, SessionRecord version) {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(
+          'Earlier note · ${BookingFormat.dayWithYear(version.createdAt)}',
+        ),
+        content: SizedBox(
+          width: 420,
+          child: SingleChildScrollView(
+            child: TreatmentRecordPanel(
+              record: version,
+              productNamesById: productNamesById,
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Close'),
+          ),
         ],
       ),
     );
@@ -277,11 +335,13 @@ class TreatmentNotesDialog extends StatelessWidget {
     super.key,
     required this.appointment,
     required this.recordsBySession,
+    this.recordHistoryBySession = const {},
     this.productNamesById = const {},
   });
 
   final Appointment appointment;
   final Map<String, SessionRecord> recordsBySession;
+  final Map<String, List<SessionRecord>> recordHistoryBySession;
   final Map<String, String> productNamesById;
 
   @override
@@ -326,6 +386,8 @@ class TreatmentNotesDialog extends StatelessWidget {
                   TreatmentRecordPanel(
                     record: record,
                     productNamesById: productNamesById,
+                    previousVersions:
+                        recordHistoryBySession[session.id] ?? const [],
                   )
                 else
                   Text(
@@ -374,6 +436,12 @@ class _AppointmentCard extends StatelessWidget {
   // Cancelled visits recede; others read first.
   bool get _muted => statusLabel == 'Cancelled';
 
+  // A cancelled visit cancels every session alike, so one label up top says
+  // it all. Anything else can have sessions in genuinely different states
+  // (one done, one still booked, one missed) that a single visit-level word
+  // would flatten - so each session carries its own status instead.
+  bool get _showTopStatus => _muted;
+
   @override
   Widget build(BuildContext context) {
     String? nextId;
@@ -419,7 +487,7 @@ class _AppointmentCard extends StatelessWidget {
                       style: AppTypography.labelLarge(),
                     ),
                   ),
-                  StatusPill(status: statusLabel),
+                  if (_showTopStatus) StatusPill(status: statusLabel),
                 ],
               ),
             ),
@@ -434,6 +502,7 @@ class _AppointmentCard extends StatelessWidget {
                 session: session,
                 isNext: session.id == nextId,
                 trailing: sessionTrailing?.call(session),
+                showStatus: !_showTopStatus,
               ),
             if (footer != null) ...[
               const SizedBox(height: 4),
@@ -446,17 +515,36 @@ class _AppointmentCard extends StatelessWidget {
   }
 }
 
+// A session's own status, one at a time - now the same four words
+// HistoryCard.historyStatus uses for the whole visit (Planned/Completed/
+// Cancelled/Missed), just per session instead of summarized across all of
+// them.
+String _sessionStatusLabel(AppointmentSession session) {
+  return switch (session.status) {
+    'COMPLETED' => 'Completed',
+    'CANCELLED' => 'Cancelled',
+    'NO_SHOW' => 'Missed',
+    _ => 'Planned',
+  };
+}
+
 /// One row; soonest treatment weighted, rest recede.
 class _SessionRow extends StatelessWidget {
   const _SessionRow({
     required this.session,
     required this.isNext,
     this.trailing,
+    this.showStatus = false,
   });
 
   final AppointmentSession session;
   final bool isNext;
   final Widget? trailing;
+
+  /// Shows this session's own status pill - used once the card no longer
+  /// shows a single status for the whole visit (see
+  /// _AppointmentCard._showTopStatus).
+  final bool showStatus;
 
   @override
   Widget build(BuildContext context) {
@@ -489,10 +577,20 @@ class _SessionRow extends StatelessWidget {
                   ],
                 ],
               ),
-              Text(
-                '${BookingFormat.time12(session.startTime)} · '
-                '${session.practitionerName}',
-                style: AppTypography.bodySmall(),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '${BookingFormat.time12(session.startTime)} · '
+                      '${session.practitionerName}',
+                      style: AppTypography.bodySmall(),
+                    ),
+                  ),
+                  if (showStatus) ...[
+                    const SizedBox(width: 6),
+                    StatusPill(status: _sessionStatusLabel(session)),
+                  ],
+                ],
               ),
             ],
           ),

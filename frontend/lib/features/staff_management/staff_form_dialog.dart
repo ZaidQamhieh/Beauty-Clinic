@@ -33,6 +33,7 @@ class _StaffFormDialogState extends State<_StaffFormDialog> {
   String _selectedCountryCode = countryDialCodes.first;
   bool _isSubmitting = false;
   String? _submitError;
+  bool _passwordVisible = false;
 
   bool get _isDoctor => widget.role == _StaffRole.doctor;
   bool get _isEditing => widget.initialStaff != null;
@@ -271,7 +272,17 @@ class _StaffFormDialogState extends State<_StaffFormDialog> {
                   label: _isEditing
                       ? 'New Password (optional)'
                       : 'Temporary Password *',
-                  obscureText: true,
+                  obscureText: !_passwordVisible,
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _passwordVisible
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                    ),
+                    tooltip: _passwordVisible ? 'Hide password' : 'Show password',
+                    onPressed: () =>
+                        setState(() => _passwordVisible = !_passwordVisible),
+                  ),
                   validator: (value) {
                     // Blank on edit keeps old password.
                     if (_isEditing && (value?.trim().isEmpty ?? true)) {
@@ -652,6 +663,7 @@ class _StaffFormDialogState extends State<_StaffFormDialog> {
     bool obscureText = false,
     int maxLines = 1,
     String? Function(String?)? validator,
+    Widget? suffixIcon,
   }) {
     return TextFormField(
       controller: controller,
@@ -662,6 +674,7 @@ class _StaffFormDialogState extends State<_StaffFormDialog> {
       decoration: InputDecoration(
         labelText: label,
         isDense: true,
+        suffixIcon: suffixIcon,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );

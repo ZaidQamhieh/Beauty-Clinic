@@ -59,6 +59,6 @@ class TreatmentCatalogServiceTest {
         Arrays.stream(TreatmentName.values())
                 .forEach(name -> tariff.put(name, new Tariff(new BigDecimal("777.00"), 45)));
 
-        return new ClinicProperties("UTC", "ILS", tariff, 180, 15, 10, 60);
+        return new ClinicProperties("UTC", "ILS", tariff, 180, 15, 10, 60, 60);
     }
 }

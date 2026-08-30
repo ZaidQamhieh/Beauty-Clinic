@@ -10,7 +10,6 @@ import 'package:beauty_clinic_app/features/dashboard/presentation/dashboard_scre
 import 'package:beauty_clinic_app/features/doctor_profile/presentation/doctor_profile_screen.dart';
 import 'package:beauty_clinic_app/features/doctor_availability/data/doctor_availability_api.dart';
 import 'package:beauty_clinic_app/features/doctor_availability/presentation/doctor_availability_screen.dart';
-import 'package:beauty_clinic_app/features/doctor_availability/presentation/my_calendar_screen.dart';
 import 'package:beauty_clinic_app/features/doctor_directory/presentation/doctor_directory_screen.dart';
 import 'package:beauty_clinic_app/features/patient_profile/presentation/patient_profile_screen.dart';
 import 'package:beauty_clinic_app/features/patient_dashboard/presentation/patient_dashboard_screen.dart';
@@ -27,7 +26,6 @@ import 'package:beauty_clinic_app/features/appointments/data/treatment_api.dart'
 import 'package:beauty_clinic_app/features/appointments/presentation/appointments_screen.dart';
 import 'package:beauty_clinic_app/features/appointments/presentation/clinic_appointments_screen.dart';
 import 'package:beauty_clinic_app/features/appointments/presentation/booking_flow_sheet.dart';
-import 'package:beauty_clinic_app/features/appointments/presentation/patient_calendar_screen.dart';
 import 'package:beauty_clinic_app/features/chat/data/chat_api.dart';
 import 'package:beauty_clinic_app/features/chat/presentation/chat_launcher.dart';
 import 'package:beauty_clinic_app/features/forms/data/clinical_intake_api.dart';
@@ -444,6 +442,12 @@ class _BeautyClinicAppState extends State<BeautyClinicApp> {
             doctorApi: _doctorApi,
             apiClient: _apiClient,
             onViewPatient: _onViewPatient,
+            showCalendarTab: true,
+            availabilityApi: _availabilityApi,
+            // Admin can read a completed session's clinical record;
+            // reception has no clinical need to. Neither can author one -
+            // that stays doctor-only via canAuthorSessionRecords.
+            canViewSessionRecords: _activeRole == 'admin',
           );
         }
         if (_activeRole == 'doctor') {
@@ -456,6 +460,8 @@ class _BeautyClinicAppState extends State<BeautyClinicApp> {
             canAuthorSessionRecords: true,
             doctorUserId: _session.userId,
             onViewPatient: _onViewPatient,
+            showCalendarTab: true,
+            availabilityApi: _availabilityApi,
           );
         }
         if (_activeRole == 'patient') {
@@ -601,19 +607,6 @@ class _BeautyClinicAppState extends State<BeautyClinicApp> {
           key: const ValueKey('doctor_availability'),
           api: _availabilityApi,
           appointmentApi: _appointmentApi,
-        );
-      case 'my_calendar':
-        if (_activeRole == 'patient') {
-          return PatientCalendarScreen(
-            key: const ValueKey('my_calendar_patient'),
-            appointmentApi: _appointmentApi,
-          );
-        }
-        return MyCalendarScreen(
-          key: const ValueKey('my_calendar'),
-          appointmentApi: _appointmentApi,
-          availabilityApi: _availabilityApi,
-          apiClient: _apiClient,
         );
       case 'patient_profile':
         final tab = int.tryParse(state.uri.queryParameters['tab'] ?? '') ?? 0;

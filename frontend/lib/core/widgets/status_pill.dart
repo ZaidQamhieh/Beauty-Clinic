@@ -24,9 +24,15 @@ class StatusPill extends StatelessWidget {
       bg: AppColors.sage.withValues(alpha: 0.18),
       text: AppColors.sageDark,
     ),
-    'Pending': _StatusStyle(
+    'Booked': _StatusStyle(
       bg: AppColors.gold.withValues(alpha: 0.20),
       text: AppColors.gold,
+    ),
+    // A session's own default state (distinct from a visit reading
+    // 'Booked') - same sage family the calendar and session rows use.
+    'Planned': _StatusStyle(
+      bg: AppColors.sage.withValues(alpha: 0.18),
+      text: AppColors.sageDark,
     ),
     'In Room': _StatusStyle(
       bg: const Color(0xFF2563EB).withValues(alpha: 0.16),

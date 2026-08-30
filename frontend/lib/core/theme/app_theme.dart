@@ -5,11 +5,20 @@ import 'app_typography.dart';
 
 /// Central ThemeData for the clinic app.
 class AppTheme {
-  // One shape for every button.
-  static const double buttonRadius = 12;
+  // Two radii, not one: a single flat value looks fine on a tall filled
+  // button but reads as almost a pill on a chip or text button, which are
+  // roughly a third shorter. Scaling the radius down with the component
+  // keeps the roundedness looking consistent instead of exaggerated on the
+  // smaller ones.
+  static const double buttonRadius = 10;
+  static const double compactRadius = 8;
 
   static final RoundedRectangleBorder _buttonShape = RoundedRectangleBorder(
     borderRadius: BorderRadius.circular(buttonRadius),
+  );
+
+  static final RoundedRectangleBorder _compactShape = RoundedRectangleBorder(
+    borderRadius: BorderRadius.circular(compactRadius),
   );
 
   static const EdgeInsets _buttonPadding = EdgeInsets.symmetric(
@@ -91,7 +100,7 @@ class AppTheme {
         selectedColor: AppColors.rose,
         checkmarkColor: AppColors.white,
         side: const BorderSide(color: AppColors.border),
-        shape: _buttonShape,
+        shape: _compactShape,
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         labelStyle: AppTypography.labelMedium(color: AppColors.textSub),
         secondaryLabelStyle: AppTypography.labelMedium(color: AppColors.white),
@@ -129,7 +138,7 @@ class AppTheme {
         style: TextButton.styleFrom(
           foregroundColor: AppColors.rose,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          shape: _buttonShape,
+          shape: _compactShape,
           textStyle: AppTypography.labelMedium(color: AppColors.rose),
         ),
       ),

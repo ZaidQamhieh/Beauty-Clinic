@@ -30,7 +30,11 @@ public record ClinicProperties(
         // Room turnover held either side of every booking, on top of its own length.
         Integer turnoverMinutes,
         // How late a patient may still cancel, counted back from the visit's start.
-        Integer cancellationCutoffMinutes
+        Integer cancellationCutoffMinutes,
+        // How long after a session ends a doctor may still mark it attended -
+        // also how long a still-PLANNED session waits before the no-show
+        // sweep auto-marks it, so the two never drift apart.
+        Integer attendanceWindowMinutes
 ) {
 
     public static final String DEFAULT_CURRENCY = "ILS";
@@ -38,6 +42,7 @@ public record ClinicProperties(
     public static final int DEFAULT_SLOT_GRANULARITY_MINUTES = 15;
     public static final int DEFAULT_TURNOVER_MINUTES = 10;
     public static final int DEFAULT_CANCELLATION_CUTOFF_MINUTES = 60;
+    public static final int DEFAULT_ATTENDANCE_WINDOW_MINUTES = 60;
 
     public ClinicProperties {
         // Fail at startup on an unknown zone, not on the first booking.
@@ -65,6 +70,10 @@ public record ClinicProperties(
             cancellationCutoffMinutes = DEFAULT_CANCELLATION_CUTOFF_MINUTES;
         }
 
+        if (attendanceWindowMinutes == null) {
+            attendanceWindowMinutes = DEFAULT_ATTENDANCE_WINDOW_MINUTES;
+        }
+
         // A zero grid would loop forever walking a window; the rest may legitimately be zero.
         if (slotGranularityMinutes < 1) {
             throw new IllegalStateException("slot-granularity-minutes must be at least 1");
@@ -73,6 +82,11 @@ public record ClinicProperties(
         // A negative cutoff would let a patient cancel after the visit began.
         if (cancellationCutoffMinutes < 0) {
             throw new IllegalStateException("cancellation-cutoff-minutes must not be negative");
+        }
+
+        // A negative window would close before the session even starts.
+        if (attendanceWindowMinutes < 0) {
+            throw new IllegalStateException("attendance-window-minutes must not be negative");
         }
 
         if (tariff == null) {
@@ -106,6 +120,10 @@ public record ClinicProperties(
 
     public Duration cancellationCutoff() {
         return Duration.ofMinutes(cancellationCutoffMinutes);
+    }
+
+    public Duration attendanceWindow() {
+        return Duration.ofMinutes(attendanceWindowMinutes);
     }
 
     // Total by construction: the constructor refuses to start without every treatment.

@@ -475,15 +475,42 @@ class _DoctorDirectoryScreenState extends State<DoctorDirectoryScreen> {
     return Row(
       children: [
         for (final day in AvailabilityDay.values) ...[
-          Expanded(child: _dayCell(day, _hoursFor(doctor, day))),
+          Expanded(child: _dayCell(day, _slotLinesFor(doctor, day))),
           if (day != AvailabilityDay.sunday) const SizedBox(width: 6),
         ],
       ],
     );
   }
 
-  Widget _dayCell(AvailabilityDay day, String? hours) {
-    final working = hours != null;
+  // A split shift (a lunch break, say) joins into one comma-separated
+  // summary that FittedBox then has to shrink to fit the narrow pill,
+  // which is exactly what makes it unreadable once there's more than one
+  // slot. The pill still shows that shrunk summary - it's a fine glance -
+  // but hovering it now shows the same slots one per line instead, at
+  // full size, via a plain Tooltip (same pattern booking_slots_panel.dart
+  // already uses for its per-hour timeline).
+  Widget _dayCell(AvailabilityDay day, List<String> slotLines) {
+    final working = slotLines.isNotEmpty;
+    final pill = Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 4),
+      decoration: BoxDecoration(
+        color: working ? AppColors.sagePale : AppColors.bgAlt,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      // Hour ranges must never touch the pill edge.
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(
+          working ? slotLines.join(', ') : '—',
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          style: AppTypography.labelSmall(
+            color: working ? AppColors.sageDark : AppColors.textMuted,
+          ),
+        ),
+      ),
+    );
     return Column(
       children: [
         Text(
@@ -491,26 +518,13 @@ class _DoctorDirectoryScreenState extends State<DoctorDirectoryScreen> {
           style: AppTypography.labelSmall(color: AppColors.textMuted),
         ),
         const SizedBox(height: 6),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 4),
-          decoration: BoxDecoration(
-            color: working ? AppColors.sagePale : AppColors.bgAlt,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          // Hour ranges must never touch the pill edge.
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
-              hours ?? '—',
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              style: AppTypography.labelSmall(
-                color: working ? AppColors.sageDark : AppColors.textMuted,
-              ),
-            ),
-          ),
-        ),
+        working
+            ? Tooltip(
+                message: slotLines.join('\n'),
+                waitDuration: const Duration(milliseconds: 200),
+                child: pill,
+              )
+            : pill,
       ],
     );
   }
@@ -678,7 +692,10 @@ class _DoctorDirectoryScreenState extends State<DoctorDirectoryScreen> {
 
   // The recurring pattern only - joins multiple slots (e.g. a lunch gap)
   // rather than showing just the first one.
-  String? _hoursFor(DoctorSummary doctor, AvailabilityDay day) {
+  // Each regular slot on its own, formatted and time-sorted - the day cell
+  // joins these into one shrunk summary for its normal display and lists
+  // them one per line in its hover tooltip.
+  List<String> _slotLinesFor(DoctorSummary doctor, AvailabilityDay day) {
     final schedule = _availability[doctor.userId] ?? const [];
     final slots =
         schedule
@@ -689,12 +706,15 @@ class _DoctorDirectoryScreenState extends State<DoctorDirectoryScreen> {
             )
             .toList()
           ..sort((a, b) => (a.startTime ?? '').compareTo(b.startTime ?? ''));
-    if (slots.isEmpty) return null;
-    return slots
-        .map(
-          (item) => '${_shortTime(item.startTime)}–${_shortTime(item.endTime)}',
-        )
-        .join(', ');
+    return [
+      for (final item in slots)
+        '${_shortTime(item.startTime)}–${_shortTime(item.endTime)}',
+    ];
+  }
+
+  String? _hoursFor(DoctorSummary doctor, AvailabilityDay day) {
+    final lines = _slotLinesFor(doctor, day);
+    return lines.isEmpty ? null : lines.join(', ');
   }
 
   String _nextWorkingDay(DoctorSummary doctor) {
