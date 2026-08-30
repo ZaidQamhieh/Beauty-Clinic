@@ -83,4 +83,25 @@ void main() {
     bound.dispose();
     await settle(tester);
   });
+
+  testWidgets('the receptionist dashboard tolerates a missing api client', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: DashboardScreen(
+          activeRole: 'receptionist',
+          onViewPatient: (_) {},
+          onViewDoctor: (_) {},
+          apiClient: null,
+          onBookAppointment: () {},
+          onViewAppointments: () {},
+          onViewDoctors: () {},
+        ),
+      ),
+    );
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Today at a glance'), findsOneWidget);
+  });
 }

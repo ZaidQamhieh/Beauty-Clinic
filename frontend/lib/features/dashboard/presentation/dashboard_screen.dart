@@ -82,7 +82,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<List<Appointment>> _loadReceptionAppointments() async {
-    final response = await widget.apiClient!.get<Map<String, dynamic>>(
+    final apiClient = widget.apiClient;
+    if (apiClient == null) {
+      return const <Appointment>[];
+    }
+
+    final response = await apiClient.get<Map<String, dynamic>>(
       '/api/appointments/all',
       queryParameters: {'page': 0, 'size': 100},
     );
@@ -90,7 +95,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<int> _loadReceptionDoctorCount() async {
-    final response = await widget.apiClient!.get<List<dynamic>>('/api/doctors');
+    final apiClient = widget.apiClient;
+    if (apiClient == null) {
+      return 0;
+    }
+
+    final response = await apiClient.get<List<dynamic>>('/api/doctors');
     return response.data?.length ?? 0;
   }
 
@@ -1048,39 +1058,42 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        for (final status in const [
-                          'ALL',
-                          'BOOKED',
-                          'CANCELLED',
-                        ])
-                          Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: ChoiceChip(
-                              label: Text(
-                                status == 'ALL'
-                                    ? 'All statuses'
-                                    : status == 'BOOKED'
-                                    ? 'Confirmed'
-                                    : 'Cancelled',
-                              ),
-                              selected: _receptionStatusFilter == status,
-                              onSelected: (_) => setState(
-                                () => _receptionStatusFilter = status,
-                              ),
-                              selectedColor: AppColors.rose,
-                              checkmarkColor: Colors.white,
-                              labelStyle: AppTypography.labelMedium(
-                                color: _receptionStatusFilter == status
-                                    ? Colors.white
-                                    : AppColors.textSub,
+                  Material(
+                    color: Colors.transparent,
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          for (final status in const [
+                            'ALL',
+                            'BOOKED',
+                            'CANCELLED',
+                          ])
+                            Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: ChoiceChip(
+                                label: Text(
+                                  status == 'ALL'
+                                      ? 'All statuses'
+                                      : status == 'BOOKED'
+                                      ? 'Confirmed'
+                                      : 'Cancelled',
+                                ),
+                                selected: _receptionStatusFilter == status,
+                                onSelected: (_) => setState(
+                                  () => _receptionStatusFilter = status,
+                                ),
+                                selectedColor: AppColors.rose,
+                                checkmarkColor: Colors.white,
+                                labelStyle: AppTypography.labelMedium(
+                                  color: _receptionStatusFilter == status
+                                      ? Colors.white
+                                      : AppColors.textSub,
+                                ),
                               ),
                             ),
-                          ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 14),
