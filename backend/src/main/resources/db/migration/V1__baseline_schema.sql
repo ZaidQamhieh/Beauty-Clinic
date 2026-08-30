@@ -274,14 +274,16 @@ CREATE INDEX idx_prescription_product_product ON prescription_product(product_id
 -- source separates what the clinic put them on from what they turned up already
 -- using, and discontinued_on is what stops the list going stale.
 CREATE TABLE patient_product (
-    id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    patient_user_id uuid NOT NULL REFERENCES patient_profile(user_id) ON DELETE CASCADE,
-    product_id      uuid NOT NULL REFERENCES product(id) ON DELETE RESTRICT,
-    source          varchar(20) NOT NULL
-                    CHECK (source IN ('PRESCRIBED','PATIENT_OWN')),
-    started_on      date,
-    discontinued_on date,
-    deleted         boolean NOT NULL DEFAULT false,
+    id                     uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    patient_user_id        uuid NOT NULL REFERENCES patient_profile(user_id) ON DELETE CASCADE,
+    product_id             uuid NOT NULL REFERENCES product(id) ON DELETE RESTRICT,
+    source                 varchar(20) NOT NULL
+                           CHECK (source IN ('PRESCRIBED','PATIENT_OWN')),
+    started_on             date,
+    discontinued_on        date,
+    added_by_user_id       uuid NOT NULL REFERENCES user_account(id) ON DELETE RESTRICT,
+    discontinued_by_user_id uuid,
+    deleted                boolean NOT NULL DEFAULT false,
     CHECK (discontinued_on IS NULL OR started_on IS NULL OR discontinued_on >= started_on)
 );
 CREATE INDEX idx_patient_product_patient ON patient_product(patient_user_id)

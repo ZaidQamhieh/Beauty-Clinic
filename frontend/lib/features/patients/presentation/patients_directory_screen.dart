@@ -78,10 +78,20 @@ class _PatientsDirectoryScreenState extends State<PatientsDirectoryScreen> {
     );
   }
 
+  bool _patientHasClinicForm(Map<String, dynamic> patient) {
+    if (patient['hasClinicForm'] == true) return true;
+    final skinType = patient['skinType'];
+    return skinType != null && skinType.toString().trim().isNotEmpty;
+  }
+
+  bool _patientHasProductRecords(Map<String, dynamic> patient) {
+    return patient['hasProductRecords'] == true;
+  }
+
   List<Map<String, dynamic>> get _filteredPatients {
     return _patients.where((p) {
-      final hasClinicForm = p['hasClinicForm'] == true;
-      final hasProductRecords = p['hasProductRecords'] == true;
+      final hasClinicForm = _patientHasClinicForm(p);
+      final hasProductRecords = _patientHasProductRecords(p);
 
       if (_selectedFilter == 'CLINIC_FORM' && !hasClinicForm) return false;
       if (_selectedFilter == 'PRODUCT' && !hasProductRecords) return false;
@@ -230,11 +240,11 @@ class _PatientsDirectoryScreenState extends State<PatientsDirectoryScreen> {
             _buildFilterChip('ALL', 'All (${_patients.length})'),
             _buildFilterChip(
               'CLINIC_FORM',
-              'Clinic Form (${_patients.where((p) => p['hasClinicForm'] == true).length})',
+              'Clinic Form (${_patients.where(_patientHasClinicForm).length})',
             ),
             _buildFilterChip(
               'PRODUCT',
-              'Product (${_patients.where((p) => p['hasProductRecords'] == true).length})',
+              'Product (${_patients.where(_patientHasProductRecords).length})',
             ),
           ],
         ),
@@ -295,8 +305,9 @@ class _PatientsDirectoryScreenState extends State<PatientsDirectoryScreen> {
         : '$firstName $lastName';
     final email = patient['email']?.toString() ?? 'No email';
     final phone = patient['phone']?.toString() ?? 'No phone';
-    final hasClinicForm = patient['hasClinicForm'] == true;
-    final hasProductRecords = patient['hasProductRecords'] == true;
+    final hasClinicForm = _patientHasClinicForm(patient);
+    final hasProductRecords = _patientHasProductRecords(patient);
+    final intakeStatus = hasClinicForm ? 'Intake Complete' : 'Intake Pending';
 
     final initials =
         (firstName.isNotEmpty ? firstName[0] : '') +
@@ -380,14 +391,13 @@ class _PatientsDirectoryScreenState extends State<PatientsDirectoryScreen> {
                 spacing: 6,
                 runSpacing: 4,
                 children: [
-                  // Record Status Badge
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8,
                       vertical: 3,
                     ),
                     decoration: BoxDecoration(
-                      color: hasClinicForm || hasProductRecords
+                      color: hasClinicForm
                           ? AppColors.bgSage
                           : AppColors.bgRose,
                       borderRadius: BorderRadius.circular(8),
@@ -396,21 +406,19 @@ class _PatientsDirectoryScreenState extends State<PatientsDirectoryScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          hasClinicForm || hasProductRecords
+                          hasClinicForm
                               ? Icons.check_circle_outline
                               : Icons.pending_actions,
                           size: 12,
-                          color: hasClinicForm || hasProductRecords
+                          color: hasClinicForm
                               ? AppColors.sageDark
                               : AppColors.rose,
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          hasClinicForm || hasProductRecords
-                              ? 'Records Available'
-                              : 'No records',
+                          intakeStatus,
                           style: AppTypography.labelSmall(
-                            color: hasClinicForm || hasProductRecords
+                            color: hasClinicForm
                                 ? AppColors.sageDark
                                 : AppColors.roseDark,
                           ).copyWith(fontSize: 10),
@@ -418,6 +426,34 @@ class _PatientsDirectoryScreenState extends State<PatientsDirectoryScreen> {
                       ],
                     ),
                   ),
+                  if (hasProductRecords)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.bgLavender,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.inventory_2_outlined,
+                            size: 12,
+                            color: AppColors.lavDark,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Products',
+                            style: AppTypography.labelSmall(
+                              color: AppColors.lavDark,
+                            ).copyWith(fontSize: 10),
+                          ),
+                        ],
+                      ),
+                    ),
                 ],
               ),
 

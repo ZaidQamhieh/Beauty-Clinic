@@ -19,24 +19,7 @@ class ProfileAvatar extends StatelessWidget {
   final double radius;
 
   static IconData fallbackIconFor(Role? role, String? gender) {
-    final normalizedGender = (gender ?? '').trim().toUpperCase();
-    final baseIcon = switch (normalizedGender) {
-      'MALE' => Icons.face_6_rounded,
-      'FEMALE' => Icons.face_3_rounded,
-      _ => Icons.person_rounded,
-    };
-
-    switch (role) {
-      case Role.doctor:
-        return baseIcon;
-      case Role.receptionist:
-        return Icons.person_rounded;
-      case Role.admin:
-        return Icons.person_rounded;
-      case Role.patient:
-      default:
-        return baseIcon;
-    }
+    return Icons.person_rounded;
   }
 
   @override
